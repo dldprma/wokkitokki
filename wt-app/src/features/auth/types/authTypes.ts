@@ -11,7 +11,7 @@ export interface LoginData {
 }
 
 export interface User {
-  id: string;
+  id?: string;
   username: string;
   email: string;
   fullName: string;
@@ -19,7 +19,10 @@ export interface User {
 
 export interface AuthResponse {
   accessToken: string;
-  user: User;
+  refreshToken: string;
+  username: string;
+  email: string;
+  fullName: string;
 }
 
 export interface AuthState {

@@ -1,4 +1,4 @@
-/* src/RegisterForm.css */
+/* src/css/Form.css */
 
 .wrapper {
   @apply flex flex-col items-center justify-center min-h-screen bg-[#f5f5f5] px-4;
@@ -34,4 +34,12 @@
 
 .errorMsg {
   @apply text-sm text-[#F23827] mt-1 ml-1;
+}
+
+.login-form .inputField {
+  margin-bottom: 15px; /* 간격 늘리기 */
+}
+
+.login-form .formBox {
+  padding: 20px; /* 패딩 늘리기 */
 }

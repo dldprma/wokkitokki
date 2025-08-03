@@ -5,6 +5,7 @@ import {
 } from "@reduxjs/toolkit";
 import {
   checkUsernameDuplicate,
+  checkEmailDuplicate,
   login,
   logout,
   refreshToken,
@@ -36,6 +37,21 @@ export const checkUsername = createAsyncThunk(
   }
 );
 
+// email 중복체크
+export const checkEmail = createAsyncThunk(
+  "auth/checkEmail",
+  async (email: string, { rejectWithValue }) => {
+    try {
+      const response = await checkEmailDuplicate(email);
+      return response;
+    } catch (err: any) {
+      return rejectWithValue(
+        err.response?.data?.message || "이메일 확인에 실패했습니다."
+      );
+    }
+  }
+);
+
 // 회원가입
 export const registerUser = createAsyncThunk(
   "auth/register",
@@ -57,8 +73,17 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await login(data);
       localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("user", JSON.stringify(res.user));
-      return res;
+      localStorage.setItem("refreshToken", res.refreshToken); // refreshToken 저장 추가
+
+      // user 객체 생성
+      const user = {
+        username: res.username,
+        email: res.email,
+        fullName: res.fullName,
+      };
+      localStorage.setItem("user", JSON.stringify(user));
+
+      return { ...res, user };
     } catch (err: any) {
       return rejectWithValue(
         err.response?.data?.message || "로그인에 실패했습니다."
@@ -74,10 +99,12 @@ export const logoutUser = createAsyncThunk(
     try {
       await logout();
       localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken"); // refreshToken 삭제 추가
       localStorage.removeItem("user");
       return null;
     } catch (err: any) {
       localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken"); // refreshToken 삭제 추가
       localStorage.removeItem("user");
       return rejectWithValue(
         err.response?.data?.message || "로그아웃에 실패했습니다."
@@ -91,11 +118,18 @@ export const refreshUserToken = createAsyncThunk(
   "auth/refresh",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await refreshToken();
+      const storedRefreshToken = localStorage.getItem("refreshToken"); // 저장된 refreshToken 사용
+      if (!storedRefreshToken) {
+        throw new Error("Refresh token not found");
+      }
+
+      const response = await refreshToken(storedRefreshToken);
       localStorage.setItem("accessToken", response.accessToken);
+      localStorage.setItem("refreshToken", response.refreshToken); // 새로운 refreshToken 저장
       return response;
     } catch (err: any) {
       localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       return rejectWithValue("토큰이 만료되었습니다. 다시 로그인해주세요.");
     }
@@ -141,10 +175,9 @@ const authSlice = createSlice({
       .addCase(registerUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      });
+      })
 
-    // 로그인
-    builder
+      // 로그인
       .addCase(loginUser.pending, (state) => {
         state.loading = true;
         state.error = null;
@@ -159,10 +192,9 @@ const authSlice = createSlice({
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      });
+      })
 
-    // 로그아웃
-    builder
+      // 로그아웃
       .addCase(logoutUser.pending, (state) => {
         state.loading = true;
       })
@@ -178,10 +210,9 @@ const authSlice = createSlice({
         state.user = null;
         state.accessToken = null;
         state.isAuthenticated = false;
-      });
+      })
 
-    // 토큰 갱신
-    builder
+      // 토큰 갱신
       .addCase(refreshUserToken.pending, (state) => {
         state.loading = true;
       })
@@ -196,6 +227,20 @@ const authSlice = createSlice({
         state.accessToken = null;
         state.isAuthenticated = false;
         state.error = action.payload as string;
+      })
+
+      // username 체크
+      .addCase(checkUsername.pending, (state) => {})
+      .addCase(checkUsername.fulfilled, (state) => {})
+      .addCase(checkUsername.rejected, (state, action) => {
+        console.error("사용자명 확인 실패:", action.payload);
+      })
+
+      // email 체크
+      .addCase(checkEmail.pending, (state) => {})
+      .addCase(checkEmail.fulfilled, (state) => {})
+      .addCase(checkEmail.rejected, (state, action) => {
+        console.error("이메일 확인 실패:", action.payload);
       });
   },
 });

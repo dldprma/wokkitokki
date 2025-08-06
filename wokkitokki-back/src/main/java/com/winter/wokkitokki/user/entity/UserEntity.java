@@ -34,7 +34,7 @@ public class UserEntity implements UserDetails {
     @Column(nullable = true)
     private String profileImgUrl;
 
-    @Column(length = 400, nullable = true)
+    @Column(length = 300, nullable = true)
     private String bio;
 
     @Override

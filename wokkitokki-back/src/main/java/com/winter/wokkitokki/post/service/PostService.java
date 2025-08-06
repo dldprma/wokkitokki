@@ -1,6 +1,7 @@
 package com.winter.wokkitokki.post.service;
 
-import com.winter.wokkitokki.post.dto.PostDto;
+import com.winter.wokkitokki.post.dto.PostImageResponseDto;
+import com.winter.wokkitokki.post.dto.PostResponseDto;
 import com.winter.wokkitokki.post.entity.LikeEntity;
 import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.entity.RepostEntity;
@@ -25,14 +26,15 @@ public class PostService {
     private final UserRepository userRepository;
 
     // 홈 피드
-    public Page<PostDto> getFeedPost(Pageable pageable, String currentUsername){
+    public Page<PostResponseDto> getFeedPosts(String currentUsername, Pageable pageable){
         UserEntity currentUser = userRepository.findByUsername(currentUsername).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
         Page<PostEntity> posts = postRepository.findFeedPosts(currentUser.getId(), pageable);
-        return posts.map(post -> convertToDto(post, currentUser));
+        final UserEntity finalCurrentUser = currentUser;
+        return posts.map(post -> convertToResponseDto(post, finalCurrentUser));
     }
 
     // 특정 사용자 포스트(프로필)
-    public Page<PostDto> getUserPosts(String username, Pageable pageable, String currentUsername){
+    public Page<PostResponseDto> getUserPosts(String username, Pageable pageable, String currentUsername){
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
@@ -42,10 +44,31 @@ public class PostService {
         if(currentUsername != null){
             currentUser = userRepository.findByUsername(currentUsername).orElse(null);
         }
-        return posts.map(post->convertToDto(post, currentUser));
+        final UserEntity finalCurrentUser = currentUser;
+        return posts.map(post->convertToResponseDto(post, finalCurrentUser));
+    }
+
+    // 특정 사용자의 이미지 포스트만 가져오기
+    public Page<PostImageResponseDto> getUserImagePosts(String username, Pageable pageable){
+        UserEntity user = userRepository.findByUsername(username).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+        Page<PostEntity> imagePosts = postRepository.findByUserAndImageUrlIsNotNullOrderByCreatedAtDesc(user, pageable);
+        return imagePosts.map(this::convertToImageResponseDto);
+    }
+
+    // 특정 포스트 상세조회
+    public PostResponseDto getPostDetail(Long postId, String currentUsername){
+        PostEntity post = postRepository.findById(postId).orElseThrow(()->new RuntimeException("포스트를 찾을 수 없습니다."));
+
+        UserEntity currentUser = null;
+        if(currentUsername != null){
+            currentUser = userRepository.findByUsername(currentUsername).orElse(null);
+        }
+        final UserEntity finalCurrentUser = currentUser;
+        return convertToResponseDto(post, finalCurrentUser);
     }
 
     // 좋아요
+    @Transactional
     public boolean toggleLike(Long postId, String username){
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
@@ -77,6 +100,7 @@ public class PostService {
         }
     }
     // 리포스트
+    @Transactional
     public boolean toggleRepost(Long postId, String username){
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
@@ -113,8 +137,8 @@ public class PostService {
     }
 
     // postEntity -> postDto
-    private PostDto convertToDto(PostEntity post, UserEntity currentUser){
-        PostDto dto = new PostDto();
+    private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser){
+        PostResponseDto dto = new PostResponseDto();
         dto.setId(post.getId());
         dto.setContent(post.getContent());
         dto.setImgUrl(post.getImgUrl());
@@ -125,10 +149,22 @@ public class PostService {
         dto.setRepostCount(post.getRepostCount());
         dto.setCreatedAt(post.getCreatedAt().toString());
 
+        // 현재 사용자가 좋아요/리포스트 했는지 확인
         if(currentUser != null){
             dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
             dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
         }
+        return dto;
+    }
+
+    // PostEntity를 PostImgDto로 변환
+    private PostImageResponseDto convertToImageResponseDto(PostEntity post){
+        PostImageResponseDto dto = new PostImageResponseDto();
+        dto.setId(post.getId());
+        dto.setImgUrl(post.getImgUrl());
+        dto.setLikeCount(post.getLikeCount());
+        dto.setRepostCount(post.getRepostCount());
+        dto.setCreatedAt(post.getCreatedAt().toString());
         return dto;
     }
 }

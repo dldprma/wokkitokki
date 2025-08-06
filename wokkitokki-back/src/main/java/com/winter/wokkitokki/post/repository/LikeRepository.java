@@ -6,7 +6,9 @@ import com.winter.wokkitokki.user.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface LikeRepository extends JpaRepository<LikeEntity, Long> {
+    // 특정 사용자가 특정 포스트를 좋아요 했는지 확인
     boolean existsByUserAndPost(UserEntity user, PostEntity post);
 
+    // 좋아요 삭제를 위해 찾기
     LikeEntity findByUserAndPost(UserEntity user, PostEntity post);
 }

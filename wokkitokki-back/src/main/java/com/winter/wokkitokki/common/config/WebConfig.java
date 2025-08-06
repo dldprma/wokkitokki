@@ -9,8 +9,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // uploads 폴더를 웹에서 접근 가능하게 만들기
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations("file:uploads/");
+        // 프로필 이미지 경로
+        registry.addResourceHandler("/uploads/profiles/**")
+                .addResourceLocations("file:uploads/profiles/");
+
+        // 게시글 이미지 경로
+        registry.addResourceHandler("/uploads/posts/**")
+                .addResourceLocations("file:uploads/posts/");
     }
 }

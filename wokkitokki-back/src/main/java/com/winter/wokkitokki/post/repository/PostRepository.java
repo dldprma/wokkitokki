@@ -13,7 +13,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
     // 특정사용자의 모든 포스트 가져오기
     Page<PostEntity> findByUserOrderByCreatedAtDesc(UserEntity user, Pageable pageable);
     // 특정사용자의 이미지가 있는 포스트 가져오기
-    Page<PostEntity> findByUserAndImageUrlIsNotNullOrderByCreatedAtDesc(UserEntity user, Pageable pageable);
+    Page<PostEntity> findByUserAndImgUrlIsNotNullOrderByCreatedAtDesc(UserEntity user, Pageable pageable);
 
     // 특정 사용자의 포스트 갯수
     int countByUser(UserEntity user);

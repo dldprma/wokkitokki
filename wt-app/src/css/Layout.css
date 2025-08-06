@@ -1,0 +1,8 @@
+/* Layout Styles */
+.layout-container {
+  @apply flex h-screen bg-gray-50;
+}
+
+.layout-main {
+  @apply flex-1 overflow-y-auto;
+}

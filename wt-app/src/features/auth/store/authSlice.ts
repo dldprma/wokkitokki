@@ -73,7 +73,7 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await login(data);
       localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken); // refreshToken 저장 추가
+      localStorage.setItem("refreshToken", res.refreshToken);
 
       // user 객체 생성
       const user = {
@@ -99,12 +99,12 @@ export const logoutUser = createAsyncThunk(
     try {
       await logout();
       localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken"); // refreshToken 삭제 추가
+      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       return null;
     } catch (err: any) {
       localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken"); // refreshToken 삭제 추가
+      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       return rejectWithValue(
         err.response?.data?.message || "로그아웃에 실패했습니다."
@@ -118,14 +118,14 @@ export const refreshUserToken = createAsyncThunk(
   "auth/refresh",
   async (_, { rejectWithValue }) => {
     try {
-      const storedRefreshToken = localStorage.getItem("refreshToken"); // 저장된 refreshToken 사용
+      const storedRefreshToken = localStorage.getItem("refreshToken");
       if (!storedRefreshToken) {
         throw new Error("Refresh token not found");
       }
 
       const response = await refreshToken(storedRefreshToken);
       localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken); // 새로운 refreshToken 저장
+      localStorage.setItem("refreshToken", response.refreshToken);
       return response;
     } catch (err: any) {
       localStorage.removeItem("accessToken");

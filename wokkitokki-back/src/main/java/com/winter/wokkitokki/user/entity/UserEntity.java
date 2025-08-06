@@ -31,6 +31,12 @@ public class UserEntity implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Column(nullable = true)
+    private String profileImgUrl;
+
+    @Column(length = 400, nullable = true)
+    private String bio;
+
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities(){
         return Collections.emptyList();

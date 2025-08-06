@@ -3,8 +3,10 @@ import "./App.css";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { useEffect } from "react";
 import { initializeAuth } from "./features/auth/store/authSlice";
-import { LoginForm, RegisterForm } from "./features/auth";
-import Home from "./Home";
+import RegisterPage from "./pages/RegisterPage";
+import LoginPage from "./pages/LoginPage";
+import HomePage from "./pages/HomePage";
+import UserPage from "./pages/UserPage";
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -34,7 +36,7 @@ function App() {
               path="/register"
               element={
                 <AuthRedirect>
-                  <RegisterForm />
+                  <RegisterPage />
                 </AuthRedirect>
               }
             />
@@ -42,7 +44,7 @@ function App() {
               path="/login"
               element={
                 <AuthRedirect>
-                  <LoginForm />
+                  <LoginPage />
                 </AuthRedirect>
               }
             />
@@ -50,7 +52,15 @@ function App() {
               path="/"
               element={
                 <ProtectedRoute>
-                  <Home />
+                  <HomePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <UserPage />
                 </ProtectedRoute>
               }
             />

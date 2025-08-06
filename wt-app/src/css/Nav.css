@@ -1,0 +1,96 @@
+/* Navigation Styles */
+.nav-container {
+  @apply w-64 h-screen bg-white border-r border-gray-200 p-4;
+}
+
+.nav-logo {
+  @apply flex items-center mb-8;
+}
+
+.nav-logo-icon {
+  @apply w-8 h-8 bg-accent-500 rounded flex items-center justify-center mr-2;
+}
+
+.nav-logo-text {
+  @apply text-xl font-bold text-dark-500;
+}
+
+.nav-items {
+  @apply space-y-2;
+}
+
+.nav-item {
+  @apply flex items-center p-3 rounded-lg transition-all duration-200;
+}
+
+.nav-item-active {
+  @apply bg-accent-500 text-dark-500;
+}
+
+.nav-item-inactive {
+  @apply hover:bg-gray-100 text-dark-500;
+}
+
+.nav-item:hover .nav-item-label {
+  @apply text-lg font-semibold;
+}
+
+.nav-item:hover .nav-item-sublabel {
+  @apply text-sm;
+}
+
+.nav-item-icon {
+  @apply text-xl mr-3;
+}
+
+.nav-item-content {
+  @apply flex flex-col;
+}
+
+.nav-item-label {
+  @apply font-medium transition-all duration-200;
+}
+
+.nav-item-sublabel {
+  @apply text-xs text-gray-500 transition-all duration-200;
+}
+
+.nav-new-post-btn {
+  @apply w-full bg-primary-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-primary-600 transition-colors flex items-center justify-center;
+}
+
+.nav-new-post-icon {
+  @apply mr-2;
+}
+
+.nav-user-section {
+  @apply mt-8 p-3 bg-gray-50 rounded-lg;
+}
+
+.nav-user-info {
+  @apply flex items-center mb-2;
+}
+
+.nav-user-avatar {
+  @apply flex-shrink-0;
+}
+
+.nav-user-details {
+  @apply flex flex-col ml-3;
+}
+
+.nav-user-username {
+  @apply font-medium text-dark-500;
+}
+
+.nav-user-subtitle {
+  @apply text-xs text-gray-500;
+}
+
+.nav-logout-btn {
+  @apply w-full bg-danger-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-red-600 transition-colors flex items-center justify-center;
+}
+
+.nav-logout-icon {
+  @apply mr-2;
+}

@@ -27,5 +27,11 @@ export const useAuth = () => {
     return await dispatch(checkUsername(username));
   };
 
-  return { ...auth, register, login, logout, checkUsernameDuplicate };
+  return {
+    ...auth,
+    register,
+    login,
+    logout,
+    checkUsernameDuplicate,
+  };
 };

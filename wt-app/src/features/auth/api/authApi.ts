@@ -1,10 +1,10 @@
-import axios from "axios";
+import api from "../../../utils/axios";
 import type { AuthResponse, LoginData, RegisterData } from "../types/authTypes";
 
 export const checkUsernameDuplicate = async (
   username: string
 ): Promise<{ exists: boolean }> => {
-  const response = await axios.get(`/api/auth/check-username/${username}`);
+  const response = await api.get(`/api/auth/check-username/${username}`);
   return response.data;
 };
 
@@ -12,24 +12,24 @@ export const checkUsernameDuplicate = async (
 export const checkEmailDuplicate = async (
   email: string
 ): Promise<{ exists: boolean }> => {
-  const response = await axios.get(`/api/auth/check-email/${email}`);
+  const response = await api.get(`/api/auth/check-email/${email}`);
   return response.data;
 };
 
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
-  const response = await axios.post("/api/auth/register", data);
+  const response = await api.post("/api/auth/register", data);
   return response.data;
 };
 
 export const login = async (data: LoginData): Promise<AuthResponse> => {
-  const response = await axios.post("/api/auth/login", data, {
+  const response = await api.post("/api/auth/login", data, {
     withCredentials: true,
   });
   return response.data;
 };
 
 export const logout = async (): Promise<void> => {
-  const response = await axios.post(
+  const response = await api.post(
     "/api/auth/logout",
     {},
     {
@@ -41,7 +41,7 @@ export const logout = async (): Promise<void> => {
 export const refreshToken = async (
   refreshToken: string
 ): Promise<AuthResponse> => {
-  const response = await axios.post("/api/auth/refresh", refreshToken, {
+  const response = await api.post("/api/auth/refresh", refreshToken, {
     headers: {
       "Content-Type": "application/json",
     },

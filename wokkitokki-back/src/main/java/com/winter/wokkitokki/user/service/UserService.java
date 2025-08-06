@@ -2,7 +2,6 @@ package com.winter.wokkitokki.user.service;
 
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
-import com.winter.wokkitokki.user.dto.UserResponse;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.entity.FollowEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
@@ -15,9 +14,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -28,39 +25,16 @@ public class UserService {
     private final PostRepository postRepository;
     private final FollowRepository followRepository;
 
-
-    public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream()
-                .map(this::convertToUserResponse)
-                .collect(Collectors.toList());
-    }
-
-
-    public UserResponse getUserById(Long id) {
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-        return convertToUserResponse(user);
-    }
-
-
-    public UserResponse getUserByUsername(String username) {
+    // username → ID 변환 메서드
+    public Long getUserIdByUsername(String username) {
         UserEntity user = userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-        return convertToUserResponse(user);
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+        return user.getId();
     }
 
-    private UserResponse convertToUserResponse(UserEntity user) {
-        return UserResponse.builder()
-                .id(user.getId())
-                .fullName(user.getFullName())
-                .username(user.getUsername())
-                .email(user.getEmail())
-                .build();
-    }
-
-    // 프로필 보기
-    public UserProfileResponseDto getUserProfile(String username, String currentUsername){
-        UserEntity user = userRepository.findByUsername(username)
+    // 프로필 조회
+    public UserProfileResponseDto getUserProfile(Long userId, Long currentUserId){
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
         int postCount = postRepository.countByUser(user);
@@ -69,8 +43,8 @@ public class UserService {
         int followingCnt = followRepository.countByFollower(user);
 
         boolean isFollowing = false;
-        if(currentUsername != null && !currentUsername.equals(username)){
-            UserEntity currentUser = userRepository.findByUsername(currentUsername).orElse(null);
+        if(currentUserId != null && !currentUserId.equals(currentUserId)){
+            UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
             if(currentUser != null){
                 isFollowing = followRepository.existsByFollowerAndFollowing(currentUser, user);
             }
@@ -94,8 +68,8 @@ public class UserService {
 
     // 프로필 수정
     @Transactional
-    public UserProfileResponseDto updateProfile(String currentUsername, UserUpdateRequestDto updateDto){
-        UserEntity user = userRepository.findByUsername(currentUsername)
+    public UserProfileResponseDto updateProfile(Long userId, UserUpdateRequestDto updateDto){
+        UserEntity user = userRepository.findById(userId)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
         // 이름수정
@@ -123,14 +97,14 @@ public class UserService {
             }
             user.setBio(bio.isEmpty()?null:bio);
         }
-        userRepository.save(user);
+        UserEntity savedUser = userRepository.save(user);
 
-        return getUserProfile(user.getUsername(), user.getUsername());
+        return getUserProfile(savedUser.getId(), savedUser.getId());
     }
 
     // 프로필 사진 업로드
     @Transactional
-    public String uploadProfileImage(String username, MultipartFile file){
+    public String uploadProfileImage(Long userId, MultipartFile file){
         // 파일이 비어있는지 확인
         if(file.isEmpty()){
             throw new RuntimeException("파일이 비었습니다.");
@@ -156,7 +130,7 @@ public class UserService {
             file.transferTo(saveFile);
 
             // 사용자 프로필 이미지 URL 업데이트
-            UserEntity user = userRepository.findByUsername(username)
+            UserEntity user = userRepository.findById(userId)
                     .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
             String imageUrl = "/uploads/profiles/"+filename;
@@ -169,15 +143,31 @@ public class UserService {
         }
     }
 
+    // 프로필 사진 삭제
+    @Transactional
+    public void deleteProfileImage(Long userId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+
+        // 기존 파일이 있다면 삭제
+        if (user.getProfileImgUrl() != null && !user.getProfileImgUrl().isEmpty()) {
+            deleteExistingProfileImage(user.getProfileImgUrl());
+        }
+
+        // DB에서 프로필 이미지 URL 제거
+        user.setProfileImgUrl(null);
+        userRepository.save(user);
+    }
+
     // 팔로우 / 언팔로우
     @Transactional
-    public boolean toggleFollow(String followerUsername, String followingUsername){
-        UserEntity follower = userRepository.findByUsername(followerUsername).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
-        UserEntity following = userRepository.findByUsername(followingUsername).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+    public boolean toggleFollow(Long followerId, Long followingId){
 
-        if(follower.getId().equals(following.getId())){
+        if(followerId.equals(followingId)){
             throw new RuntimeException("본인은 팔로잉 할 수 없습니다.");
         }
+        UserEntity follower = userRepository.findById(followerId).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+        UserEntity following = userRepository.findById(followingId).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
         // 이미 팔로잉 했는지
         boolean alreadyFollowing = followRepository.existsByFollowerAndFollowing(follower, following);
@@ -195,4 +185,17 @@ public class UserService {
         }
     }
 
+    // 기존 프로필 이미지 파일 삭제하는 private 메서드
+    private void deleteExistingProfileImage(String imageUrl) {
+        try {
+            String filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
+            File filePath = new File("uploads/profiles", filename);
+            if (filePath.exists()) {
+                filePath.delete();
+            }
+        } catch (Exception e) {
+            // 로그 기록만 하고 예외는 던지지 않음 (파일 삭제 실패해도 DB는 업데이트)
+            System.err.println("기존 프로필 이미지 삭제 실패: " + e.getMessage());
+        }
+    }
 }

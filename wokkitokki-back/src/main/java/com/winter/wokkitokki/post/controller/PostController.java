@@ -1,6 +1,6 @@
 package com.winter.wokkitokki.post.controller;
 
-import com.winter.wokkitokki.post.dto.PostDto;
+import com.winter.wokkitokki.post.dto.PostResponseDto;
 import com.winter.wokkitokki.post.service.PostService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -18,14 +18,15 @@ import java.util.Map;
 public class PostController {
     private final PostService postService;
 
-    @GetMapping
-    public ResponseEntity<Page<PostDto>> getAllPosts(
+    // 피드 가져오기(팔로잉한 사람들 + 내 포스트)
+    @GetMapping("/feed")
+    public ResponseEntity<Page<PostResponseDto>> getFeedPosts(
             @RequestParam(defaultValue = "0")int page, @RequestParam(defaultValue = "10")int size, Authentication auth){
         try{
             Pageable pageable = PageRequest.of(page, size);
-            String currentUsername = auth != null ? auth.getName() : null;
+            String currentUsername = auth.getName(); // 로그인된 사용자만 피드 볼 수 있음
 
-            Page<PostDto> posts = postService.getAllPosts(pageable, currentUsername);
+            Page<PostResponseDto> posts = postService.getFeedPosts(currentUsername, pageable);
             return ResponseEntity.ok(posts);
         }catch (Exception e){
             return ResponseEntity.badRequest().build();

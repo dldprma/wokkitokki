@@ -8,18 +8,10 @@ import lombok.Setter;
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class PostDto {
+public class PostImageResponseDto {
     private Long id;
-    private String content;
     private String imgUrl;
-    private String authorName;
-    private String authorUsername;
-    private String authorProfileImg;
     private int likeCount;
     private int repostCount;
-    private boolean isLiked;
-    private boolean isReposted;
     private String createdAt;
-
-    private PostDto originalPost;
 }

@@ -1,12 +1,12 @@
 package com.winter.wokkitokki.user.service;
 
 import com.winter.wokkitokki.post.repository.PostRepository;
-import com.winter.wokkitokki.user.dto.UserProfileDto;
+import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserResponse;
-import com.winter.wokkitokki.user.dto.UserUpdateDto;
+import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.entity.FollowEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
-import com.winter.wokkitokki.user.repository.FollowerRepository;
+import com.winter.wokkitokki.user.repository.FollowRepository;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -26,23 +26,23 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PostRepository postRepository;
-    private final FollowerRepository followRepository;
+    private final FollowRepository followRepository;
 
-    @Transactional(readOnly = true)
+
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll().stream()
                 .map(this::convertToUserResponse)
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
+
     public UserResponse getUserById(Long id) {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
         return convertToUserResponse(user);
     }
 
-    @Transactional(readOnly = true)
+
     public UserResponse getUserByUsername(String username) {
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
@@ -59,7 +59,7 @@ public class UserService {
     }
 
     // 프로필 보기
-    public UserProfileDto getUserProfile(String username, String currentUsername){
+    public UserProfileResponseDto getUserProfile(String username, String currentUsername){
         UserEntity user = userRepository.findByUsername(username)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
@@ -76,15 +76,15 @@ public class UserService {
             }
         }
 
-        UserProfileDto profile = new UserProfileDto();
+        UserProfileResponseDto profile = new UserProfileResponseDto();
         profile.setId(user.getId());
         profile.setFullName(user.getFullName());
         profile.setUsername(user.getUsername());
         profile.setEmail(user.getEmail());
         profile.setProfileImgUrl(user.getProfileImgUrl());
-        profile.setBio(user.getBio()); // bio 추가
+        profile.setBio(user.getBio());
         profile.setPostCount(postCount);
-        profile.setImagePostCount(imgCount); // 이미지 포스트 수 추가
+        profile.setImagePostCount(imgCount);
         profile.setFollowersCount(followersCnt);
         profile.setFollowingCount(followingCnt);
         profile.setFollowing(isFollowing);
@@ -94,7 +94,7 @@ public class UserService {
 
     // 프로필 수정
     @Transactional
-    public UserProfileDto updateProfile(String currentUsername, UserUpdateDto updateDto){
+    public UserProfileResponseDto updateProfile(String currentUsername, UserUpdateRequestDto updateDto){
         UserEntity user = userRepository.findByUsername(currentUsername)
                 .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
@@ -118,7 +118,7 @@ public class UserService {
         // 한줄 소개 수정
         if(updateDto.getBio()!=null){
             String bio = updateDto.getBio().trim();
-            if(bio.length() > 500){
+            if(bio.length() > 300){
                 throw new RuntimeException("한줄소개는 500자 이내로 작성해주세요.");
             }
             user.setBio(bio.isEmpty()?null:bio);
@@ -194,4 +194,5 @@ public class UserService {
             return true;
         }
     }
+
 }

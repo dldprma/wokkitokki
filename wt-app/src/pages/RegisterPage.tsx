@@ -4,8 +4,8 @@ import FallingEmojiBackground from "../utils/FallingEmojiBackground";
 const RegisterPage = () => {
   return (
     <>
-      <FallingEmojiBackground /> {/* 배경 이모지 비 */}
-      <RegisterForm /> {/* 회원가입 폼 */}
+      <FallingEmojiBackground />
+      <RegisterForm />
     </>
   );
 };

@@ -12,12 +12,13 @@ import {
   register,
 } from "../api/authApi";
 import type { AuthState, LoginData, RegisterData } from "../types/authTypes";
+import { clearAccessToken, settingAccessToken } from "../../../utils/axios";
 
 // 초기상태
 const initialState: AuthState = {
   user: null,
-  accessToken: localStorage.getItem("accessToken"),
-  isAuthenticated: !!localStorage.getItem("accessToken"),
+  accessToken: null,
+  isAuthenticated: false,
   loading: false,
   error: null,
 };
@@ -67,15 +68,12 @@ export const registerUser = createAsyncThunk(
   }
 );
 
+// 로그인
 export const loginUser = createAsyncThunk(
   "auth/login",
   async (data: LoginData, { rejectWithValue }) => {
     try {
       const res = await login(data);
-      localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken);
-
-      // user 객체 생성
       const user = {
         username: res.username,
         email: res.email,
@@ -98,13 +96,9 @@ export const logoutUser = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await logout();
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       return null;
     } catch (err: any) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       return rejectWithValue(
         err.response?.data?.message || "로그아웃에 실패했습니다."
@@ -116,20 +110,16 @@ export const logoutUser = createAsyncThunk(
 // 토큰 갱신
 export const refreshUserToken = createAsyncThunk(
   "auth/refresh",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
-      const storedRefreshToken = localStorage.getItem("refreshToken");
-      if (!storedRefreshToken) {
-        throw new Error("Refresh token not found");
-      }
+      // 쿠키에서 자동으로 refreshToken 전송됨
+      const response = await refreshToken();
 
-      const response = await refreshToken(storedRefreshToken);
-      localStorage.setItem("accessToken", response.accessToken);
-      localStorage.setItem("refreshToken", response.refreshToken);
+      // Redux store에 access token 저장
+      dispatch(setAccessToken(response.accessToken));
+
       return response;
     } catch (err: any) {
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
       return rejectWithValue("토큰이 만료되었습니다. 다시 로그인해주세요.");
     }
@@ -156,10 +146,14 @@ const authSlice = createSlice({
     // 초기화 (앱 시작 시 localStorage에서 사용자 정보 복원)
     initializeAuth: (state) => {
       const storedUser = localStorage.getItem("user");
-      if (storedUser && state.accessToken) {
+      if (storedUser) {
         state.user = JSON.parse(storedUser);
         state.isAuthenticated = true;
       }
+    },
+    setAccessToken: (state, action: PayloadAction<string>) => {
+      state.accessToken = action.payload;
+      state.isAuthenticated = true;
     },
   },
   extraReducers: (builder) => {
@@ -188,6 +182,8 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.accessToken = action.payload.accessToken;
         state.isAuthenticated = true;
+
+        settingAccessToken(action.payload.accessToken);
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
@@ -204,6 +200,8 @@ const authSlice = createSlice({
         state.accessToken = null;
         state.isAuthenticated = false;
         state.error = null;
+
+        clearAccessToken();
       })
       .addCase(logoutUser.rejected, (state) => {
         state.loading = false;
@@ -220,6 +218,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.accessToken = action.payload.accessToken;
         state.error = null;
+        settingAccessToken(action.payload.accessToken);
       })
       .addCase(refreshUserToken.rejected, (state, action) => {
         state.loading = false;
@@ -245,6 +244,11 @@ const authSlice = createSlice({
   },
 });
 
-export const { setLoading, setError, clearError, initializeAuth } =
-  authSlice.actions;
+export const {
+  setLoading,
+  setError,
+  clearError,
+  initializeAuth,
+  setAccessToken,
+} = authSlice.actions;
 export default authSlice.reducer;

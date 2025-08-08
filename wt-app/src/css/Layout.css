@@ -1,4 +1,3 @@
-/* Layout Styles */
 .layout-container {
   @apply flex h-screen bg-gray-50;
 }

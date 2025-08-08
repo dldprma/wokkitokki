@@ -244,11 +244,6 @@ private void deletePostImage(String imageUrl) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(()->new RuntimeException("포스트를 찾을 수 없습니다."));
 
-        // 자기 포스트는 리포스트 불가
-        if(post.getUser().getId().equals(user.getId())){
-            throw new RuntimeException("자신의 포스트는 리포스트 할 수 없습니다.");
-        }
-
         // 이미 리포스트 했는지 확인
         boolean alreadyReposted = repostRepository.existsByUserAndPost(user, post);
 

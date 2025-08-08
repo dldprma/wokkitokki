@@ -1,19 +1,21 @@
 export interface Post {
-  id: string;
-  username: string;
+  id: number;
   content: string;
-  images?: string[]; // 이미지 URL 배열
+  imgUrl?: string;
+  authorName: string;
+  authorUsername: string;
+  authorProfileImg?: string;
+  likeCount: number;
+  repostCount: number;
+  isLiked: boolean;
+  isReposted: boolean;
   createdAt: string;
-  likes: number;
-  comments: number;
-  reposts: number;
-  isLiked?: boolean;
-  isReposted?: boolean;
+  originalPost?: Post; // 리포스트인 경우
 }
 
 export interface CreatePostData {
   content: string;
-  images?: File[]; // 이미지 파일 배열
+  imgUrl?: string;
 }
 
 export interface HomeState {
@@ -25,7 +27,10 @@ export interface HomeState {
 }
 
 export interface PostResponse {
-  posts: Post[];
-  hasMore: boolean;
+  content: Post[];
   totalPages: number;
+  totalElements: number;
+  size: number;
+  number: number;
+  hasNext: boolean;
 }

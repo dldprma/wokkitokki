@@ -1,5 +1,11 @@
 import api from "../../../utils/axios";
-import type { User, UpdateProfileData } from "../types/userTypes";
+import type {
+  User,
+  UpdateProfileData,
+  ProfilePostsResponse,
+  ProfilePhotosResponse,
+  ProfileReelsResponse,
+} from "../types/userTypes";
 
 // 프로필 업데이트 API
 export const updateProfile = async (data: UpdateProfileData): Promise<User> => {
@@ -30,5 +36,26 @@ export const getUserProfile = async (): Promise<User> => {
   const response = await api.get("/api/user/profile", {
     withCredentials: true,
   });
+  return response.data;
+};
+
+export const getProfilePosts = async (
+  page: number = 0
+): Promise<ProfilePostsResponse> => {
+  const response = await api.get(`/api/profile/posts?page=${page}&size=10`);
+  return response.data;
+};
+
+export const getProfilePhotos = async (
+  page: number = 0
+): Promise<ProfilePhotosResponse> => {
+  const response = await api.get(`/api/profile/photos?page=${page}&size=10`);
+  return response.data;
+};
+
+export const getProfileReels = async (
+  page: number = 0
+): Promise<ProfileReelsResponse> => {
+  const response = await api.get(`/api/profile/reels?page=${page}&size=10`);
   return response.data;
 };

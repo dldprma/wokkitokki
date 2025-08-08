@@ -33,7 +33,7 @@ function App() {
         <div className="App">
           <Routes>
             <Route
-              path="/register"
+              path="/register/*"
               element={
                 <AuthRedirect>
                   <RegisterPage />
@@ -41,7 +41,7 @@ function App() {
               }
             />
             <Route
-              path="/login"
+              path="/login/*"
               element={
                 <AuthRedirect>
                   <LoginPage />
@@ -57,7 +57,7 @@ function App() {
               }
             />
             <Route
-              path="/profile"
+              path="/profile/*"
               element={
                 <ProtectedRoute>
                   <UserPage />

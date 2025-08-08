@@ -1,12 +1,13 @@
 import React from "react";
 import Profile from "../features/user/components/Profile";
-import Nav from "../features/home/components/Nav";
+import Layout from "../features/home/components/Layout";
 
 const UserPage = () => {
   return (
     <>
-      <Nav />
-      <Profile />
+      <Layout>
+        <Profile />
+      </Layout>
     </>
   );
 };

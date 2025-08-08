@@ -1,13 +1,10 @@
-/* Home Container */
 .home-container {
   @apply flex-1 p-6;
 }
-
 .home-title {
   @apply text-2xl font-bold mb-6 text-dark-500;
 }
 
-/* New Post Section */
 .new-post-container {
   @apply bg-white rounded-lg p-4 mb-6 shadow-sm border;
 }

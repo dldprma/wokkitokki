@@ -38,13 +38,13 @@ export const logout = async (): Promise<void> => {
   );
 };
 
-export const refreshToken = async (
-  refreshToken: string
-): Promise<AuthResponse> => {
-  const response = await api.post("/api/auth/refresh", refreshToken, {
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
+export const refreshToken = async (): Promise<AuthResponse> => {
+  const response = await api.post(
+    "/api/auth/refresh",
+    {},
+    {
+      withCredentials: true,
+    }
+  );
   return response.data;
 };

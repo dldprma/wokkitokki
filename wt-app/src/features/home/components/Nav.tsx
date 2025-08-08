@@ -3,11 +3,13 @@ import { Link, useLocation } from "react-router-dom";
 import { useUser } from "../../user/hooks/useUser";
 import "../../../css/Nav.css";
 import ProfileImage from "../../user/components/ProfileImage";
+import { useAuth } from "../../auth/hooks/useAuth";
 
 const Nav: React.FC = () => {
   const location = useLocation();
   const { user } = useUser();
-  const isProfilePage = location.pathname === "/profile";
+  const { logout } = useAuth();
+  const isProfilePage = location.pathname.startsWith("/profile");
 
   const navItems = [
     {
@@ -44,7 +46,6 @@ const Nav: React.FC = () => {
 
   return (
     <nav className="nav-container">
-      {/* 로고 */}
       <div className="nav-logo">
         <img
           src="/public/logo.png"
@@ -53,7 +54,6 @@ const Nav: React.FC = () => {
         />
       </div>
 
-      {/* 네비게이션 아이템들 */}
       <div className="nav-items">
         {navItems.map((item) => (
           <Link
@@ -74,14 +74,12 @@ const Nav: React.FC = () => {
         ))}
       </div>
 
-      {/* 새 게시글 버튼 */}
       <div className="mt-6">
         <button className="nav-new-post-btn">
           <span className="nav-new-post-icon">✨</span>새 게시글
         </button>
       </div>
 
-      {/* 사용자 정보 */}
       {user && (
         <div className="nav-user-section">
           <div className="nav-user-info">
@@ -95,16 +93,15 @@ const Nav: React.FC = () => {
               <div className="nav-user-username">{user.fullName}</div>
             </div>
           </div>
+        </div>
+      )}
 
-          {/* 프로필 페이지에서만 로그아웃 버튼 표시 */}
-          {isProfilePage && (
-            <div className="mt-4">
-              <button className="nav-logout-btn">
-                <span className="nav-logout-icon">🚪</span>
-                로그아웃
-              </button>
-            </div>
-          )}
+      {isProfilePage && (
+        <div className="mt-4">
+          <button onClick={() => logout()} className="nav-logout-btn">
+            <span className="nav-logout-icon">🚪</span>
+            로그아웃
+          </button>
         </div>
       )}
     </nav>

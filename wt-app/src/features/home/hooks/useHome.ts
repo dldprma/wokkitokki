@@ -1,11 +1,9 @@
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import {
-  fetchPosts,
   createNewPost,
-  likePostAction,
-  unlikePostAction,
-  repostAction,
-  unRepostAction,
+  fetchFeedPosts,
+  togglePostLike,
+  togglePostRepost,
 } from "../store/homeSlice";
 import type { CreatePostData } from "../types/homeTypes";
 
@@ -13,37 +11,27 @@ export const useHome = () => {
   const dispatch = useAppDispatch();
   const home = useAppSelector((state) => state.home);
 
-  const getPosts = async (page: number = 0) => {
-    return await dispatch(fetchPosts(page));
+  const getPosts = async (page: number = 0, size: number = 10) => {
+    return await dispatch(fetchFeedPosts({ page, size }));
   };
 
   const createPost = async (data: CreatePostData) => {
     return await dispatch(createNewPost(data));
   };
 
-  const likePost = async (postId: string) => {
-    return await dispatch(likePostAction(postId));
+  const toggleLike = async (postId: number) => {
+    return await dispatch(togglePostLike(postId));
   };
 
-  const unlikePost = async (postId: string) => {
-    return await dispatch(unlikePostAction(postId));
-  };
-
-  const repost = async (postId: string) => {
-    return await dispatch(repostAction(postId));
-  };
-
-  const unRepost = async (postId: string) => {
-    return await dispatch(unRepostAction(postId));
+  const toggleRepost = async (postId: number) => {
+    return await dispatch(togglePostRepost(postId));
   };
 
   return {
     ...home,
     getPosts,
     createPost,
-    likePost,
-    unlikePost,
-    repost,
-    unRepost,
+    toggleLike,
+    toggleRepost,
   };
 };

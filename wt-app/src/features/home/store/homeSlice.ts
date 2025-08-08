@@ -3,15 +3,13 @@ import {
   createSlice,
   type PayloadAction,
 } from "@reduxjs/toolkit";
+import type { CreatePostData, HomeState } from "../types/homeTypes";
 import {
-  getPosts,
   createPost,
-  likePost,
-  unlikePost,
-  repost,
-  unRepost,
+  getFeedPosts,
+  toggleLike,
+  toggleRepost,
 } from "../api/homeApi";
-import type { HomeState, Post, CreatePostData } from "../types/homeTypes";
 
 const initialState: HomeState = {
   posts: [],
@@ -21,12 +19,15 @@ const initialState: HomeState = {
   page: 0,
 };
 
-// 게시글 목록 조회
-export const fetchPosts = createAsyncThunk(
-  "home/fetchPosts",
-  async (page: number, { rejectWithValue }) => {
+// 피드 게시글 조회
+export const fetchFeedPosts = createAsyncThunk(
+  "home/fetchFeedPosts",
+  async (
+    { page, size }: { page: number; size: number },
+    { rejectWithValue }
+  ) => {
     try {
-      const response = await getPosts(page);
+      const response = await getFeedPosts(page, size);
       return { ...response, page };
     } catch (err: any) {
       return rejectWithValue(
@@ -51,13 +52,13 @@ export const createNewPost = createAsyncThunk(
   }
 );
 
-// 좋아요
-export const likePostAction = createAsyncThunk(
-  "home/likePost",
-  async (postId: string, { rejectWithValue }) => {
+// 좋아요 토글
+export const togglePostLike = createAsyncThunk(
+  "home/toggleLike",
+  async (postId: number, { rejectWithValue }) => {
     try {
-      const response = await likePost(postId);
-      return { postId, response };
+      const response = await toggleLike(postId);
+      return { postId, isLiked: response.isLiked };
     } catch (err: any) {
       return rejectWithValue(
         err.response?.data?.message || "좋아요 처리에 실패했습니다."
@@ -66,46 +67,16 @@ export const likePostAction = createAsyncThunk(
   }
 );
 
-// 좋아요 취소
-export const unlikePostAction = createAsyncThunk(
-  "home/unlikePost",
-  async (postId: string, { rejectWithValue }) => {
+// 리포스트 토글
+export const togglePostRepost = createAsyncThunk(
+  "home/toggleRepost",
+  async (postId: number, { rejectWithValue }) => {
     try {
-      const response = await unlikePost(postId);
-      return { postId, response };
+      const response = await toggleRepost(postId);
+      return { postId, isReposted: response.isReposted };
     } catch (err: any) {
       return rejectWithValue(
-        err.response?.data?.message || "좋아요 취소에 실패했습니다."
-      );
-    }
-  }
-);
-
-// 리포스트
-export const repostAction = createAsyncThunk(
-  "home/repost",
-  async (postId: string, { rejectWithValue }) => {
-    try {
-      const response = await repost(postId);
-      return { postId, response };
-    } catch (err: any) {
-      return rejectWithValue(
-        err.response?.data?.message || "리포스트에 실패했습니다."
-      );
-    }
-  }
-);
-
-// 리포스트 취소
-export const unRepostAction = createAsyncThunk(
-  "home/unRepost",
-  async (postId: string, { rejectWithValue }) => {
-    try {
-      const response = await unRepost(postId);
-      return { postId, response };
-    } catch (err: any) {
-      return rejectWithValue(
-        err.response?.data?.message || "리포스트 취소에 실패했습니다."
+        err.response?.data?.message || "리포스트 처리에 실패했습니다."
       );
     }
   }
@@ -131,23 +102,23 @@ const homeSlice = createSlice({
     },
   },
   extraReducers: (builder) => {
-    // 게시글 목록 조회
+    // 피드 게시글 조회
     builder
-      .addCase(fetchPosts.pending, (state) => {
+      .addCase(fetchFeedPosts.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchPosts.fulfilled, (state, action) => {
+      .addCase(fetchFeedPosts.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.page === 0) {
-          state.posts = action.payload.posts;
+        if (action.payload.number === 0) {
+          state.posts = action.payload.content;
         } else {
-          state.posts = [...state.posts, ...action.payload.posts];
+          state.posts = [...state.posts, ...action.payload.content];
         }
-        state.hasMore = action.payload.hasMore;
-        state.page = action.payload.page;
+        state.hasMore = action.payload.hasNext;
+        state.page = action.payload.number;
       })
-      .addCase(fetchPosts.rejected, (state, action) => {
+      .addCase(fetchFeedPosts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       })
@@ -167,34 +138,27 @@ const homeSlice = createSlice({
       })
 
       // 좋아요
-      .addCase(likePostAction.fulfilled, (state, action) => {
+      .addCase(togglePostLike.fulfilled, (state, action) => {
         const post = state.posts.find((p) => p.id === action.payload.postId);
         if (post) {
-          post.likes += 1;
-          post.isLiked = true;
+          post.isLiked = action.payload.isLiked;
+          if (action.payload.isLiked) {
+            post.likeCount += 1;
+          } else {
+            post.likeCount = Math.max(0, post.likeCount - 1);
+          }
         }
       })
-      .addCase(unlikePostAction.fulfilled, (state, action) => {
-        const post = state.posts.find((p) => p.id === action.payload.postId);
-        if (post) {
-          post.likes -= 1;
-          post.isLiked = false;
-        }
-      })
-
       // 리포스트
-      .addCase(repostAction.fulfilled, (state, action) => {
+      .addCase(togglePostRepost.fulfilled, (state, action) => {
         const post = state.posts.find((p) => p.id === action.payload.postId);
         if (post) {
-          post.reposts += 1;
-          post.isReposted = true;
-        }
-      })
-      .addCase(unRepostAction.fulfilled, (state, action) => {
-        const post = state.posts.find((p) => p.id === action.payload.postId);
-        if (post) {
-          post.reposts -= 1;
-          post.isReposted = false;
+          post.isReposted = action.payload.isReposted;
+          if (action.payload.isReposted) {
+            post.repostCount += 1;
+          } else {
+            post.repostCount = Math.max(0, post.repostCount - 1);
+          }
         }
       });
   },

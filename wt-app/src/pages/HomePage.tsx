@@ -1,12 +1,13 @@
 import React from "react";
 import Home from "../features/home/components/Home";
-import Nav from "../features/home/components/Nav";
+import Layout from "../features/home/components/Layout";
 
 const HomePage = () => {
   return (
     <>
-      <Nav />
-      <Home />
+      <Layout>
+        <Home />
+      </Layout>
     </>
   );
 };

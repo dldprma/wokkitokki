@@ -22,3 +22,55 @@ export interface UserState {
   loading: boolean;
   error: string | null;
 }
+
+export interface ProfilePost {
+  id: string;
+  title: string;
+  content: string;
+  images?: string[];
+  createdAt: string;
+  views: number;
+  isPublic: boolean;
+}
+
+export interface ProfilePhoto {
+  id: string;
+  imageUrl: string;
+  createdAt: string;
+  likes: number;
+}
+
+export interface ProfileReel {
+  id: string;
+  videoUrl: string;
+  title: string;
+  createdAt: string;
+  likes: number;
+  views: number;
+}
+
+export interface ProfileState {
+  posts: ProfilePost[];
+  photos: ProfilePhoto[];
+  reels: ProfileReel[];
+  loading: boolean;
+  error: string | null;
+}
+
+export interface ProfilePostsResponse {
+  posts: ProfilePost[];
+  hasMore: boolean;
+  totalPages: number;
+}
+
+export interface ProfilePhotosResponse {
+  photos: ProfilePhoto[];
+  hasMore: boolean;
+  totalPages: number;
+}
+
+export interface ProfileReelsResponse {
+  reels: ProfileReel[];
+  hasMore: boolean;
+  totalPages: number;
+}

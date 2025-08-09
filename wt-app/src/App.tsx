@@ -2,7 +2,11 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { useEffect } from "react";
-import { initializeAuth } from "./features/auth/store/authSlice";
+import {
+  initializeAuth,
+  refreshUserToken,
+  setInitialized,
+} from "./features/auth/store/authSlice";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
@@ -22,10 +26,37 @@ const AuthRedirect = ({ children }: { children: React.ReactNode }) => {
 
 function App() {
   const dispatch = useAppDispatch();
+  const { isInitialized } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
-    dispatch(initializeAuth());
+    const initApp = async () => {
+      dispatch(initializeAuth());
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        dispatch(refreshUserToken());
+      } else {
+        dispatch(setInitialized());
+      }
+    };
+
+    initApp();
   }, [dispatch]);
+
+  if (!isInitialized) {
+    return (
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          fontSize: "18px",
+        }}
+      >
+        Loading...
+      </div>
+    );
+  }
 
   return (
     <>

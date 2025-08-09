@@ -23,10 +23,9 @@ const Profile: React.FC = () => {
             </div>
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                {user.fullName}
+                @{user.username}
               </h1>
-              <p className="text-gray-600">@{user.username}</p>
-              <p className="text-gray-500">{user.email}</p>
+              <p className="text-gray-600">{user.fullName}</p>
             </div>
           </div>
 

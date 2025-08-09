@@ -1,6 +1,7 @@
 package com.winter.wokkitokki.post.controller;
 
 import com.winter.wokkitokki.post.dto.PostCreateRequestDto;
+import com.winter.wokkitokki.post.dto.PostImageResponseDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
 import com.winter.wokkitokki.post.dto.PostUpdateRequestDto;
 import com.winter.wokkitokki.post.service.PostService;
@@ -49,6 +50,35 @@ public class PostController {
 
             PostResponseDto post = postService.getPostDetail(postId, currentUserId);
             return ResponseEntity.ok(post);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<Page<?>> getUserPosts(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "all") String type,
+            Authentication auth) {
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+
+            Long currentUserId = null;
+            if (auth != null) {
+                currentUserId = userService.getUserIdByUsername(auth.getName());
+            }
+
+            if ("images".equals(type)) {
+                // 이미지 게시글만 조회
+                Page<PostImageResponseDto> imagePosts = postService.getUserImagePosts(userId, pageable);
+                return ResponseEntity.ok(imagePosts);
+            } else {
+                // 모든 게시글 조회 (기본값)
+                Page<PostResponseDto> userPosts = postService.getUserPosts(userId, currentUserId, pageable);
+                return ResponseEntity.ok(userPosts);
+            }
         } catch (Exception e) {
             return ResponseEntity.badRequest().build();
         }

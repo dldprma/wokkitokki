@@ -21,6 +21,7 @@ const initialState: AuthState = {
   isAuthenticated: false,
   loading: false,
   error: null,
+  isInitialized: false,
 };
 
 // username 중복체크
@@ -116,7 +117,12 @@ export const refreshUserToken = createAsyncThunk(
       dispatch(setAccessToken(response.accessToken));
       return response;
     } catch (err: any) {
-      localStorage.removeItem("user");
+      if (
+        err.response?.status === 401 &&
+        err.response?.data?.message?.includes("만료된 refresh token")
+      ) {
+        // localStorage.removeItem("user");
+      }
       return rejectWithValue("토큰이 만료되었습니다. 다시 로그인해주세요.");
     }
   }
@@ -127,6 +133,17 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
+    initializeAuth: (state) => {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        state.user = JSON.parse(storedUser);
+        state.isAuthenticated = true;
+      }
+      state.isInitialized = true;
+    },
+    setInitialized: (state) => {
+      state.isInitialized = true;
+    },
     // 로딩상태 설정
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
@@ -139,17 +156,15 @@ const authSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
-    // 초기화 (앱 시작 시 localStorage에서 사용자 정보 복원)
-    initializeAuth: (state) => {
-      const storedUser = localStorage.getItem("user");
-      if (storedUser) {
-        state.user = JSON.parse(storedUser);
-        state.isAuthenticated = true;
-      }
-    },
     setAccessToken: (state, action: PayloadAction<string>) => {
       state.accessToken = action.payload;
       state.isAuthenticated = true;
+    },
+
+    clearUser: (state) => {
+      state.user = null;
+      state.accessToken = null;
+      state.isAuthenticated = false;
     },
   },
   extraReducers: (builder) => {
@@ -215,6 +230,7 @@ const authSlice = createSlice({
         state.accessToken = action.payload.accessToken;
         state.isAuthenticated = true;
         state.error = null;
+        state.isInitialized = true;
         settingAccessToken(action.payload.accessToken);
       })
       .addCase(refreshUserToken.rejected, (state, action) => {
@@ -223,6 +239,7 @@ const authSlice = createSlice({
         state.accessToken = null;
         state.isAuthenticated = false;
         state.error = action.payload as string;
+        state.isInitialized = true;
         clearAccessToken();
       })
 
@@ -243,6 +260,8 @@ export const {
   setError,
   clearError,
   initializeAuth,
+  setInitialized,
   setAccessToken,
+  clearUser,
 } = authSlice.actions;
 export default authSlice.reducer;

@@ -21,6 +21,9 @@ public class PostResponseDto {
     private boolean isReposted;
     private String createdAt;
 
+    private boolean canEdit;
+    private boolean canDelete;
+
     // 리포스트인 경우 원본 정보
     private PostResponseDto originalPost;
 }

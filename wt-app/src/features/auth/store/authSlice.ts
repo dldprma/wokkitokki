@@ -112,12 +112,8 @@ export const refreshUserToken = createAsyncThunk(
   "auth/refresh",
   async (_, { rejectWithValue, dispatch }) => {
     try {
-      // 쿠키에서 자동으로 refreshToken 전송됨
       const response = await refreshToken();
-
-      // Redux store에 access token 저장
       dispatch(setAccessToken(response.accessToken));
-
       return response;
     } catch (err: any) {
       localStorage.removeItem("user");
@@ -217,6 +213,7 @@ const authSlice = createSlice({
       .addCase(refreshUserToken.fulfilled, (state, action) => {
         state.loading = false;
         state.accessToken = action.payload.accessToken;
+        state.isAuthenticated = true;
         state.error = null;
         settingAccessToken(action.payload.accessToken);
       })
@@ -226,21 +223,18 @@ const authSlice = createSlice({
         state.accessToken = null;
         state.isAuthenticated = false;
         state.error = action.payload as string;
+        clearAccessToken();
       })
 
       // username 체크
       .addCase(checkUsername.pending, (state) => {})
       .addCase(checkUsername.fulfilled, (state) => {})
-      .addCase(checkUsername.rejected, (state, action) => {
-        console.error("사용자명 확인 실패:", action.payload);
-      })
+      .addCase(checkUsername.rejected, (state, action) => {})
 
       // email 체크
       .addCase(checkEmail.pending, (state) => {})
       .addCase(checkEmail.fulfilled, (state) => {})
-      .addCase(checkEmail.rejected, (state, action) => {
-        console.error("이메일 확인 실패:", action.payload);
-      });
+      .addCase(checkEmail.rejected, (state, action) => {});
   },
 });
 

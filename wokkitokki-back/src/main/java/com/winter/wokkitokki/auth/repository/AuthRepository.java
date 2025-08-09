@@ -5,17 +5,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
 
 @Repository
 public interface AuthRepository extends JpaRepository<RefreshToken, Long> {
     Optional<RefreshToken> findByToken(String token);
-    Optional<RefreshToken> findByUsername(String username);
-    
     @Modifying
-    @Transactional
-    @Query("DELETE FROM RefreshToken rt WHERE rt.username = :username")
-    void deleteByUsername(String username);
+    @Query("DELETE FROM RefreshToken r WHERE r.user.id = :userId")
+    void deleteByUserId(Long userId);
+
 }

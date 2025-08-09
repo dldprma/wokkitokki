@@ -284,6 +284,13 @@ private void deletePostImage(String imageUrl) {
         if(currentUser != null){
             dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
             dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
+
+            boolean isOwner = post.getUser().getId().equals(currentUser.getId());
+            dto.setCanEdit(isOwner);
+            dto.setCanDelete(isOwner);
+        }else{
+            dto.setCanEdit(false);
+            dto.setCanDelete(false);
         }
         return dto;
     }
@@ -296,6 +303,7 @@ private void deletePostImage(String imageUrl) {
         dto.setLikeCount(post.getLikeCount());
         dto.setRepostCount(post.getRepostCount());
         dto.setCreatedAt(post.getCreatedAt().toString());
+
         return dto;
     }
 }

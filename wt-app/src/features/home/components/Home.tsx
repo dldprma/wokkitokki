@@ -3,8 +3,14 @@ import { useHome } from "../hooks/useHome";
 import { useUser } from "../../user/hooks/useUser";
 import ProfileImage from "../../user/components/ProfileImage";
 import "../../../css/Home.css";
+import { useAppSelector } from "../../../store/hooks";
 
 const Home: React.FC = () => {
+  const {
+    isAuthenticated,
+    isInitialized,
+    loading: authLoading,
+  } = useAppSelector((state) => state.auth);
   const {
     posts,
     loading,
@@ -19,8 +25,10 @@ const Home: React.FC = () => {
   const [newPostContent, setNewPostContent] = useState("");
 
   useEffect(() => {
-    getPosts(0, 10);
-  }, []);
+    if (isInitialized && isAuthenticated && !authLoading) {
+      getPosts(0, 10);
+    }
+  }, [isInitialized, isAuthenticated, authLoading]);
 
   const handleCreatePost = async () => {
     if (!newPostContent.trim()) return;

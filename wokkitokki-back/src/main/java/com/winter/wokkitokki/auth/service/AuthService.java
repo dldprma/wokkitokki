@@ -79,8 +79,6 @@ public class AuthService implements UserDetailsService {
         String accessToken = jwtUtils.generateAccessToken(user);
         String refreshToken = jwtUtils.generateRefreshToken(user);
 
-        // 기존 RefreshToken 삭제 후 새로 저장
-        authRepository.deleteByUserId(user.getId());
         saveRefreshToken(user, refreshToken);
 
         // refreshToken을 HttpOnly 쿠키로 설정
@@ -97,14 +95,14 @@ public class AuthService implements UserDetailsService {
 
     @Transactional
     public AuthResponse refreshToken(HttpServletRequest request, HttpServletResponse response) {
-        // 1. 쿠키에서 refreshToken 추출
+        // 쿠키에서 refreshToken 추출
         String refreshToken = jwtUtils.extractRefreshTokenFromCookie(request);
 
         if (refreshToken == null) {
             throw new RuntimeException("RefreshToken이 없습니다.");
         }
 
-        // 2. refreshToken 검증
+        // refreshToken 검증
         RefreshToken tokenEntity = authRepository.findByToken(refreshToken)
                 .orElseThrow(() -> new RuntimeException("유효하지 않은 refresh Token입니다."));
 
@@ -114,17 +112,22 @@ public class AuthService implements UserDetailsService {
             throw new RuntimeException("만료된 refresh token 입니다.");
         }
 
-        // 3. 새로운 token 생성
+        // 새로운 token 생성
         UserEntity user = tokenEntity.getUser();
         String newAccessToken = jwtUtils.generateAccessToken(user);
-        String newRefreshToken = jwtUtils.generateRefreshToken(user);
+        String newRefreshToken = refreshToken;
 
-        // 4. 기존 RefreshToken 삭제 후 새로 저장
-        authRepository.delete(tokenEntity);
-        saveRefreshToken(user, newRefreshToken);
+        // 만료 임박시에만 새 refresh Token 발급
+        if(tokenEntity.getExpiresAt().isBefore(LocalDateTime.now().plusDays(2))){
+            newRefreshToken = jwtUtils.generateRefreshToken(user);
 
-        // 5. 새로운 refreshToken을 HttpOnly 쿠키로 설정
-        jwtUtils.setRefreshTokenCookie(response, newRefreshToken);
+            // 기존 토큰 업데이트
+            tokenEntity.setToken(newRefreshToken);
+            tokenEntity.setExpiresAt(LocalDateTime.now().plusDays(7));
+            authRepository.save(tokenEntity);
+
+            jwtUtils.setRefreshTokenCookie(response, newRefreshToken);
+        }
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)

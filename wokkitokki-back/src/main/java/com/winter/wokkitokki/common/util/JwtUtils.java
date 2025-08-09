@@ -90,7 +90,7 @@ public class JwtUtils {
     public void setRefreshTokenCookie(HttpServletResponse response, String refreshToken) {
         Cookie cookie = new Cookie("refreshToken", refreshToken);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true); // HTTPS에서만
+        cookie.setSecure(false); // HTTPS에서만
         cookie.setPath("/");
         cookie.setMaxAge(7 * 24 * 60 * 60); // 7일
         response.addCookie(cookie);

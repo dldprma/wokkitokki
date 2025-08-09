@@ -5,6 +5,7 @@ let accessToken: string | null = null;
 const api = axios.create({
   baseURL: "http://localhost:8080",
   headers: { "Content-Type": "application/json" },
+  withCredentials: true,
 });
 
 // 요청 인터셉터
@@ -18,35 +19,54 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 응답 인터셉터: 401/403에서 토큰 갱신 후 재시도
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest: any = error.config;
+    const originalRequest = error.config;
     const status = error.response?.status;
 
-    if ((status === 401 || status === 403) && !originalRequest?._retry) {
+    if ((status === 401 || status === 403) && !originalRequest._retry) {
       originalRequest._retry = true;
-      try {
-        const res = await api.post(
-          "/api/auth/refresh",
-          {},
-          { withCredentials: true }
-        );
-        const { accessToken: newAccessToken } = res.data;
-        settingAccessToken(newAccessToken);
-        originalRequest.headers = originalRequest.headers ?? {};
-        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-        return api(originalRequest);
-      } catch (e) {
+
+      // localStorage에 사용자 정보가 있을 때만 토큰 갱신 시도
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        try {
+          const response = await axios.post(
+            "http://localhost:8080/api/auth/refresh",
+            {},
+            { withCredentials: true }
+          );
+          const { accessToken: newAccessToken } = response.data;
+          settingAccessToken(newAccessToken);
+
+          // 원래 요청에 새 토큰 적용
+          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+          return api(originalRequest);
+        } catch (refreshError) {
+          // 토큰 갱신 실패 시 로그아웃
+          clearAccessToken();
+          localStorage.removeItem("user");
+
+          if (
+            window.location.pathname !== "/login" &&
+            window.location.pathname !== "/register"
+          ) {
+            window.location.href = "/login";
+          }
+        }
+      } else {
+        // 사용자 정보가 없으면 바로 로그인 페이지로
         clearAccessToken();
-        localStorage.removeItem("user");
-        if (window.location.pathname !== "/login") {
+        if (
+          window.location.pathname !== "/login" &&
+          window.location.pathname !== "/register"
+        ) {
           window.location.href = "/login";
         }
-        return Promise.reject(e);
       }
     }
+
     return Promise.reject(error);
   }
 );

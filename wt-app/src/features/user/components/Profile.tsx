@@ -1,127 +1,72 @@
-import React, { useState, useEffect } from "react";
-import { useUser } from "../../user/hooks/useUser";
-import { useAuth } from "../../auth/hooks/useAuth";
-import "../../../css/Profile.css";
-import ProfileImage from "./ProfileImage";
+import React from "react";
+import { useAppSelector } from "../../../store/hooks";
 
 const Profile: React.FC = () => {
-  const { user, loading, getProfile } = useUser();
-  const { user: authUser } = useAuth();
-  const [activeTab, setActiveTab] = useState<"posts" | "reels">("posts");
+  const { user } = useAppSelector((state) => state.auth);
 
-  useEffect(() => {
-    if (authUser) {
-      getProfile();
-    }
-  }, [authUser]);
-
-  const formatJoinDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const year = date.getFullYear();
-    const month = date.getMonth() + 1;
-    return `${year}년 ${month}월에 가입`;
-  };
-
-  if (loading) {
+  if (!user) {
     return (
-      <div className="profile-container">
-        <div className="loading-spinner"></div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-500">로그인이 필요합니다.</div>
       </div>
     );
   }
 
   return (
-    <div className="profile-container">
-      {/* 프로필 카드 */}
-      <div className="profile-card">
-        <div className="profile-header">
-          <ProfileImage
-            imageUrl={user?.profileImage}
-            username={user?.username || ""}
-            size="lg"
-            className="profile-avatar"
-          />
-          <div className="profile-info">
-            <h1 className="profile-name">{user?.fullName}</h1>
-            <p className="profile-join-date">
-              📅{" "}
-              {user?.createdAt
-                ? formatJoinDate(user.createdAt)
-                : "가입일 정보 없음"}
-            </p>
+    <div className="min-h-screen bg-gray-50 p-6">
+      <div className="max-w-4xl mx-auto">
+        {/* 프로필 헤더 */}
+        <div className="bg-white rounded-lg shadow-sm p-8 mb-6">
+          <div className="flex items-center space-x-6">
+            <div className="w-24 h-24 bg-blue-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+              {user.fullName.charAt(0)}
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900">
+                {user.fullName}
+              </h1>
+              <p className="text-gray-600">@{user.username}</p>
+              <p className="text-gray-500">{user.email}</p>
+            </div>
           </div>
-        </div>
 
-        {/* 통계 */}
-        <div className="profile-stats">
-          <div className="stat-item">
-            <span className="stat-number">{user?.postsCount || 0}</span>
-            <span className="stat-label">게시글</span>
+          {/* 통계 */}
+          <div className="flex space-x-8 mt-8 pt-6 border-t">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">0</div>
+              <div className="text-gray-600">게시글</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">0</div>
+              <div className="text-gray-600">팔로워</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-gray-900">0</div>
+              <div className="text-gray-600">팔로잉</div>
+            </div>
           </div>
-          <div className="stat-item">
-            <span className="stat-number">{user?.followersCount || 0}</span>
-            <span className="stat-label">팔로워</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-number">{user?.followingCount || 0}</span>
-            <span className="stat-label">팔로잉</span>
-          </div>
-        </div>
 
-        {/* 액션 버튼들 */}
-        <div className="profile-actions">
-          <button className="profile-action-btn">
-            <span className="action-icon">✏️</span>
-            프로필 편집
-          </button>
-          <button className="profile-action-btn">
-            <span className="action-icon">⚙️</span>
-            설정
-          </button>
-        </div>
-      </div>
-
-      {/* 탭 */}
-      <div className="profile-tabs">
-        <button
-          className={`profile-tab ${activeTab === "posts" ? "active" : ""}`}
-          onClick={() => setActiveTab("posts")}
-        >
-          게시글 ({user?.postsCount || 0})
-        </button>
-        <button
-          className={`profile-tab ${activeTab === "reels" ? "active" : ""}`}
-          onClick={() => setActiveTab("reels")}
-        >
-          Reels ({user?.reelsCount || 0})
-        </button>
-      </div>
-
-      {/* 콘텐츠 영역 */}
-      <div className="profile-content">
-        {activeTab === "posts" && (
-          <div className="empty-state">
-            <div className="empty-icon">📝</div>
-            <h3 className="empty-title">아직 게시글이 없습니다</h3>
-            <p className="empty-description">첫 번째 게시글을 작성해보세요!</p>
-            <button className="empty-action-btn">
-              <span className="action-icon">✨</span>
-              게시글 작성하기
+          {/* 액션 버튼 */}
+          <div className="flex space-x-4 mt-6">
+            <button className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+              프로필 편집
+            </button>
+            <button className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors">
+              설정
             </button>
           </div>
-        )}
+        </div>
 
-        {activeTab === "reels" && (
-          <div className="empty-state">
-            <div className="empty-icon">🎬</div>
-            <h3 className="empty-title">아직 Reels가 없습니다</h3>
-            <p className="empty-description">첫 번째 Reels를 만들어보세요!</p>
-            <button className="empty-action-btn">
-              <span className="action-icon">✨</span>
-              Reels 만들기
-            </button>
+        {/* 콘텐츠 영역 */}
+        <div className="bg-white rounded-lg shadow-sm p-8">
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">📝</div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              아직 게시글이 없습니다
+            </h3>
+            <p className="text-gray-600">첫 번째 게시글을 작성해보세요!</p>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -110,10 +110,15 @@ const homeSlice = createSlice({
       })
       .addCase(fetchFeedPosts.fulfilled, (state, action) => {
         state.loading = false;
+        const normalized = action.payload.content.map((p: any) => ({
+          ...p,
+          likeCount: Math.max(0, Number(p.likeCount ?? 0)),
+          repostCount: Math.max(0, Number(p.repostCount ?? 0)),
+        }));
         if (action.payload.number === 0) {
-          state.posts = action.payload.content;
+          state.posts = normalized;
         } else {
-          state.posts = [...state.posts, ...action.payload.content];
+          state.posts = [...state.posts, ...normalized];
         }
         state.hasMore = action.payload.hasNext;
         state.page = action.payload.number;
@@ -130,7 +135,12 @@ const homeSlice = createSlice({
       })
       .addCase(createNewPost.fulfilled, (state, action) => {
         state.loading = false;
-        state.posts.unshift(action.payload);
+        const p = action.payload as any;
+        state.posts.unshift({
+          ...p,
+          likeCount: Math.max(0, Number(p.likeCount ?? 0)),
+          repostCount: Math.max(0, Number(p.repostCount ?? 0)),
+        });
       })
       .addCase(createNewPost.rejected, (state, action) => {
         state.loading = false;

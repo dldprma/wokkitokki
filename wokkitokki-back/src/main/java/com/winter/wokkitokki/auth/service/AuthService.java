@@ -7,15 +7,13 @@ import com.winter.wokkitokki.auth.repository.AuthRepository;
 import com.winter.wokkitokki.common.util.JwtUtils;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.UserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +28,7 @@ public class AuthService implements UserDetailsService {
     private final PasswordEncoder passwordEncoder;
 
     @Transactional
-    public AuthResponse register(AuthRequest request){
+    public AuthResponse register(AuthRequest request, HttpServletResponse response){
         if(userRepository.existsByUsername(request.getUsername()))
             throw new RuntimeException("이미 존재하는 계정입니다.");
         if(userRepository.existsByEmail(request.getEmail()))
@@ -50,7 +48,10 @@ public class AuthService implements UserDetailsService {
         String refreshToken = jwtUtils.generateRefreshToken(user);
 
         // refreshToken 저장
-        saveRefreshToken(user.getUsername(), refreshToken);
+        saveRefreshToken(user, refreshToken);
+
+        // refreshToken을 HttpOnly 쿠키로 설정
+        jwtUtils.setRefreshTokenCookie(response, refreshToken);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -62,23 +63,28 @@ public class AuthService implements UserDetailsService {
     }
 
     @Transactional
-    public AuthResponse login(AuthRequest request){
+    public AuthResponse login(AuthRequest request, HttpServletResponse response){
         // 사용자 검증
         UserEntity user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-        
+
         // 비밀번호 검증
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new RuntimeException("비밀번호가 일치하지 않습니다.");
         }
+
+        authRepository.deleteByUserId(user.getId());
 
         // 토큰생성
         String accessToken = jwtUtils.generateAccessToken(user);
         String refreshToken = jwtUtils.generateRefreshToken(user);
 
         // 기존 RefreshToken 삭제 후 새로 저장
-        authRepository.deleteByUsername(user.getUsername());
-        saveRefreshToken(user.getUsername(), refreshToken);
+        authRepository.deleteByUserId(user.getId());
+        saveRefreshToken(user, refreshToken);
+
+        // refreshToken을 HttpOnly 쿠키로 설정
+        jwtUtils.setRefreshTokenCookie(response, refreshToken);
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -90,24 +96,35 @@ public class AuthService implements UserDetailsService {
     }
 
     @Transactional
-    public AuthResponse refreshToken(String refreshToken){
-        // refreshToken 검증
-        RefreshToken tokenEntity = authRepository.findByToken(refreshToken)
-                .orElseThrow(()->new RuntimeException("유효하지 않은 refresh Token입니다."));
+    public AuthResponse refreshToken(HttpServletRequest request, HttpServletResponse response) {
+        // 1. 쿠키에서 refreshToken 추출
+        String refreshToken = jwtUtils.extractRefreshTokenFromCookie(request);
 
-        if(tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())){
+        if (refreshToken == null) {
+            throw new RuntimeException("RefreshToken이 없습니다.");
+        }
+
+        // 2. refreshToken 검증
+        RefreshToken tokenEntity = authRepository.findByToken(refreshToken)
+                .orElseThrow(() -> new RuntimeException("유효하지 않은 refresh Token입니다."));
+
+        if (tokenEntity.getExpiresAt().isBefore(LocalDateTime.now())) {
             authRepository.delete(tokenEntity);
+            jwtUtils.clearRefreshTokenCookie(response);
             throw new RuntimeException("만료된 refresh token 입니다.");
         }
 
-        // 새로운 token 생성
-        UserEntity user = userRepository.findByUsername(tokenEntity.getUsername()).get();
+        // 3. 새로운 token 생성
+        UserEntity user = tokenEntity.getUser();
         String newAccessToken = jwtUtils.generateAccessToken(user);
         String newRefreshToken = jwtUtils.generateRefreshToken(user);
 
-        // 기존 RefreshToken 삭제 후 새로 저장
+        // 4. 기존 RefreshToken 삭제 후 새로 저장
         authRepository.delete(tokenEntity);
-        saveRefreshToken(user.getUsername(), newRefreshToken);
+        saveRefreshToken(user, newRefreshToken);
+
+        // 5. 새로운 refreshToken을 HttpOnly 쿠키로 설정
+        jwtUtils.setRefreshTokenCookie(response, newRefreshToken);
 
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
@@ -119,13 +136,22 @@ public class AuthService implements UserDetailsService {
     }
 
     @Transactional
-    public void logout(String username){
-        authRepository.deleteByUsername(username);
+    public void logout(Long userId, HttpServletResponse response) {
+        authRepository.deleteByUserId(userId);
+        jwtUtils.clearRefreshTokenCookie(response);
     }
 
-    private void saveRefreshToken(String username, String token){
+    public boolean checkUsernameExists(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    public boolean checkEmailExists(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    private void saveRefreshToken(UserEntity user, String token){
         RefreshToken refreshToken = RefreshToken.builder()
-                .username(username)
+                .user(user)
                 .token(token)
                 .expiresAt(LocalDateTime.now().plusDays(7))
                 .build();

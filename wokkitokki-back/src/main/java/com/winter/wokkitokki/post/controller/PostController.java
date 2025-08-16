@@ -1,9 +1,6 @@
 package com.winter.wokkitokki.post.controller;
 
-import com.winter.wokkitokki.post.dto.PostCreateRequestDto;
-import com.winter.wokkitokki.post.dto.PostImageResponseDto;
-import com.winter.wokkitokki.post.dto.PostResponseDto;
-import com.winter.wokkitokki.post.dto.PostUpdateRequestDto;
+import com.winter.wokkitokki.post.dto.*;
 import com.winter.wokkitokki.post.service.PostService;
 import com.winter.wokkitokki.user.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +10,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -55,43 +53,23 @@ public class PostController {
         }
     }
 
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<Page<?>> getUserPosts(
-            @PathVariable Long userId,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "all") String type,
-            Authentication auth) {
-        try {
-            Pageable pageable = PageRequest.of(page, size);
-
-            Long currentUserId = null;
-            if (auth != null) {
-                currentUserId = userService.getUserIdByUsername(auth.getName());
-            }
-
-            if ("images".equals(type)) {
-                // 이미지 게시글만 조회
-                Page<PostImageResponseDto> imagePosts = postService.getUserImagePosts(userId, pageable);
-                return ResponseEntity.ok(imagePosts);
-            } else {
-                // 모든 게시글 조회 (기본값)
-                Page<PostResponseDto> userPosts = postService.getUserPosts(userId, currentUserId, pageable);
-                return ResponseEntity.ok(userPosts);
-            }
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
-    }
-
     // 게시글 작성 (ID 기반)
     @PostMapping
     public ResponseEntity<PostResponseDto> createPost(
             Authentication auth,
-            @RequestBody PostCreateRequestDto requestDto) {
+            @RequestParam(value = "content") String content,
+            @RequestParam(value = "image", required = false) MultipartFile image) {
         try {
-            // username → ID 변환
             Long userId = userService.getUserIdByUsername(auth.getName());
+
+            PostCreateRequestDto requestDto = new PostCreateRequestDto();
+            requestDto.setContent(content);
+
+            // 이미지가 있으면 업로드 후 URL 설정
+            if (image != null && !image.isEmpty()) {
+                String imageUrl = postService.uploadPostImage(image);
+                requestDto.setImgUrl(imageUrl);
+            }
 
             PostResponseDto post = postService.createPost(userId, requestDto);
             return ResponseEntity.ok(post);
@@ -144,12 +122,13 @@ public class PostController {
             Authentication auth) {
         try {
             Long userId = userService.getUserIdByUsername(auth.getName());
-            boolean isLiked = postService.toggleLike(postId, userId);
+            LikeResponseDto result = postService.toggleLike(postId, userId);
 
-            String message = isLiked ? "좋아요를 눌렀습니다" : "좋아요를 취소했습니다";
+            String message = result.isLiked() ? "좋아요를 눌렀습니다" : "좋아요를 취소했습니다";
             return ResponseEntity.ok(Map.of(
                     "message", message,
-                    "isLiked", isLiked
+                    "isLiked", result.isLiked(),
+                    "likeCount", result.getLikeCount()
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()
@@ -164,12 +143,13 @@ public class PostController {
             Authentication auth) {
         try {
             Long userId = userService.getUserIdByUsername(auth.getName());
-            boolean isReposted = postService.toggleRepost(postId, userId);
+            RepostResponseDto result = postService.toggleRepost(postId, userId);
 
-            String message = isReposted ? "리포스트했습니다" : "리포스트를 취소했습니다";
+            String message = result.isReposted() ? "리포스트했습니다" : "리포스트를 취소했습니다";
             return ResponseEntity.ok(Map.of(
                     "message", message,
-                    "isReposted", isReposted
+                    "isReposted", result.isReposted(),
+                    "repostCount", result.getRepostCount()
             ));
         } catch (Exception e) {
             return ResponseEntity.badRequest()

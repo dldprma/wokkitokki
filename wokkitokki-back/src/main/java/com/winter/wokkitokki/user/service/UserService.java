@@ -1,6 +1,11 @@
 package com.winter.wokkitokki.user.service;
 
+import com.winter.wokkitokki.post.dto.PostImageResponseDto;
+import com.winter.wokkitokki.post.dto.PostResponseDto;
+import com.winter.wokkitokki.post.entity.PostEntity;
+import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
+import com.winter.wokkitokki.post.repository.RepostRepository;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.entity.FollowEntity;
@@ -8,6 +13,8 @@ import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.FollowRepository;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -24,6 +31,8 @@ public class UserService {
     private final UserRepository userRepository;
     private final PostRepository postRepository;
     private final FollowRepository followRepository;
+    private final LikeRepository likeRepository;
+    private final RepostRepository repostRepository;
 
     // username → ID 변환 메서드
     public Long getUserIdByUsername(String username) {
@@ -64,6 +73,30 @@ public class UserService {
         profile.setFollowing(isFollowing);
 
         return profile;
+    }
+
+    // 특정 사용자의 모든 포스트 조회
+    public Page<PostResponseDto> getUserPosts(Long userId, Long currentUserId, Pageable pageable){
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        Page<PostEntity> posts = postRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+
+        UserEntity currentUser = null;
+        if(currentUserId != null){
+            currentUser = userRepository.findById(currentUserId).orElse(null);
+        }
+        final UserEntity finalCurrentUser = currentUser;
+        return posts.map(post->convertToResponseDto(post, finalCurrentUser));
+    }
+
+    // 특정 사용자의 이미지 포스트만 조회
+    public Page<PostImageResponseDto> getUserImagePosts(Long userId, Pageable pageable){
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        Page<PostEntity> imagePosts = postRepository.findByUserAndImgUrlIsNotNullOrderByCreatedAtDesc(user, pageable);
+        return imagePosts.map(this::convertToImageResponseDto);
     }
 
     // 프로필 수정
@@ -183,6 +216,46 @@ public class UserService {
             followRepository.save(follow);
             return true;
         }
+    }
+
+    // PostEntity -> PostResponseDto 변환 (PostService에서 이동)
+    private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser){
+        PostResponseDto dto = new PostResponseDto();
+        dto.setId(post.getId());
+        dto.setContent(post.getContent());
+        dto.setImgUrl(post.getImgUrl());
+        dto.setAuthorName(post.getUser().getFullName());
+        dto.setAuthorUsername(post.getUser().getUsername());
+        dto.setAuthorProfileImg(post.getUser().getProfileImgUrl());
+        dto.setLikeCount(post.getLikeCount());
+        dto.setRepostCount(post.getRepostCount());
+        dto.setCreatedAt(post.getCreatedAt().toString());
+
+        // 현재 사용자가 좋아요/리포스트 했는지 확인
+        if(currentUser != null){
+            dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
+            dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
+
+            boolean isOwner = post.getUser().getId().equals(currentUser.getId());
+            dto.setCanEdit(isOwner);
+            dto.setCanDelete(isOwner);
+        }else{
+            dto.setCanEdit(false);
+            dto.setCanDelete(false);
+        }
+        return dto;
+    }
+
+    // PostEntity -> PostImageResponseDto 변환 (PostService에서 이동)
+    private PostImageResponseDto convertToImageResponseDto(PostEntity post){
+        PostImageResponseDto dto = new PostImageResponseDto();
+        dto.setId(post.getId());
+        dto.setImgUrl(post.getImgUrl());
+        dto.setLikeCount(post.getLikeCount());
+        dto.setRepostCount(post.getRepostCount());
+        dto.setCreatedAt(post.getCreatedAt().toString());
+
+        return dto;
     }
 
     // 기존 프로필 이미지 파일 삭제하는 private 메서드

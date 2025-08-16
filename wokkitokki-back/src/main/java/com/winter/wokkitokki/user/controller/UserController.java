@@ -23,9 +23,8 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
-    private final PostService postService;
 
-    // 프로필 보기
+    // 프로필 정보 조회 (모든 사용자)
     @GetMapping("/{username}")
     public ResponseEntity<UserProfileResponseDto> getUserProfile(@PathVariable String username, Authentication auth){
         try{
@@ -43,9 +42,13 @@ public class UserController {
         }
     }
 
-    // 특정 사용자의 포스트 보기
+    // 특정 사용자의 모든 포스트 조회
     @GetMapping("/{username}/posts")
-    public ResponseEntity<Page<PostResponseDto>> getUserPosts(@PathVariable String username, @RequestParam(defaultValue = "0")int page, @RequestParam(defaultValue = "10")int size, Authentication auth){
+    public ResponseEntity<Page<PostResponseDto>> getUserPosts(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication auth){
         try{
             Pageable pageable = PageRequest.of(page, size);
             // username → ID 변환
@@ -55,20 +58,23 @@ public class UserController {
             if (auth != null) {
                 currentUserId = userService.getUserIdByUsername(auth.getName());
             }
-            Page<PostResponseDto> posts = postService.getUserPosts(userId, currentUserId, pageable);
+            Page<PostResponseDto> posts = userService.getUserPosts(userId, currentUserId, pageable);
             return ResponseEntity.ok(posts);
         } catch (Exception e) {
-          return ResponseEntity.badRequest().build();
+            return ResponseEntity.badRequest().build();
         }
     }
 
-    // 특정 사용자의 이미지 포스트들 보기
+    // 특정 사용자의 이미지 포스트만 조회
     @GetMapping("/{username}/images")
-    public ResponseEntity<Page<PostImageResponseDto>> getUserImagePosts(@PathVariable String username, @RequestParam(defaultValue = "0")int page, @RequestParam(defaultValue = "12")int size){
+    public ResponseEntity<Page<PostImageResponseDto>> getUserImagePosts(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size){
         try{
             Pageable pageable = PageRequest.of(page, size);
             Long userId = userService.getUserIdByUsername(username);
-            Page<PostImageResponseDto> imagePosts = postService.getUserImagePosts(userId, pageable);
+            Page<PostImageResponseDto> imagePosts = userService.getUserImagePosts(userId, pageable);
             return ResponseEntity.ok(imagePosts);
         }catch(Exception e){
             return ResponseEntity.badRequest().build();
@@ -92,7 +98,7 @@ public class UserController {
         }
     }
 
-    // 프로필 수정
+    // 내 프로필 수정
     @PutMapping("/profile")
     public ResponseEntity<UserProfileResponseDto> updateProfile(Authentication auth, @RequestBody UserUpdateRequestDto requestDto){
         try{
@@ -104,9 +110,9 @@ public class UserController {
         }
     }
 
-    // 프로필 사진만 변경
+    // 내 프로필 사진 변경
     @PostMapping("/profile/image")
-    public ResponseEntity<Map<String, String>> uploadProfileImg(Authentication auth, @RequestParam("file")MultipartFile file){
+    public ResponseEntity<Map<String, String>> uploadProfileImg(Authentication auth, @RequestParam("file") MultipartFile file){
         try{
             Long userId = userService.getUserIdByUsername(auth.getName());
             String imgUrl = userService.uploadProfileImage(userId, file);
@@ -116,7 +122,8 @@ public class UserController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
-    // 프로필 사진 삭제
+
+    // 내 프로필 사진 삭제
     @DeleteMapping("/profile/image")
     public ResponseEntity<Map<String, String>> deleteProfileImage(Authentication auth){
         try{

@@ -36,4 +36,12 @@ public class PostEntity {
     private PostEntity originalPost;
 
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    public void setLikeCount(int likeCount){
+        this.likeCount = Math.max(0, likeCount);
+    }
+
+    public void setRepostCount(int repostCount){
+        this.repostCount = Math.max(0, repostCount);
+    }
 }

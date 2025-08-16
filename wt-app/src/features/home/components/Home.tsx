@@ -16,7 +16,7 @@ const Home: React.FC = () => {
     loading,
     error,
     hasMore,
-    getPosts,
+    getFeedPosts,
     createPost,
     toggleLike,
     toggleRepost,
@@ -26,7 +26,7 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     if (isInitialized && isAuthenticated && !authLoading) {
-      getPosts(0, 10);
+      getFeedPosts(0, 10);
     }
   }, [isInitialized, isAuthenticated, authLoading]);
 
@@ -227,7 +227,7 @@ const Home: React.FC = () => {
         <section className="load-more-section">
           <div className="load-more-container">
             <button
-              onClick={() => getPosts(posts.length / 10, 10)}
+              onClick={() => getFeedPosts(posts.length / 10, 10)}
               className="load-more-btn"
               aria-label="더 많은 게시글 보기"
             >

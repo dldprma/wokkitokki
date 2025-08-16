@@ -1,36 +1,10 @@
-export interface Post {
-  id: number;
-  content: string;
-  imgUrl?: string;
-  authorName: string;
-  authorUsername: string;
-  authorProfileImg?: string;
-  likeCount: number;
-  repostCount: number;
-  isLiked: boolean;
-  isReposted: boolean;
-  createdAt: string;
-  originalPost?: Post; // 리포스트인 경우
-}
+// 통합된 postTypes에서 필요한 타입들을 re-export
+export type {
+  Post,
+  CreatePostData,
+  PostResponse,
+  HomeState,
+} from "../../post/type/postTypes";
 
-export interface CreatePostData {
-  content: string;
-  imgUrl?: string;
-}
-
-export interface HomeState {
-  posts: Post[];
-  loading: boolean;
-  error: string | null;
-  hasMore: boolean;
-  page: number;
-}
-
-export interface PostResponse {
-  content: Post[];
-  totalPages: number;
-  totalElements: number;
-  size: number;
-  number: number;
-  hasNext: boolean;
-}
+// 기존 homeTypes의 다른 타입들이 있다면 여기에 추가
+// 현재는 모든 포스트 관련 타입이 postTypes로 통합되었으므로 re-export만 수행

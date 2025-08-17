@@ -20,12 +20,7 @@ export const useHome = () => {
     // homeSlice 상태
     ...home,
     getPosts,
-    // postSlice 상태 (피드 포스트, 로딩, 에러 등)
-    posts: post.feedPosts,
-    loading: post.feedLoading,
-    error: post.feedError,
-    hasMore: post.feedHasMore,
-    // 통합된 포스트 기능 제공 (createPost, toggleLike, toggleRepost, getFeedPosts 포함)
+    // 통합된 포스트 기능 제공 (createPost, toggleLike, toggleRepost, getFeedPosts, feedPosts 등 포함)
     ...postActions,
   };
 };

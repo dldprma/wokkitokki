@@ -4,14 +4,14 @@ import "../../../css/ProfileImage.css";
 interface ProfileImageProps {
   imageUrl?: string;
   username: string;
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
   className?: string;
 }
 
 const ProfileImage: React.FC<ProfileImageProps> = ({
   imageUrl,
   username,
-  size = "md",
+  size = "lg",
   className = "",
 }) => {
   const getInitials = (name: string) => {
@@ -29,6 +29,8 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
         return "profile-image-sm";
       case "lg":
         return "profile-image-lg";
+      case "xl":
+        return "profile-image-xl";
       default:
         return "profile-image-md";
     }

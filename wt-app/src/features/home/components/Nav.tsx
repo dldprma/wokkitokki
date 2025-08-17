@@ -80,22 +80,6 @@ const Nav: React.FC = () => {
         </button>
       </div>
 
-      {user && (
-        <div className="nav-user-section">
-          <div className="nav-user-info">
-            <ProfileImage
-              imageUrl={user.profileImage}
-              username={user.username}
-              size="md"
-              className="nav-user-avatar"
-            />
-            <div className="nav-user-details">
-              <div className="nav-user-username">{user.fullName}</div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {isProfilePage && (
         <div className="mt-4">
           <button onClick={() => logout()} className="nav-logout-btn">

@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -112,14 +113,16 @@ public class UserController {
 
     // 내 프로필 사진 변경
     @PostMapping("/profile/image")
-    public ResponseEntity<Map<String, String>> uploadProfileImg(Authentication auth, @RequestParam("file") MultipartFile file){
+    public ResponseEntity<Map<String, String>> uploadProfileImg(Authentication auth, @RequestParam("image") MultipartFile file){
         try{
             Long userId = userService.getUserIdByUsername(auth.getName());
             String imgUrl = userService.uploadProfileImage(userId, file);
 
             return ResponseEntity.ok(Map.of("message","프로필 사진이 변경되었습니다", "imageUrl", imgUrl));
         }catch (Exception e){
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 

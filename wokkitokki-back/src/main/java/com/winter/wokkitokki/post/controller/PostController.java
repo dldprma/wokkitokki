@@ -57,13 +57,13 @@ public class PostController {
     @PostMapping
     public ResponseEntity<PostResponseDto> createPost(
             Authentication auth,
-            @RequestParam(value = "content") String content,
+            @RequestParam(value = "content", required = false) String content,
             @RequestParam(value = "image", required = false) MultipartFile image) {
         try {
             Long userId = userService.getUserIdByUsername(auth.getName());
 
             PostCreateRequestDto requestDto = new PostCreateRequestDto();
-            requestDto.setContent(content);
+            requestDto.setContent(content != null ? content : "");
 
             // 이미지가 있으면 업로드 후 URL 설정
             if (image != null && !image.isEmpty()) {
@@ -74,6 +74,7 @@ public class PostController {
             PostResponseDto post = postService.createPost(userId, requestDto);
             return ResponseEntity.ok(post);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }

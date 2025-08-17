@@ -23,6 +23,9 @@ const Home: React.FC = () => {
   } = useHome();
   const { user: profileUser } = useUser();
   const [newPostContent, setNewPostContent] = useState("");
+  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string>("");
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (isInitialized && isAuthenticated && !authLoading) {
@@ -31,14 +34,64 @@ const Home: React.FC = () => {
   }, [isInitialized, isAuthenticated, authLoading]);
 
   const handleCreatePost = async () => {
-    if (!newPostContent.trim()) return;
+    if (!newPostContent.trim() && !selectedImage) return;
 
     try {
-      await createPost({ content: newPostContent });
+      const result = await createPost({
+        content: newPostContent,
+        imgUrl: selectedImage || undefined,
+      });
+
       setNewPostContent("");
+      setSelectedImage(null);
+      setImagePreview("");
+
+      // 피드 새로고침
+      getFeedPosts(0, 10);
     } catch (error) {
-      console.error("게시글 작성 실패:", error);
+      alert("게시글 작성에 실패했습니다. 다시 시도해주세요.");
     }
+  };
+
+  // 이미지 선택 처리
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // 파일 크기 검증 (5MB 이하)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("이미지 크기는 5MB 이하여야 합니다.");
+        return;
+      }
+
+      // 파일 타입 검증
+      if (!file.type.startsWith("image/")) {
+        alert("이미지 파일만 첨부할 수 있습니다.");
+        return;
+      }
+
+      setSelectedImage(file);
+
+      // 이미지 미리보기 생성
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // 이미지 제거
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // 이미지 첨부 버튼 클릭
+  const handleImageButtonClick = () => {
+    fileInputRef.current?.click();
   };
 
   const handleLike = async (postId: number) => {
@@ -98,30 +151,51 @@ const Home: React.FC = () => {
                 rows={3}
                 aria-label="새 게시글 작성"
               />
-              <div className="new-post-actions">
-                <div className="new-post-media-buttons">
-                  <button className="new-post-media-btn" aria-label="사진 첨부">
-                    📷
-                  </button>
+
+              {/* 이미지 미리보기 */}
+              {imagePreview && (
+                <div className="image-preview-container">
+                  <img
+                    src={imagePreview}
+                    alt="이미지 미리보기"
+                    className="image-preview"
+                  />
                   <button
-                    className="new-post-media-btn"
-                    aria-label="동영상 첨부"
+                    onClick={handleRemoveImage}
+                    className="remove-image-button"
+                    aria-label="이미지 제거"
                   >
-                    🎬
-                  </button>
-                  <button className="new-post-media-btn" aria-label="이모티콘">
-                    😊
+                    ✕
                   </button>
                 </div>
+              )}
+
+              {/* 이미지 첨부 버튼과 게시글 작성 버튼 */}
+              <div className="new-post-actions">
+                <button
+                  onClick={handleImageButtonClick}
+                  className="image-attach-button"
+                  aria-label="이미지 첨부"
+                >
+                  📷
+                </button>
                 <button
                   onClick={handleCreatePost}
-                  disabled={!newPostContent.trim()}
-                  className="new-post-submit-btn"
-                  aria-label="게시글 작성"
+                  disabled={!newPostContent.trim() && !selectedImage}
+                  className="post-submit-button"
                 >
-                  게시하기
+                  게시글 작성
                 </button>
               </div>
+
+              {/* 숨겨진 파일 입력 */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleImageSelect}
+                style={{ display: "none" }}
+              />
             </div>
           </div>
         </article>

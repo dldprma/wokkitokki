@@ -201,9 +201,9 @@ export const togglePostRepost = createAsyncThunk(
 // 포스트 이미지 업로드
 export const uploadImageForPost = createAsyncThunk(
   "post/uploadImage",
-  async (file: File, { rejectWithValue }) => {
+  async (image: File, { rejectWithValue }) => {
     try {
-      const response = await uploadPostImage(file);
+      const response = await uploadPostImage(image);
       return response;
     } catch (err: any) {
       return rejectWithValue(

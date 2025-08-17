@@ -15,6 +15,8 @@ export interface User {
   username: string;
   email: string;
   fullName: string;
+  bio?: string; // 바이오 정보 (선택적)
+  profileImgUrl?: string; // 프로필 이미지 URL (선택적)
 }
 
 export interface AuthResponse {
@@ -23,6 +25,8 @@ export interface AuthResponse {
   username: string;
   email: string;
   fullName: string;
+  bio?: string; // 바이오 정보 (선택적)
+  profileImgUrl?: string; // 프로필 이미지 URL (선택적)
 }
 
 export interface AuthState {

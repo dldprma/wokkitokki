@@ -146,3 +146,75 @@
 .load-more-btn {
   @apply bg-gray-100 text-dark-500 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors;
 }
+
+/* 이미지 미리보기 */
+.image-preview-container {
+  position: relative;
+  margin: 10px 0;
+  display: inline-block;
+}
+
+.image-preview {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.remove-image-button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.remove-image-button:hover {
+  background: #dc2626;
+}
+
+/* 이미지 첨부 버튼 */
+.image-attach-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.image-attach-button:hover {
+  background-color: #f3f4f6;
+}
+
+/* 게시글 작성 버튼 */
+.post-submit-button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.post-submit-button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.post-submit-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}

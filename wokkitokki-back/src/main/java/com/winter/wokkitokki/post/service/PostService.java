@@ -34,9 +34,12 @@ public class PostService {
     public PostResponseDto createPost(Long userId, PostCreateRequestDto requestDto){
         UserEntity user = userRepository.findById(userId).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // 내용이 비었는지 확인
-        if(requestDto.getContent()==null || requestDto.getContent().trim().isEmpty()){
-            throw new RuntimeException("게시글 내용을 입력해주세요.");
+        // 내용과 이미지 둘 다 없으면 에러
+        boolean hasContent = requestDto.getContent() != null && !requestDto.getContent().trim().isEmpty();
+        boolean hasImage = requestDto.getImgUrl() != null && !requestDto.getImgUrl().trim().isEmpty();
+
+        if (!hasContent && !hasImage) {
+            throw new RuntimeException("게시글 내용 또는 이미지를 입력해주세요.");
         }
 
         // 내용 길이 제한
@@ -45,7 +48,7 @@ public class PostService {
         }
 
         PostEntity post = new PostEntity();
-        post.setContent(requestDto.getContent().trim());
+        post.setContent(hasContent ? requestDto.getContent().trim() : "");
         post.setImgUrl(requestDto.getImgUrl());
         post.setUser(user);
         post.setLikeCount(0);
@@ -218,29 +221,46 @@ public class PostService {
             throw new RuntimeException("JPG, JPEG, PNG 파일만 업로드 가능합니다.");
         }
 
-        // 파일 크기 검증 (5MB)
-        if (file.getSize() > 5 * 1024 * 1024) {
-            throw new RuntimeException("파일 크기는 5MB 이하로 해주세요");
+        // 파일 크기 검증 (10MB)
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw new RuntimeException("파일 크기는 10MB 이하로 해주세요");
         }
 
         try {
-            // uploads 폴더가 없으면 만들기
-            File uploadDir = new File("uploads/posts");
+            // 프론트엔드 public/uploads 폴더에 저장
+            String projectRoot = System.getProperty("user.dir");
+            String frontendPath = projectRoot.replace("wokkitokki-back", "wt-app");
+            File uploadDir = new File(frontendPath, "public/uploads/posts");
+
+            System.out.println("=== 프론트엔드 폴더에 이미지 업로드 ===");
+            System.out.println("백엔드 프로젝트 루트: " + projectRoot);
+            System.out.println("프론트엔드 경로: " + frontendPath);
+            System.out.println("업로드 디렉토리: " + uploadDir.getAbsolutePath());
+
+            // 디렉토리가 없으면 생성
             if (!uploadDir.exists()) {
-                uploadDir.mkdirs();
+                boolean created = uploadDir.mkdirs();
+                System.out.println("디렉토리 생성 결과: " + created);
             }
 
             // 파일 이름 만들기 (UUID 사용)
             String filename = UUID.randomUUID().toString() + extension;
+            System.out.println("생성된 파일명: " + filename);
 
             // 파일 저장
             File saveFile = new File(uploadDir, filename);
-            file.transferTo(saveFile);
+            System.out.println("전체 파일 경로: " + saveFile.getAbsolutePath());
 
+            file.transferTo(saveFile);
+            System.out.println("파일 업로드 성공!");
+
+            // 프론트엔드에서 접근 가능한 URL 반환
             return "/uploads/posts/" + filename;
 
         } catch (IOException e) {
-            throw new RuntimeException("파일 업로드에 실패했습니다");
+            System.err.println("파일 업로드 실패: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage());
         }
     }
 

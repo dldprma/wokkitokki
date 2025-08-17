@@ -8,7 +8,13 @@ import {
   uploadProfileImage,
   getUserProfile,
 } from "../api/userApi";
-import type { UserState, UpdateProfileData } from "../types/userTypes";
+import type { UserProfile, UpdateProfileData } from "../types/userTypes";
+
+interface UserState {
+  user: UserProfile | null;
+  loading: boolean;
+  error: string | null;
+}
 
 const initialState: UserState = {
   user: null,
@@ -58,13 +64,9 @@ export const updateUserProfile = createAsyncThunk(
 // 프로필 이미지 업로드
 export const uploadUserProfileImage = createAsyncThunk(
   "user/uploadProfileImage",
-  async (file: File, { rejectWithValue, dispatch }) => {
+  async (file: File, { rejectWithValue }) => {
     try {
       const res = await uploadProfileImage(file);
-
-      // 프로필 이미지 URL로 프로필 업데이트
-      await dispatch(updateUserProfile({ profileImage: res.imageUrl }));
-
       return res;
     } catch (err: any) {
       return rejectWithValue(
@@ -128,9 +130,13 @@ const userSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(uploadUserProfileImage.fulfilled, (state) => {
+      .addCase(uploadUserProfileImage.fulfilled, (state, action) => {
         state.loading = false;
         state.error = null;
+        // 프로필 이미지 URL 업데이트
+        if (state.user && action.payload?.imageUrl) {
+          state.user.profileImgUrl = action.payload.imageUrl;
+        }
       })
       .addCase(uploadUserProfileImage.rejected, (state, action) => {
         state.loading = false;

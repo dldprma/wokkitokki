@@ -10,8 +10,6 @@ type TabType = "photos" | "posts" | "reels";
 const ProfilePosts: React.FC = () => {
   const [activeTab, setActiveTab] = useState<TabType>("photos");
   const [currentPage, setCurrentPage] = useState(0);
-  const [showProfileImageModal, setShowProfileImageModal] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<string>("");
 
   const {
     profilePosts,
@@ -78,19 +76,21 @@ const ProfilePosts: React.FC = () => {
           key={photo.id}
           className="flex-shrink-0 w-48 h-48 bg-gray-200 overflow-hidden relative group cursor-pointer rounded-lg"
           onClick={() => {
-            setSelectedImage(photo.imgUrl || "");
-            setShowProfileImageModal(true);
+            // 글 상세보기로 이동 (임시로 alert로 표시)
+            alert(`게시글 상세보기: ${photo.content || "이미지 게시글"}`);
+            // TODO: 실제로는 게시글 상세 페이지로 이동
+            // navigate(`/post/${photo.id}`);
           }}
         >
           <img
             src={photo.imgUrl}
-            alt="Profile photo"
+            alt="Post image"
             className="w-full h-full object-cover"
           />
           {/* 호버 시 오버레이 */}
           <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
             <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white text-sm font-medium">
-              프로필로 설정
+              클릭하여 상세보기
             </div>
           </div>
         </div>
@@ -233,6 +233,33 @@ const ProfilePosts: React.FC = () => {
     }
   };
 
+  // 탭별 제목과 설명 텍스트
+  const getTabTitle = () => {
+    switch (activeTab) {
+      case "photos":
+        return "사진";
+      case "posts":
+        return "게시글";
+      case "reels":
+        return "릴스";
+      default:
+        return "";
+    }
+  };
+
+  const getTabDescription = () => {
+    switch (activeTab) {
+      case "photos":
+        return "첫 번째 사진을 업로드해보세요!";
+      case "posts":
+        return "첫 번째 게시글을 작성해보세요!";
+      case "reels":
+        return "첫 번째 동영상을 업로드해보세요!";
+      default:
+        return "";
+    }
+  };
+
   // 좋아요 토글 처리
   const handleLikeToggle = async (postId: number) => {
     try {
@@ -307,19 +334,9 @@ const ProfilePosts: React.FC = () => {
                 : "📹"}
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
-              {activeTab === "photos"
-                ? "아직 사진이 없습니다"
-                : activeTab === "posts"
-                ? "아직 게시글이 없습니다"
-                : "아직 동영상이 없습니다"}
+              아직 {getTabTitle()}이 없습니다
             </h3>
-            <p className="text-gray-600">
-              {activeTab === "photos"
-                ? "첫 번째 사진을 업로드해보세요!"
-                : activeTab === "posts"
-                ? "첫 번째 게시글을 작성해보세요!"
-                : "첫 번째 동영상을 업로드해보세요!"}
-            </p>
+            <p className="text-gray-600">{getTabDescription()}</p>
           </div>
         ) : (
           <>
@@ -341,60 +358,7 @@ const ProfilePosts: React.FC = () => {
         )}
       </div>
 
-      {/* 프로필 이미지 변경 모달 */}
-      {showProfileImageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">프로필 이미지 변경</h3>
-              <button
-                onClick={() => setShowProfileImageModal(false)}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                ✕
-              </button>
-            </div>
 
-            <div className="text-center mb-6">
-              <img
-                src={selectedImage}
-                alt="선택된 이미지"
-                className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
-              />
-              <p className="text-gray-600">
-                이 이미지를 프로필 이미지로 설정하시겠습니까?
-              </p>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => setShowProfileImageModal(false)}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                onClick={async () => {
-                  try {
-                    // 이미지 URL을 File 객체로 변환 (실제로는 다른 방법 필요)
-                    // 여기서는 간단한 예시로 처리
-                    await uploadProfileImage(selectedImage);
-                    setShowProfileImageModal(false);
-                    // 성공 메시지 표시
-                    alert("프로필 이미지가 변경되었습니다!");
-                  } catch (error) {
-                    console.error("프로필 이미지 변경 실패:", error);
-                    alert("프로필 이미지 변경에 실패했습니다.");
-                  }
-                }}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-              >
-                설정하기
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

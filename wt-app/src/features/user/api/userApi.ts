@@ -19,7 +19,7 @@ export const uploadProfileImage = async (
   const formData = new FormData();
   formData.append("image", file);
 
-  const response = await api.post("/api/users/upload-profile-image", formData, {
+  const response = await api.post("/api/users/profile/image", formData, {
     headers: {
       "Content-Type": "multipart/form-data",
     },

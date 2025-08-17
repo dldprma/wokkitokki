@@ -16,8 +16,8 @@ export const useUser = () => {
   // 통합된 포스트 기능 사용
   const postActions = usePost();
 
-  const getProfile = async () => {
-    return await dispatch(fetchUserProfile());
+  const getProfile = async (username: string) => {
+    return await dispatch(fetchUserProfile(username));
   };
 
   const updateProfile = async (data: UpdateProfileData) => {
@@ -25,7 +25,8 @@ export const useUser = () => {
   };
 
   const uploadProfileImage = async (file: File) => {
-    return await dispatch(uploadUserProfileImage(file));
+    const result = await dispatch(uploadUserProfileImage(file));
+    return result;
   };
 
   return {

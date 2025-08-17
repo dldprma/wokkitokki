@@ -171,6 +171,11 @@ const authSlice = createSlice({
       state.accessToken = null;
       state.isAuthenticated = false;
     },
+    updateProfileImage: (state, action: PayloadAction<string>) => {
+      if (state.user) {
+        state.user.profileImgUrl = action.payload;
+      }
+    },
   },
   extraReducers: (builder) => {
     // 회원가입
@@ -270,5 +275,6 @@ export const {
   setInitialized,
   setAccessToken,
   clearUser,
+  updateProfileImage,
 } = authSlice.actions;
 export default authSlice.reducer;

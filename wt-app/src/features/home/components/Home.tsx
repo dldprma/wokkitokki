@@ -34,15 +34,6 @@ const Home: React.FC = () => {
     }
   }, [isInitialized, isAuthenticated, authLoading]);
 
-  // 디버깅: 피드 데이터 확인
-  useEffect(() => {
-    if (feedPosts.length > 0) {
-      console.log("Home - 피드 데이터:", feedPosts);
-      console.log("첫 번째 게시글:", feedPosts[0]);
-      console.log("첫 번째 게시글의 imgUrl:", feedPosts[0]?.imgUrl);
-    }
-  }, [feedPosts]);
-
   const handleCreatePost = async () => {
     if (!newPostContent.trim() && !selectedImage) return;
 

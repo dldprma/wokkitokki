@@ -107,9 +107,12 @@ const ProfilePosts: React.FC = () => {
           className="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow"
         >
           <div className="flex items-start space-x-3">
-            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
-              {post.authorName.charAt(0)}
-            </div>
+            <ProfileImage
+              imageUrl={post.authorProfileImg}
+              username={post.authorUsername}
+              size="md"
+              className="w-10 h-10 flex-shrink-0"
+            />
             <div className="flex-1">
               <div className="flex items-center space-x-2 mb-2">
                 <span className="font-semibold text-gray-900">
@@ -357,8 +360,6 @@ const ProfilePosts: React.FC = () => {
           </>
         )}
       </div>
-
-
     </div>
   );
 };

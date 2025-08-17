@@ -1,13 +1,15 @@
 import React, { useEffect, useCallback, useState } from "react";
-import { useAppSelector } from "../../../store/hooks";
+import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { useUser } from "../hooks/useUser";
 import { usePost } from "../../post/hooks/usePost";
 import ProfilePosts from "./ProfilePosts";
 import ProfileImage from "./ProfileImage";
 import { settingAccessToken } from "../../../utils/axios";
 import EditProfile from "./EditProfile";
+import { updateProfileImage } from "../../auth/store/authSlice";
 
 const Profile: React.FC = () => {
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const { isAuthenticated, accessToken } = useAppSelector(
     (state) => state.auth
@@ -48,9 +50,9 @@ const Profile: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // 파일 크기 검증 (5MB 이하)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("이미지 크기는 5MB 이하여야 합니다.");
+    // 파일 크기 검증 (10MB 이하)
+    if (file.size > 10 * 1024 * 1024) {
+      alert("이미지 크기는 10MB 이하여야 합니다.");
       return;
     }
 
@@ -62,14 +64,50 @@ const Profile: React.FC = () => {
 
     try {
       if (username) {
-        await uploadProfileImage(file);
-        // 프로필 데이터 새로고침
-        getProfile(username);
-        alert("프로필 이미지가 변경되었습니다!");
+        // 프로필 이미지 업로드
+        const result = await uploadProfileImage(file);
+
+        // 성공 시 auth 상태의 user.profileImgUrl 즉시 업데이트
+        if (result && result.payload && (result.payload as any).imageUrl) {
+          const newImageUrl = (result.payload as any).imageUrl;
+
+          // Redux auth 상태 즉시 업데이트
+          dispatch(updateProfileImage(newImageUrl));
+
+          // localStorage의 user 정보 업데이트
+          const storedUser = localStorage.getItem("user");
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            userData.profileImgUrl = newImageUrl;
+            localStorage.setItem("user", JSON.stringify(userData));
+          }
+        }
+
+        // 성공 시 프로필 데이터 새로고침
+        try {
+          await getProfile(username);
+
+          // 프로필 포스트 데이터도 새로고침 (프로필 이미지 업데이트를 위해)
+          await getProfilePosts(0, 10, username);
+          await getProfilePhotos(0, 12, username);
+          await getProfileReels(0, 10, username);
+
+          alert("프로필 이미지가 변경되었습니다!");
+        } catch (refreshError) {
+          console.error("데이터 새로고침 에러:", refreshError);
+          // 이미지 업로드는 성공했으므로 성공 메시지 표시
+          alert(
+            "프로필 이미지가 변경되었습니다! (데이터 새로고침에 일부 문제가 있을 수 있습니다)"
+          );
+        }
       }
-    } catch (error) {
-      console.error("프로필 이미지 변경 실패:", error);
-      alert("프로필 이미지 변경에 실패했습니다.");
+    } catch (error: any) {
+      console.error("프로필 이미지 변경 에러:", error);
+      const errorMessage =
+        error?.payload ||
+        error?.message ||
+        "프로필 이미지 변경에 실패했습니다.";
+      alert(errorMessage);
     }
 
     // 파일 입력 초기화
@@ -151,17 +189,17 @@ const Profile: React.FC = () => {
         {/* 프로필 헤더 */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center space-x-6">
-            {/* 프로필 이미지 - 클릭 시 파일 선택으로 변경 */}
+            {/* 프로필 이미지 - 제일 왼쪽에 300px 크기로 배치 */}
             <div className="relative">
               <ProfileImage
                 imageUrl={
-                  profileUser?.profileImgUrl || (user as any)?.profileImgUrl
+                  (user as any)?.profileImgUrl || profileUser?.profileImgUrl
                 }
                 username={
-                  profileUser?.username || (user as any)?.username || ""
+                  (user as any)?.username || profileUser?.username || ""
                 }
-                size="lg"
-                className="flex-shrink-0 w-32 h-32 cursor-pointer hover:opacity-80 transition-opacity"
+                size="xl"
+                className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
               />
               {/* 현재 사용자일 때만 프로필 이미지 변경 가능 */}
               {(!profileUser ||
@@ -170,14 +208,14 @@ const Profile: React.FC = () => {
                   type="file"
                   accept="image/*"
                   onChange={handleProfileImageChange}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  className="absolute inset-0 w-full h-[300px] opacity-0 cursor-pointer"
                   title="프로필 이미지 변경"
                 />
               )}
             </div>
 
             {/* 사용자 정보 */}
-            <div className="flex-1 ml-6">
+            <div className="flex-1">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-gray-900">
                   {profileUser?.fullName || (user as any)?.fullName || "사용자"}
@@ -202,12 +240,12 @@ const Profile: React.FC = () => {
                         /* 팔로우/언팔로우 로직 */
                       }}
                       className={`px-4 py-2 rounded-lg transition-colors ${
-                        profileUser?.following
+                        profileUser?.isFollowing
                           ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
                           : "bg-blue-500 text-white hover:bg-blue-600"
                       }`}
                     >
-                      {profileUser?.following ? "언팔로우" : "팔로우"}
+                      {profileUser?.isFollowing ? "언팔로우" : "팔로우"}
                     </button>
                   )}
               </div>
@@ -239,7 +277,7 @@ const Profile: React.FC = () => {
               className="text-center hover:text-blue-600 transition-colors cursor-pointer"
             >
               <div className="text-lg font-semibold text-gray-900">
-                {profileUser?.followersCount || 0}
+                {profileUser?.followerCount || 0}
               </div>
               <div className="text-sm text-gray-600">팔로워</div>
             </button>

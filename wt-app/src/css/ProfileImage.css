@@ -14,6 +14,10 @@
   @apply w-12 h-12;
 }
 
+.profile-image-xl {
+  @apply w-[150px] h-[150px];
+}
+
 .profile-image-fallback {
   @apply rounded-full bg-blue-500 flex items-center justify-center;
 }

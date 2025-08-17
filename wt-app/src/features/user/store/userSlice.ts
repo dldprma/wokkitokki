@@ -19,9 +19,9 @@ const initialState: UserState = {
 // 사용자 프로필 조회
 export const fetchUserProfile = createAsyncThunk(
   "user/fetchProfile",
-  async (_, { rejectWithValue }) => {
+  async (username: string, { rejectWithValue }) => {
     try {
-      const response = await getUserProfile();
+      const response = await getUserProfile(username);
       return response;
     } catch (err: any) {
       return rejectWithValue(

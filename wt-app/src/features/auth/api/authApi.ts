@@ -17,9 +17,7 @@ export const checkEmailDuplicate = async (
 };
 
 export const register = async (data: RegisterData): Promise<AuthResponse> => {
-  const response = await api.post("/api/auth/register", data, {
-    withCredentials: true,
-  });
+  const response = await api.post("/api/auth/register", data);
   return response.data;
 };
 

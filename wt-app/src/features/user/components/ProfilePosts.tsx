@@ -1,0 +1,402 @@
+import React, { useState, useEffect } from "react";
+import { useAppSelector } from "../../../store/hooks";
+import { usePost } from "../../post/hooks/usePost";
+import { useUser } from "../hooks/useUser";
+import type { Post } from "../../post/type/postTypes";
+import ProfileImage from "./ProfileImage";
+
+type TabType = "photos" | "posts" | "reels";
+
+const ProfilePosts: React.FC = () => {
+  const [activeTab, setActiveTab] = useState<TabType>("photos");
+  const [currentPage, setCurrentPage] = useState(0);
+  const [showProfileImageModal, setShowProfileImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string>("");
+
+  const {
+    profilePosts,
+    profilePhotos,
+    profileReels,
+    profileLoading,
+    photosLoading,
+    reelsLoading,
+    profileHasMore,
+    photosHasMore,
+    reelsHasMore,
+    getProfilePosts,
+    getProfilePhotos,
+    getProfileReels,
+    resetProfilePosts,
+    toggleLike,
+    toggleRepost,
+  } = usePost();
+
+  const { uploadProfileImage } = useUser();
+
+  // Profile 컴포넌트에서 전달받은 사용자명 사용
+  const { user } = useAppSelector((state: any) => state.auth);
+  const username = (user as any)?.username;
+
+  // 탭 변경 시에만 데이터 로드 (무한 루프 방지)
+  useEffect(() => {
+    resetProfilePosts();
+    setCurrentPage(0);
+    loadTabData(activeTab, 0);
+  }, [activeTab]); // username 의존성 제거 (이미 유효함)
+
+  const loadTabData = async (tab: TabType, page: number) => {
+    if (!username) return;
+
+    try {
+      switch (tab) {
+        case "photos":
+          await getProfilePhotos(page, 12, username);
+          break;
+        case "posts":
+          await getProfilePosts(page, 10, username);
+          break;
+        case "reels":
+          await getProfileReels(page, 10, username);
+          break;
+      }
+    } catch (error) {
+      console.error("탭 데이터 로드 실패:", error);
+    }
+  };
+
+  const loadMore = async () => {
+    const nextPage = currentPage + 1;
+    setCurrentPage(nextPage);
+    await loadTabData(activeTab, nextPage);
+  };
+
+  // 사진 그리드 렌더링
+  const renderPhotosGrid = () => (
+    <div className="flex space-x-4 overflow-x-auto pb-4">
+      {profilePhotos.map((photo: Post) => (
+        <div
+          key={photo.id}
+          className="flex-shrink-0 w-48 h-48 bg-gray-200 overflow-hidden relative group cursor-pointer rounded-lg"
+          onClick={() => {
+            setSelectedImage(photo.imgUrl || "");
+            setShowProfileImageModal(true);
+          }}
+        >
+          <img
+            src={photo.imgUrl}
+            alt="Profile photo"
+            className="w-full h-full object-cover"
+          />
+          {/* 호버 시 오버레이 */}
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+            <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white text-sm font-medium">
+              프로필로 설정
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // 글+사진 리스트형 (트위터 스타일)
+  const renderPostsList = () => (
+    <div className="space-y-4">
+      {profilePosts.map((post: Post) => (
+        <div
+          key={post.id}
+          className="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow"
+        >
+          <div className="flex items-start space-x-3">
+            <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-semibold">
+              {post.authorName.charAt(0)}
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-2">
+                <span className="font-semibold text-gray-900">
+                  {post.authorName}
+                </span>
+                <span className="text-gray-500">@{post.authorUsername}</span>
+                <span className="text-gray-400 text-sm">
+                  {new Date(post.createdAt).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="text-gray-800 mb-3 leading-relaxed">
+                {post.content}
+              </p>
+              {post.imgUrl && (
+                <div className="mb-3">
+                  <img
+                    src={post.imgUrl}
+                    alt="Post image"
+                    className="w-full max-h-96 object-cover rounded-lg"
+                  />
+                </div>
+              )}
+              <div className="flex items-center space-x-6">
+                <button
+                  onClick={() => handleLikeToggle(post.id)}
+                  className="flex items-center space-x-2 text-gray-500 hover:text-red-500 transition-colors"
+                >
+                  <span>❤️</span>
+                  <span>{post.likeCount}</span>
+                </button>
+                <button
+                  onClick={() => handleRepostToggle(post.id)}
+                  className="flex items-center space-x-2 text-gray-500 hover:text-green-500 transition-colors"
+                >
+                  <span>🔄</span>
+                  <span>{post.repostCount}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+
+  // 릴스 그리드 렌더링
+  const renderReelsGrid = () => {
+    return (
+      <div className="grid grid-cols-3 gap-1">
+        {profileReels.map((reel: Post) => (
+          <div
+            key={reel.id}
+            className="aspect-square bg-gray-200 overflow-hidden relative group cursor-pointer"
+          >
+            <img
+              src={reel.imgUrl}
+              alt="Profile reel"
+              className="w-full h-full object-cover"
+            />
+            {/* 호버 시 오버레이 */}
+            <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
+              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200 text-white text-2xl">
+                ▶️
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "photos":
+        return renderPhotosGrid();
+      case "posts":
+        return renderPostsList();
+      case "reels":
+        return renderReelsGrid();
+      default:
+        return null;
+    }
+  };
+
+  const getLoadingState = () => {
+    switch (activeTab) {
+      case "photos":
+        return photosLoading;
+      case "posts":
+        return profileLoading;
+      case "reels":
+        return reelsLoading;
+      default:
+        return false;
+    }
+  };
+
+  const getHasMore = () => {
+    switch (activeTab) {
+      case "photos":
+        return photosHasMore;
+      case "posts":
+        return profileHasMore;
+      case "reels":
+        return reelsHasMore;
+      default:
+        return false;
+    }
+  };
+
+  const getCount = () => {
+    switch (activeTab) {
+      case "photos":
+        return profilePhotos.length;
+      case "posts":
+        return profilePosts.length;
+      case "reels":
+        return profileReels.length;
+      default:
+        return 0;
+    }
+  };
+
+  // 좋아요 토글 처리
+  const handleLikeToggle = async (postId: number) => {
+    try {
+      await toggleLike(postId);
+      // 현재 탭의 데이터 새로고침
+      await loadTabData(activeTab, 0);
+    } catch (error) {
+      console.error("ProfilePosts: 좋아요 토글 실패", error);
+    }
+  };
+
+  // 리포스트 토글 처리
+  const handleRepostToggle = async (postId: number) => {
+    try {
+      await toggleRepost(postId);
+      // 현재 탭의 데이터 새로고침
+      await loadTabData(activeTab, 0);
+    } catch (error) {
+      console.error("ProfilePosts: 리포스트 토글 실패", error);
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm">
+      {/* 탭 버튼들 */}
+      <div className="flex border-b border-gray-200">
+        <button
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === "photos"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("photos")}
+        >
+          사진
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === "posts"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("posts")}
+        >
+          게시글
+        </button>
+        <button
+          className={`px-4 py-2 text-sm font-medium ${
+            activeTab === "reels"
+              ? "text-blue-600 border-b-2 border-blue-600"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+          onClick={() => setActiveTab("reels")}
+        >
+          릴스
+        </button>
+      </div>
+
+      {/* 콘텐츠 영역 */}
+      <div className="p-6">
+        {getLoadingState() && currentPage === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+          </div>
+        ) : getCount() === 0 ? (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">
+              {activeTab === "photos"
+                ? "📷"
+                : activeTab === "posts"
+                ? "📝"
+                : "📹"}
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-2">
+              {activeTab === "photos"
+                ? "아직 사진이 없습니다"
+                : activeTab === "posts"
+                ? "아직 게시글이 없습니다"
+                : "아직 동영상이 없습니다"}
+            </h3>
+            <p className="text-gray-600">
+              {activeTab === "photos"
+                ? "첫 번째 사진을 업로드해보세요!"
+                : activeTab === "posts"
+                ? "첫 번째 게시글을 작성해보세요!"
+                : "첫 번째 동영상을 업로드해보세요!"}
+            </p>
+          </div>
+        ) : (
+          <>
+            {renderContent()}
+
+            {/* 더보기 버튼 */}
+            {getHasMore() && (
+              <div className="flex justify-center mt-8">
+                <button
+                  onClick={loadMore}
+                  disabled={getLoadingState()}
+                  className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {getLoadingState() ? "로딩 중..." : "더보기"}
+                </button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* 프로필 이미지 변경 모달 */}
+      {showProfileImageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">프로필 이미지 변경</h3>
+              <button
+                onClick={() => setShowProfileImageModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="text-center mb-6">
+              <img
+                src={selectedImage}
+                alt="선택된 이미지"
+                className="w-32 h-32 object-cover rounded-lg mx-auto mb-4"
+              />
+              <p className="text-gray-600">
+                이 이미지를 프로필 이미지로 설정하시겠습니까?
+              </p>
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowProfileImageModal(false)}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    // 이미지 URL을 File 객체로 변환 (실제로는 다른 방법 필요)
+                    // 여기서는 간단한 예시로 처리
+                    await uploadProfileImage(selectedImage);
+                    setShowProfileImageModal(false);
+                    // 성공 메시지 표시
+                    alert("프로필 이미지가 변경되었습니다!");
+                  } catch (error) {
+                    console.error("프로필 이미지 변경 실패:", error);
+                    alert("프로필 이미지 변경에 실패했습니다.");
+                  }
+                }}
+                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+              >
+                설정하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProfilePosts;

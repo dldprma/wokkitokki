@@ -76,6 +76,7 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await login(data);
       const user = {
+        id: res.id, // 사용자 ID 추가
         username: res.username,
         email: res.email,
         fullName: res.fullName,
@@ -135,10 +136,12 @@ const authSlice = createSlice({
   reducers: {
     initializeAuth: (state) => {
       const storedUser = localStorage.getItem("user");
+
       if (storedUser) {
         state.user = JSON.parse(storedUser);
         state.isAuthenticated = true;
       }
+
       state.isInitialized = true;
     },
     setInitialized: (state) => {
@@ -194,6 +197,7 @@ const authSlice = createSlice({
         state.accessToken = action.payload.accessToken;
         state.isAuthenticated = true;
 
+        // axios 인터셉터에 토큰 설정
         settingAccessToken(action.payload.accessToken);
       })
       .addCase(loginUser.rejected, (state, action) => {
@@ -205,13 +209,14 @@ const authSlice = createSlice({
       .addCase(logoutUser.pending, (state) => {
         state.loading = true;
       })
-      .addCase(logoutUser.fulfilled, (state) => {
+      .addCase(logoutUser.fulfilled, (state, action) => {
         state.loading = false;
         state.user = null;
         state.accessToken = null;
         state.isAuthenticated = false;
         state.error = null;
 
+        // axios 인터셉터에서 토큰 제거
         clearAccessToken();
       })
       .addCase(logoutUser.rejected, (state) => {

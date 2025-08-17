@@ -80,6 +80,8 @@ export const loginUser = createAsyncThunk(
         username: res.username,
         email: res.email,
         fullName: res.fullName,
+        bio: res.bio, // 바이오 정보 추가
+        profileImgUrl: res.profileImgUrl, // 프로필 이미지 URL 추가
       };
       localStorage.setItem("user", JSON.stringify(user));
 

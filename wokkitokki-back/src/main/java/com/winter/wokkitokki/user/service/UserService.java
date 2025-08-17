@@ -149,10 +149,15 @@ public class UserService {
         }
 
         try{
-            File uploadDir = new File("uploads/profiles");
+            // 프론트엔드 public/uploads 폴더에 저장
+            String projectRoot = System.getProperty("user.dir");
+            String frontendPath = projectRoot.replace("wokkitokki-back", "wt-app");
+            File uploadDir = new File(frontendPath, "public/uploads/profiles");
+
             if(!uploadDir.exists()){
                 uploadDir.mkdirs();
             }
+
             // 파일 이름 생성
             String originalFilename = file.getOriginalFilename();
             String extension = originalFilename.substring(originalFilename.lastIndexOf("."));

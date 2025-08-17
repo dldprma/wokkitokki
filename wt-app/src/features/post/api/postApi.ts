@@ -33,12 +33,16 @@ export const createPost = async (data: CreatePostData): Promise<any> => {
     formData.append("image", data.imgUrl);
   }
 
-  const response = await api.post("/api/posts", formData, {
-    headers: {
-      "Content-Type": "multipart/form-data",
-    },
-  });
-  return response.data;
+  try {
+    const response = await api.post("/api/posts", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
 };
 
 // 게시글 수정

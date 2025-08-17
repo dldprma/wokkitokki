@@ -165,9 +165,11 @@ const Profile: React.FC = () => {
                 @{profileUser?.username || (user as any)?.username}
               </p>
 
-              {/* 바이오 */}
-              {profileUser?.bio && (
-                <p className="text-gray-700 mt-2">{profileUser.bio}</p>
+              {/* 바이오 - profileUser 또는 auth.user에서 가져오기 */}
+              {(profileUser?.bio || (user as any)?.bio) && (
+                <p className="text-gray-700 mt-2">
+                  {profileUser?.bio || (user as any)?.bio}
+                </p>
               )}
             </div>
           </div>

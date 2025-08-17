@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useHome } from "../hooks/useHome";
 import { useUser } from "../../user/hooks/useUser";
+import { usePost } from "../../post/hooks/usePost";
 import ProfileImage from "../../user/components/ProfileImage";
 import "../../../css/Home.css";
 import { useAppSelector } from "../../../store/hooks";
@@ -12,7 +13,6 @@ const Home: React.FC = () => {
     loading: authLoading,
   } = useAppSelector((state) => state.auth);
   const {
-    posts,
     loading,
     error,
     hasMore,
@@ -21,6 +21,7 @@ const Home: React.FC = () => {
     toggleLike,
     toggleRepost,
   } = useHome();
+  const { feedPosts } = usePost();
   const { user: profileUser } = useUser();
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -32,6 +33,15 @@ const Home: React.FC = () => {
       getFeedPosts(0, 10);
     }
   }, [isInitialized, isAuthenticated, authLoading]);
+
+  // 디버깅: 피드 데이터 확인
+  useEffect(() => {
+    if (feedPosts.length > 0) {
+      console.log("Home - 피드 데이터:", feedPosts);
+      console.log("첫 번째 게시글:", feedPosts[0]);
+      console.log("첫 번째 게시글의 imgUrl:", feedPosts[0]?.imgUrl);
+    }
+  }, [feedPosts]);
 
   const handleCreatePost = async () => {
     if (!newPostContent.trim() && !selectedImage) return;
@@ -137,7 +147,7 @@ const Home: React.FC = () => {
         <article className="new-post-container">
           <div className="new-post-content">
             <ProfileImage
-              imageUrl={profileUser?.profileImage}
+              imageUrl={profileUser?.profileImgUrl}
               username={profileUser?.username || ""}
               size="md"
               className="new-post-avatar"
@@ -204,7 +214,7 @@ const Home: React.FC = () => {
       {/* 게시글 목록 */}
       <section className="posts-section">
         <div className="posts-container">
-          {posts.map((post) => {
+          {feedPosts.map((post: any) => {
             return (
               <article key={post.id} className="post-card">
                 <div className="post-content">
@@ -229,6 +239,16 @@ const Home: React.FC = () => {
 
                     <div className="post-text-content">
                       <p className="post-text">{post.content}</p>
+                      {/* 이미지가 있는 경우 표시 */}
+                      {post.imgUrl && (
+                        <div className="post-image-container mt-3">
+                          <img
+                            src={post.imgUrl}
+                            alt="Post image"
+                            className="post-image w-full max-h-96 object-cover rounded-lg"
+                          />
+                        </div>
+                      )}
                     </div>
 
                     <footer className="post-actions">
@@ -301,7 +321,7 @@ const Home: React.FC = () => {
         <section className="load-more-section">
           <div className="load-more-container">
             <button
-              onClick={() => getFeedPosts(posts.length / 10, 10)}
+              onClick={() => getFeedPosts(feedPosts.length / 10, 10)}
               className="load-more-btn"
               aria-label="더 많은 게시글 보기"
             >

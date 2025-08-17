@@ -377,9 +377,9 @@ const postSlice = createSlice({
 
         // 데이터 검증 및 정규화
         const normalized = action.payload.content.map((p: any) => {
-          // 백엔드 데이터를 그대로 사용
           const normalizedPost = {
             ...p,
+            imgUrl: p.imgUrl || p.imageUrl || null, // imgUrl 또는 imageUrl 필드 사용
             likeCount: p.likeCount,
             repostCount: p.repostCount,
             isLiked: p.isLiked,

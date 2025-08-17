@@ -25,16 +25,8 @@ api.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401 || status === 403) {
+      // 토큰만 클리어하고 자동 리다이렉트는 비활성화
       clearAccessToken();
-      localStorage.removeItem("user");
-
-      // 로그인 페이지가 아닐 때만 리다이렉트
-      if (
-        window.location.pathname !== "/login" &&
-        window.location.pathname !== "/register"
-      ) {
-        window.location.href = "/login";
-      }
     }
 
     return Promise.reject(error);

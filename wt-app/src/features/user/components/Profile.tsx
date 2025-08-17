@@ -39,7 +39,42 @@ const Profile: React.FC = () => {
   } = usePost();
 
   // 사용자 관련 기능은 useUser에서 가져오기
-  const { user: profileUser, getProfile } = useUser();
+  const { user: profileUser, getProfile, uploadProfileImage } = useUser();
+
+  // 프로필 이미지 변경 처리
+  const handleProfileImageChange = async (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // 파일 크기 검증 (5MB 이하)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("이미지 크기는 5MB 이하여야 합니다.");
+      return;
+    }
+
+    // 파일 타입 검증
+    if (!file.type.startsWith("image/")) {
+      alert("이미지 파일만 선택할 수 있습니다.");
+      return;
+    }
+
+    try {
+      if (username) {
+        await uploadProfileImage(file);
+        // 프로필 데이터 새로고침
+        getProfile(username);
+        alert("프로필 이미지가 변경되었습니다!");
+      }
+    } catch (error) {
+      console.error("프로필 이미지 변경 실패:", error);
+      alert("프로필 이미지 변경에 실패했습니다.");
+    }
+
+    // 파일 입력 초기화
+    e.target.value = "";
+  };
 
   // 프로필 데이터 로드
   const loadProfileData = async () => {
@@ -116,14 +151,30 @@ const Profile: React.FC = () => {
         {/* 프로필 헤더 */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center space-x-6">
-            <ProfileImage
-              imageUrl={
-                profileUser?.profileImgUrl || (user as any)?.profileImgUrl
-              }
-              username={profileUser?.username || (user as any)?.username || ""}
-              size="lg"
-              className="flex-shrink-0 w-32 h-32"
-            />
+            {/* 프로필 이미지 - 클릭 시 파일 선택으로 변경 */}
+            <div className="relative">
+              <ProfileImage
+                imageUrl={
+                  profileUser?.profileImgUrl || (user as any)?.profileImgUrl
+                }
+                username={
+                  profileUser?.username || (user as any)?.username || ""
+                }
+                size="lg"
+                className="flex-shrink-0 w-32 h-32 cursor-pointer hover:opacity-80 transition-opacity"
+              />
+              {/* 현재 사용자일 때만 프로필 이미지 변경 가능 */}
+              {(!profileUser ||
+                profileUser?.username === (user as any)?.username) && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleProfileImageChange}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                  title="프로필 이미지 변경"
+                />
+              )}
+            </div>
 
             {/* 사용자 정보 */}
             <div className="flex-1 ml-6">

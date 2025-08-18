@@ -7,10 +7,16 @@ import {
   refreshUserToken,
   setInitialized,
 } from "./features/auth/store/authSlice";
+import { setStore } from "./utils/axios";
+import { store } from "./store/store";
 import RegisterPage from "./pages/RegisterPage";
 import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
-import UserPage from "./pages/UserPage";
+import SearchPage from "./pages/SearchPage";
+import UserProfilePage from "./pages/UserProfilePage";
+
+// axios에 Redux store 설정
+setStore(store);
 
 // 보호된 라우트 컴포넌트
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -88,10 +94,18 @@ function App() {
               }
             />
             <Route
-              path="/profile/*"
+              path="/search/"
               element={
                 <ProtectedRoute>
-                  <UserPage />
+                  <SearchPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/:username"
+              element={
+                <ProtectedRoute>
+                  <UserProfilePage />
                 </ProtectedRoute>
               }
             />

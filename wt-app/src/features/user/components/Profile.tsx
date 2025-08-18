@@ -1,13 +1,14 @@
-import React, { useEffect, useState } from "react";
-import { useAppDispatch, useAppSelector } from "../../../store/hooks";
-import { usePost } from "../../post/hooks/usePost";
+import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useAppSelector, useAppDispatch } from "../../../store/hooks";
+import { setUser } from "../store/userSlice";
+import * as userApi from "../api/userApi";
+import ProfilePosts from "./ProfilePosts";
 import ProfileImage from "./ProfileImage";
 import EditProfile from "./EditProfile";
 import { updateProfileImage } from "../../auth/store/authSlice";
-import { setUser } from "../store/userSlice";
 import type { UserProfile } from "../types/userTypes";
-import { useNavigate } from "react-router-dom";
-import * as userApi from "../api/userApi";
+import { usePost } from "../../post/hooks/usePost";
 import { settingAccessToken } from "../../../utils/axios";
 
 interface ProfileProps {
@@ -35,6 +36,9 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
   // 모달 상태
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [activeTab, setActiveTab] = useState<"posts" | "photos" | "reels">(
+    "posts"
+  );
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   // 팔로워/팔로잉 데이터 상태
@@ -70,61 +74,29 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
   // profileUsername이 변경될 때마다 프로필 데이터 로드
   useEffect(() => {
     if (profileUsername && currentUsername && isAuthenticated && accessToken) {
-      console.log("프로필 로드 조건 확인:", {
-        profileUsername,
-        currentUsername,
-        isAuthenticated,
-        accessToken: !!accessToken,
-      });
       loadProfileData();
-    } else {
-      console.log("프로필 로드 조건 불충족:", {
-        profileUsername,
-        currentUsername,
-        isAuthenticated,
-        accessToken: !!accessToken,
-      });
     }
   }, [profileUsername, currentUsername, isAuthenticated, accessToken]);
 
   // 프로필 데이터 로드 함수
   const loadProfileData = async () => {
     if (!profileUsername || !currentUsername) {
-      console.warn("프로필 데이터 로드 중단: 필수 파라미터 누락", {
-        profileUsername,
-        currentUsername,
-      });
       return;
     }
 
     try {
-      console.log("getUserProfile 호출 파라미터:", {
-        profileUsername,
-        currentUsername,
-      });
-
       // 사용자 프로필 정보 가져오기 (현재 사용자 정보 포함)
       const profileData = await userApi.getUserProfile(
         profileUsername,
         currentUsername
       );
-      console.log("프로필 데이터 로드 결과:", profileData);
 
       // Redux store 업데이트
       dispatch(setUser(profileData));
-      console.log("Redux store 업데이트 완료 (loadProfileData)");
 
       // 로컬 상태도 업데이트
       setLocalIsFollowing(profileData.isFollowing || false);
       setLocalFollowerCount(profileData.followersCount || 0);
-
-      console.log("로컬 상태 업데이트 (loadProfileData):", {
-        isFollowing:
-          profileData.isFollowing !== undefined
-            ? profileData.isFollowing
-            : "기존 상태 유지",
-        followerCount: profileData.followersCount,
-      });
 
       // 포스트 데이터 가져오기
       await getProfilePosts(0, 10, profileUsername);
@@ -142,20 +114,14 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     try {
       // 팔로우 토글 API 호출
       const result = await userApi.toggleFollow(profileUsername);
-      console.log("팔로우 토글 결과:", result);
 
       // Redux store를 즉시 업데이트
       if (result.targetUserProfile) {
         dispatch(setUser(result.targetUserProfile));
-        console.log("Redux store 업데이트 완료");
 
         // 로컬 상태도 즉시 업데이트
         setLocalIsFollowing(result.isFollowing);
         setLocalFollowerCount(result.targetUserProfile.followersCount || 0);
-        console.log("로컬 상태 업데이트:", {
-          isFollowing: result.isFollowing,
-          followerCount: result.targetUserProfile.followersCount,
-        });
       }
     } catch (error) {
       console.error("팔로우/언팔로우 실패:", error);
@@ -383,66 +349,155 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
           </div>
         </div>
 
+        {/* 탭 */}
+        <div className="flex space-x-1 mt-6 border-b border-gray-200">
+          <button
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === "posts"
+                ? "bg-blue-500 text-white"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+            onClick={() => setActiveTab("posts")}
+          >
+            게시글 ({profileUser?.postCount || 0})
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === "photos"
+                ? "bg-blue-500 text-white"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+            onClick={() => setActiveTab("photos")}
+          >
+            사진 ({profileUser?.imagePostCount || 0})
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === "reels"
+                ? "bg-blue-500 text-white"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+            onClick={() => setActiveTab("reels")}
+          >
+            Reels
+          </button>
+        </div>
+
         {/* 프로필 포스트 */}
-        {profileUsername ? (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">게시글</h2>
-            {profileLoading ? (
-              <div className="text-center text-gray-500 py-8">로딩 중...</div>
-            ) : profilePosts.length > 0 ? (
-              <div className="space-y-4">
-                {profilePosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="border border-gray-200 rounded-lg p-4"
-                  >
-                    <div className="flex items-center space-x-3 mb-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-200">
-                        {post.authorProfileImg && (
-                          <img
-                            src={post.authorProfileImg}
-                            alt={post.authorName}
-                            className="w-8 h-8 rounded-full object-cover"
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <div className="font-medium text-gray-900">
-                          {post.authorName}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          @{post.authorUsername}
-                        </div>
-                      </div>
+        <div className="mt-6">
+          {profileLoading ? (
+            <div className="text-center text-gray-500 py-8">로딩 중...</div>
+          ) : activeTab === "posts" && profilePosts.length > 0 ? (
+            <div className="space-y-4">
+              {profilePosts.map((post) => (
+                <div
+                  key={post.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-200">
+                      {post.authorProfileImg && (
+                        <img
+                          src={post.authorProfileImg}
+                          alt={post.authorName}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      )}
                     </div>
-                    <p className="text-gray-800 mb-3">{post.content}</p>
-                    {post.imgUrl && (
-                      <img
-                        src={post.imgUrl}
-                        alt="포스트 이미지"
-                        className="w-full rounded-lg"
-                      />
-                    )}
-                    <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
-                      <span>❤️ {post.likeCount}</span>
-                      <span>🔄 {post.repostCount}</span>
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {post.authorName}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        @{post.authorUsername}
+                      </div>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                아직 게시글이 없습니다
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <div className="text-gray-600 text-center">
-              사용자 정보를 불러오는 중...
+                  <p className="text-gray-800 mb-3">{post.content}</p>
+                  {post.imgUrl && (
+                    <img
+                      src={post.imgUrl}
+                      alt="포스트 이미지"
+                      className="w-full rounded-lg"
+                    />
+                  )}
+                  <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
+                    <span>❤️ {post.likeCount}</span>
+                    <span>🔄 {post.repostCount}</span>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        )}
+          ) : activeTab === "photos" && profilePhotos.length > 0 ? (
+            <div className="grid grid-cols-3 gap-4">
+              {profilePhotos.map((photo) => (
+                <div
+                  key={photo.id}
+                  className="aspect-square bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => {
+                    // 사진 클릭 시 상세보기 (임시)
+                    alert(`사진 상세보기: ${photo.content || "이미지 게시글"}`);
+                  }}
+                >
+                  {photo.imgUrl && (
+                    <img
+                      src={photo.imgUrl}
+                      alt="사진"
+                      className="w-full h-full object-cover"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : activeTab === "reels" && profileReels.length > 0 ? (
+            <div className="space-y-4">
+              {profileReels.map((reel) => (
+                <div
+                  key={reel.id}
+                  className="border border-gray-200 rounded-lg p-4"
+                >
+                  <div className="flex items-center space-x-3 mb-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-200">
+                      {reel.authorProfileImg && (
+                        <img
+                          src={reel.authorProfileImg}
+                          alt={reel.authorName}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-medium text-gray-900">
+                        {reel.authorName}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        @{reel.authorUsername}
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-gray-800 mb-3">{reel.content}</p>
+                  {reel.imgUrl && (
+                    <img
+                      src={reel.imgUrl}
+                      alt="릴스 이미지"
+                      className="w-full rounded-lg"
+                    />
+                  )}
+                  <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
+                    <span>❤️ {reel.likeCount}</span>
+                    <span>🔄 {reel.repostCount}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 py-8">
+              {activeTab === "posts" && "아직 게시글이 없습니다"}
+              {activeTab === "photos" && "아직 사진이 없습니다"}
+              {activeTab === "reels" && "아직 Reels가 없습니다"}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 팔로워 모달 */}

@@ -7,6 +7,7 @@ import com.winter.wokkitokki.post.entity.RepostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
+import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class PostService {
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
     private final UserRepository userRepository;
+    private final SearchIndexService searchIndexService;
 
     // 게시글 작성
     @Transactional
@@ -43,7 +45,7 @@ public class PostService {
         }
 
         // 내용 길이 제한
-        if(requestDto.getContent().length() > 1000){
+        if(requestDto.getContent() != null && requestDto.getContent().length() > 1000){
             throw new RuntimeException("게시글은 1000자 이내로 작성해주세요.");
         }
 
@@ -55,6 +57,7 @@ public class PostService {
         post.setRepostCount(0);
 
         PostEntity savedPost = postRepository.save(post);
+        searchIndexService.indexPost(savedPost);
         return convertToResponseDto(savedPost, user);
     }
 
@@ -104,6 +107,7 @@ public class PostService {
 
         // 관련된 좋아요, 리포스트 데이터도 자동으로 삭제됨
         postRepository.delete(post);
+        searchIndexService.deletePostIndex(postId);
     }
 
     // 홈 피드 (팔로잉한 사람들 + 내 포스트)
@@ -144,6 +148,7 @@ public class PostService {
             int newCount = Math.max(0, currentCount -1);
             post.setLikeCount(newCount);
             postRepository.save(post);
+            searchIndexService.updatePostStats(postId);
 
             return new LikeResponseDto(false, post.getLikeCount());
         }else{
@@ -155,6 +160,7 @@ public class PostService {
             // 좋아요 증가
             post.setLikeCount(post.getLikeCount() + 1);
             postRepository.save(post);
+            searchIndexService.updatePostStats(postId);
 
             return new LikeResponseDto(true, post.getLikeCount());
         }
@@ -182,6 +188,7 @@ public class PostService {
             int newCount = Math.max(0, currentCount - 1);
             post.setRepostCount(newCount);
             postRepository.save(post);
+            searchIndexService.updatePostStats(postId);
 
             return new RepostResponseDto(false, post.getRepostCount());
         }else{
@@ -192,6 +199,7 @@ public class PostService {
 
             post.setRepostCount(post.getRepostCount() + 1);
             postRepository.save(post);
+            searchIndexService.updatePostStats(postId);
 
             return new RepostResponseDto(true, post.getRepostCount());
         }
@@ -232,39 +240,29 @@ public class PostService {
             String frontendPath = projectRoot.replace("wokkitokki-back", "wt-app");
             File uploadDir = new File(frontendPath, "public/uploads/posts");
 
-            System.out.println("=== 프론트엔드 폴더에 이미지 업로드 ===");
-            System.out.println("백엔드 프로젝트 루트: " + projectRoot);
-            System.out.println("프론트엔드 경로: " + frontendPath);
-            System.out.println("업로드 디렉토리: " + uploadDir.getAbsolutePath());
-
             // 디렉토리가 없으면 생성
             if (!uploadDir.exists()) {
                 boolean created = uploadDir.mkdirs();
-                System.out.println("디렉토리 생성 결과: " + created);
             }
 
             // 파일 이름 만들기 (UUID 사용)
             String filename = UUID.randomUUID().toString() + extension;
-            System.out.println("생성된 파일명: " + filename);
 
             // 파일 저장
             File saveFile = new File(uploadDir, filename);
-            System.out.println("전체 파일 경로: " + saveFile.getAbsolutePath());
 
             file.transferTo(saveFile);
-            System.out.println("파일 업로드 성공!");
 
             // 프론트엔드에서 접근 가능한 URL 반환
             return "/uploads/posts/" + filename;
 
         } catch (IOException e) {
-            System.err.println("파일 업로드 실패: " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage());
         }
     }
 
-    // PostEntity -> PostResponseDto 변환
+    // PostEntity -> PostResponseDto 변환 (단일 메서드로 통일)
     private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser){
         PostResponseDto dto = new PostResponseDto();
         dto.setId(post.getId());
@@ -286,6 +284,8 @@ public class PostService {
             dto.setCanEdit(isOwner);
             dto.setCanDelete(isOwner);
         }else{
+            dto.setLiked(false);
+            dto.setReposted(false);
             dto.setCanEdit(false);
             dto.setCanDelete(false);
         }

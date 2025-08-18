@@ -90,6 +90,8 @@ public class AuthService implements UserDetailsService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .bio(user.getBio())
+                .profileImgUrl(user.getProfileImgUrl())
                 .build();
     }
 

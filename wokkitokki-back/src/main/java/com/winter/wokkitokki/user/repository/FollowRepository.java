@@ -2,6 +2,8 @@ package com.winter.wokkitokki.user.repository;
 
 import com.winter.wokkitokki.user.entity.FollowEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface FollowRepository extends JpaRepository<FollowEntity, Long> {
@@ -14,4 +16,10 @@ public interface FollowRepository extends JpaRepository<FollowEntity, Long> {
     int countByFollowing(UserEntity following);
     // 팔로잉 수 세기(내가 팔로우하는 사람 수)
     int countByFollower(UserEntity follower);
+    
+    // 팔로워 목록 가져오기 (나를 팔로우하는 사람들)
+    Page<FollowEntity> findByFollowing(UserEntity following, Pageable pageable);
+    
+    // 팔로잉 목록 가져오기 (내가 팔로우하는 사람들)
+    Page<FollowEntity> findByFollower(UserEntity follower, Pageable pageable);
 }

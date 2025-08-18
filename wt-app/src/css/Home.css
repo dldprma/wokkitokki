@@ -63,11 +63,19 @@
 }
 
 .post-header {
-  @apply flex items-center space-x-2 mb-2;
+  @apply flex items-center justify-between mb-2;
+}
+
+.post-author-info {
+  @apply flex flex-col;
+}
+
+.post-author-name {
+  @apply font-semibold text-dark-500 text-base;
 }
 
 .post-username {
-  @apply font-medium text-dark-500;
+  @apply text-gray-600 text-sm;
 }
 
 .post-timestamp {

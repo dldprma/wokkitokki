@@ -1,11 +1,9 @@
 package com.winter.wokkitokki.user.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.*;
 
-@Getter @Setter
+@Getter @Setter @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class UserProfileResponseDto {
@@ -19,5 +17,6 @@ public class UserProfileResponseDto {
     private int imagePostCount;
     private int followersCount;
     private int followingCount;
+    @JsonProperty("isFollowing")
     private boolean isFollowing;
 }

@@ -8,9 +8,9 @@ export interface UserProfile {
   bio?: string;
   postCount: number;
   imagePostCount: number;
-  followerCount: number;
+  followersCount: number;
   followingCount: number;
-  isFollowing: number;
+  isFollowing: boolean;
 }
 
 export interface UpdateProfileData {

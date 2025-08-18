@@ -1,24 +1,51 @@
-import React, { useEffect, useCallback, useState } from "react";
-import { useAppSelector, useAppDispatch } from "../../../store/hooks";
-import { useUser } from "../hooks/useUser";
+import React, { useEffect, useState } from "react";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { usePost } from "../../post/hooks/usePost";
-import ProfilePosts from "./ProfilePosts";
 import ProfileImage from "./ProfileImage";
-import { settingAccessToken } from "../../../utils/axios";
 import EditProfile from "./EditProfile";
 import { updateProfileImage } from "../../auth/store/authSlice";
+import { setUser } from "../store/userSlice";
+import type { UserProfile } from "../types/userTypes";
+import { useNavigate } from "react-router-dom";
+import * as userApi from "../api/userApi";
+import { settingAccessToken } from "../../../utils/axios";
 
-const Profile: React.FC = () => {
+interface ProfileProps {
+  username?: string;
+}
+
+const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
-  const { isAuthenticated, accessToken } = useAppSelector(
-    (state) => state.auth
-  );
+  const navigate = useNavigate();
+  const {
+    user: currentUser,
+    isAuthenticated,
+    accessToken,
+  } = useAppSelector((state) => state.auth);
+
+  // Redux store의 user 상태를 직접 구독
+  const profileUser = useAppSelector((state) => state.user.user);
+
+  // username 결정: prop으로 받은 username이 있으면 사용, 없으면 현재 로그인한 사용자
+  const profileUsername = propUsername || currentUser?.username;
+
+  // 현재 로그인한 사용자의 username
+  const currentUsername = currentUser?.username;
 
   // 모달 상태
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+
+  // 팔로워/팔로잉 데이터 상태
+  const [followers, setFollowers] = useState<UserProfile[]>([]);
+  const [following, setFollowing] = useState<UserProfile[]>([]);
+  const [followersLoading, setFollowersLoading] = useState(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
+
+  // 로컬 팔로우 상태 관리
+  const [localIsFollowing, setLocalIsFollowing] = useState<boolean>(false);
+  const [localFollowerCount, setLocalFollowerCount] = useState<number>(0);
 
   // accessToken이 있을 때 axios 인터셉터에 설정
   useEffect(() => {
@@ -40,8 +67,101 @@ const Profile: React.FC = () => {
     getProfileReels,
   } = usePost();
 
-  // 사용자 관련 기능은 useUser에서 가져오기
-  const { user: profileUser, getProfile, uploadProfileImage } = useUser();
+  // profileUsername이 변경될 때마다 프로필 데이터 로드
+  useEffect(() => {
+    if (profileUsername && currentUsername && isAuthenticated && accessToken) {
+      console.log("프로필 로드 조건 확인:", {
+        profileUsername,
+        currentUsername,
+        isAuthenticated,
+        accessToken: !!accessToken,
+      });
+      loadProfileData();
+    } else {
+      console.log("프로필 로드 조건 불충족:", {
+        profileUsername,
+        currentUsername,
+        isAuthenticated,
+        accessToken: !!accessToken,
+      });
+    }
+  }, [profileUsername, currentUsername, isAuthenticated, accessToken]);
+
+  // 프로필 데이터 로드 함수
+  const loadProfileData = async () => {
+    if (!profileUsername || !currentUsername) {
+      console.warn("프로필 데이터 로드 중단: 필수 파라미터 누락", {
+        profileUsername,
+        currentUsername,
+      });
+      return;
+    }
+
+    try {
+      console.log("getUserProfile 호출 파라미터:", {
+        profileUsername,
+        currentUsername,
+      });
+
+      // 사용자 프로필 정보 가져오기 (현재 사용자 정보 포함)
+      const profileData = await userApi.getUserProfile(
+        profileUsername,
+        currentUsername
+      );
+      console.log("프로필 데이터 로드 결과:", profileData);
+
+      // Redux store 업데이트
+      dispatch(setUser(profileData));
+      console.log("Redux store 업데이트 완료 (loadProfileData)");
+
+      // 로컬 상태도 업데이트
+      setLocalIsFollowing(profileData.isFollowing || false);
+      setLocalFollowerCount(profileData.followersCount || 0);
+
+      console.log("로컬 상태 업데이트 (loadProfileData):", {
+        isFollowing:
+          profileData.isFollowing !== undefined
+            ? profileData.isFollowing
+            : "기존 상태 유지",
+        followerCount: profileData.followersCount,
+      });
+
+      // 포스트 데이터 가져오기
+      await getProfilePosts(0, 10, profileUsername);
+      await getProfilePhotos(0, 12, profileUsername);
+      await getProfileReels(0, 10, profileUsername);
+    } catch (error) {
+      console.error("프로필 데이터 로드 실패:", error);
+    }
+  };
+
+  // 팔로우/언팔로우 처리
+  const handleToggleFollow = async () => {
+    if (!profileUsername) return;
+
+    try {
+      // 팔로우 토글 API 호출
+      const result = await userApi.toggleFollow(profileUsername);
+      console.log("팔로우 토글 결과:", result);
+
+      // Redux store를 즉시 업데이트
+      if (result.targetUserProfile) {
+        dispatch(setUser(result.targetUserProfile));
+        console.log("Redux store 업데이트 완료");
+
+        // 로컬 상태도 즉시 업데이트
+        setLocalIsFollowing(result.isFollowing);
+        setLocalFollowerCount(result.targetUserProfile.followersCount || 0);
+        console.log("로컬 상태 업데이트:", {
+          isFollowing: result.isFollowing,
+          followerCount: result.targetUserProfile.followersCount,
+        });
+      }
+    } catch (error) {
+      console.error("팔로우/언팔로우 실패:", error);
+      alert("팔로우 상태 변경에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
 
   // 프로필 이미지 변경 처리
   const handleProfileImageChange = async (
@@ -63,13 +183,13 @@ const Profile: React.FC = () => {
     }
 
     try {
-      if (username) {
+      if (profileUsername) {
         // 프로필 이미지 업로드
-        const result = await uploadProfileImage(file);
+        const result = await userApi.uploadProfileImage(file);
 
         // 성공 시 auth 상태의 user.profileImgUrl 즉시 업데이트
-        if (result && result.payload && (result.payload as any).imageUrl) {
-          const newImageUrl = (result.payload as any).imageUrl;
+        if (result && result.imageUrl) {
+          const newImageUrl = result.imageUrl;
 
           // Redux auth 상태 즉시 업데이트
           dispatch(updateProfileImage(newImageUrl));
@@ -85,28 +205,17 @@ const Profile: React.FC = () => {
 
         // 성공 시 프로필 데이터 새로고침
         try {
-          await getProfile(username);
-
-          // 프로필 포스트 데이터도 새로고침 (프로필 이미지 업데이트를 위해)
-          await getProfilePosts(0, 10, username);
-          await getProfilePhotos(0, 12, username);
-          await getProfileReels(0, 10, username);
+          await loadProfileData();
 
           alert("프로필 이미지가 변경되었습니다!");
         } catch (refreshError) {
           console.error("데이터 새로고침 에러:", refreshError);
-          // 이미지 업로드는 성공했으므로 성공 메시지 표시
-          alert(
-            "프로필 이미지가 변경되었습니다! (데이터 새로고침에 일부 문제가 있을 수 있습니다)"
-          );
         }
       }
     } catch (error: any) {
       console.error("프로필 이미지 변경 에러:", error);
       const errorMessage =
-        error?.payload ||
-        error?.message ||
-        "프로필 이미지 변경에 실패했습니다.";
+        error?.message || "프로필 이미지 변경에 실패했습니다.";
       alert(errorMessage);
     }
 
@@ -114,45 +223,39 @@ const Profile: React.FC = () => {
     e.target.value = "";
   };
 
-  // 프로필 데이터 로드
-  const loadProfileData = async () => {
-    if (user && isAuthenticated && accessToken) {
-      const username = (user as any)?.username;
+  // 팔로워 모달 열기
+  const handleOpenFollowersModal = async () => {
+    if (!profileUsername) return;
 
-      if (
-        username &&
-        username !== "undefined" &&
-        typeof username === "string" &&
-        username.trim() !== ""
-      ) {
-        try {
-          // 프로필 데이터 가져오기
-          await getProfile(username);
-
-          // 포스트 데이터 가져오기
-          await getProfilePosts(0, 10, username);
-          await getProfilePhotos(0, 12, username);
-          await getProfileReels(0, 10, username);
-        } catch (error) {
-          console.error("프로필 데이터 로드 실패:", error);
-        }
-      }
+    setFollowersLoading(true);
+    try {
+      const result = await userApi.getFollowers(profileUsername, 0, 20);
+      setFollowers(result.content);
+    } catch (error) {
+      console.error("팔로워 목록 조회 실패:", error);
+    } finally {
+      setFollowersLoading(false);
     }
+    setShowFollowersModal(true);
   };
 
-  // user 상태가 안정화된 후에만 실행
-  useEffect(() => {
-    // user 객체가 완전히 로드된 후에만 실행
-    if (user && (user as any)?.username && isAuthenticated && accessToken) {
-      loadProfileData();
+  // 팔로잉 모달 열기
+  const handleOpenFollowingModal = async () => {
+    if (!profileUsername) return;
+
+    setFollowingLoading(true);
+    try {
+      const result = await userApi.getFollowing(profileUsername, 0, 20);
+      setFollowing(result.content);
+    } catch (error) {
+      console.error("팔로잉 목록 조회 실패:", error);
+    } finally {
+      setFollowingLoading(false);
     }
-  }, [user?.username, isAuthenticated, accessToken]); // user 전체가 아닌 username만 의존성으로
+    setShowFollowingModal(true);
+  };
 
-  // username 추출 (조건부 렌더링에서 사용) - user가 로드된 후에만
-  const username =
-    user && (user as any)?.username ? (user as any).username : null;
-
-  if (!user || !isAuthenticated) {
+  if (!profileUsername || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-gray-500">로그인이 필요합니다.</div>
@@ -189,26 +292,20 @@ const Profile: React.FC = () => {
         {/* 프로필 헤더 */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
           <div className="flex items-center space-x-6">
-            {/* 프로필 이미지 - 제일 왼쪽에 300px 크기로 배치 */}
             <div className="relative">
               <ProfileImage
-                imageUrl={
-                  (user as any)?.profileImgUrl || profileUser?.profileImgUrl
-                }
-                username={
-                  (user as any)?.username || profileUser?.username || ""
-                }
+                imageUrl={profileUser?.profileImgUrl}
+                username={profileUser?.username || profileUsername}
                 size="xl"
-                className="flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
+                className="w-[100px] h-[100px] rounded-lg object-cover flex-shrink-0 cursor-pointer hover:opacity-80 transition-opacity"
               />
-              {/* 현재 사용자일 때만 프로필 이미지 변경 가능 */}
-              {(!profileUser ||
-                profileUser?.username === (user as any)?.username) && (
+              {/* 프로필 이미지 변경 입력 - 현재 사용자일 때만 */}
+              {profileUser && profileUser?.username === currentUsername && (
                 <input
                   type="file"
                   accept="image/*"
                   onChange={handleProfileImageChange}
-                  className="absolute inset-0 w-full h-[300px] opacity-0 cursor-pointer"
+                  className="absolute inset-0 w-full h-[150px] opacity-0 cursor-pointer"
                   title="프로필 이미지 변경"
                 />
               )}
@@ -218,47 +315,39 @@ const Profile: React.FC = () => {
             <div className="flex-1">
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-gray-900">
-                  {profileUser?.fullName || (user as any)?.fullName || "사용자"}
+                  {profileUser?.fullName || "사용자"}
                 </h1>
 
-                {/* 현재 사용자일 때만 프로필 수정 버튼 표시 - 오른쪽에 */}
-                {(!profileUser ||
-                  profileUser?.username === (user as any)?.username) && (
+                {/* 현재 사용자일 때만 프로필 수정 버튼 표시 */}
+                {profileUser && profileUser?.username === currentUsername && (
                   <button
                     onClick={() => setShowEditProfileModal(true)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-sm rounded-md transition-colors"
                   >
                     프로필 수정하기
                   </button>
                 )}
 
-                {/* 다른 사용자일 때만 팔로우 버튼 표시 - 오른쪽에 */}
-                {profileUser &&
-                  profileUser?.username !== (user as any)?.username && (
-                    <button
-                      onClick={() => {
-                        /* 팔로우/언팔로우 로직 */
-                      }}
-                      className={`px-4 py-2 rounded-lg transition-colors ${
-                        profileUser?.isFollowing
-                          ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                          : "bg-blue-500 text-white hover:bg-blue-600"
-                      }`}
-                    >
-                      {profileUser?.isFollowing ? "언팔로우" : "팔로우"}
-                    </button>
-                  )}
+                {/* 다른 사용자일 때만 팔로우 버튼 표시 */}
+                {profileUser && profileUser?.username !== currentUsername && (
+                  <button
+                    onClick={handleToggleFollow}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      localIsFollowing
+                        ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                        : "bg-blue-500 text-white hover:bg-blue-600"
+                    }`}
+                  >
+                    {localIsFollowing ? "UnFollow" : "Follow"}
+                  </button>
+                )}
               </div>
 
-              <p className="text-gray-600 mt-1">
-                @{profileUser?.username || (user as any)?.username}
-              </p>
+              <p className="text-gray-600 mt-1">@{profileUser?.username}</p>
 
-              {/* 바이오 - profileUser 또는 auth.user에서 가져오기 */}
-              {(profileUser?.bio || (user as any)?.bio) && (
-                <p className="text-gray-700 mt-2">
-                  {profileUser?.bio || (user as any)?.bio}
-                </p>
+              {/* 바이오 - profileUser에서 가져오기 */}
+              {profileUser?.bio && (
+                <p className="text-gray-700 mt-2">{profileUser.bio}</p>
               )}
             </div>
           </div>
@@ -273,17 +362,17 @@ const Profile: React.FC = () => {
             </div>
 
             <button
-              onClick={() => setShowFollowersModal(true)}
+              onClick={handleOpenFollowersModal}
               className="text-center hover:text-blue-600 transition-colors cursor-pointer"
             >
               <div className="text-lg font-semibold text-gray-900">
-                {profileUser?.followerCount || 0}
+                {localFollowerCount}
               </div>
               <div className="text-sm text-gray-600">팔로워</div>
             </button>
 
             <button
-              onClick={() => setShowFollowingModal(true)}
+              onClick={handleOpenFollowingModal}
               className="text-center hover:text-blue-600 transition-colors cursor-pointer"
             >
               <div className="text-lg font-semibold text-gray-900">
@@ -295,10 +384,58 @@ const Profile: React.FC = () => {
         </div>
 
         {/* 프로필 포스트 */}
-        {username &&
-        username !== "undefined" &&
-        typeof username === "string" ? (
-          <ProfilePosts />
+        {profileUsername ? (
+          <div className="bg-white rounded-lg shadow-sm p-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">게시글</h2>
+            {profileLoading ? (
+              <div className="text-center text-gray-500 py-8">로딩 중...</div>
+            ) : profilePosts.length > 0 ? (
+              <div className="space-y-4">
+                {profilePosts.map((post) => (
+                  <div
+                    key={post.id}
+                    className="border border-gray-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-center space-x-3 mb-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-200">
+                        {post.authorProfileImg && (
+                          <img
+                            src={post.authorProfileImg}
+                            alt={post.authorName}
+                            className="w-8 h-8 rounded-full object-cover"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {post.authorName}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          @{post.authorUsername}
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-gray-800 mb-3">{post.content}</p>
+                    {post.imgUrl && (
+                      <img
+                        src={post.imgUrl}
+                        alt="포스트 이미지"
+                        className="w-full rounded-lg"
+                      />
+                    )}
+                    <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
+                      <span>❤️ {post.likeCount}</span>
+                      <span>🔄 {post.repostCount}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                아직 게시글이 없습니다
+              </div>
+            )}
+          </div>
         ) : (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <div className="text-gray-600 text-center">
@@ -313,7 +450,7 @@ const Profile: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">팔로워</h3>
+              <h3 className="text-lg font-semibold">Follower</h3>
               <button
                 onClick={() => setShowFollowersModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -321,9 +458,41 @@ const Profile: React.FC = () => {
                 ✕
               </button>
             </div>
-            <div className="text-center text-gray-500 py-8">
-              아직 팔로워가 없습니다
-            </div>
+            {followersLoading ? (
+              <div className="text-center text-gray-500 py-8">로딩 중...</div>
+            ) : followers.length > 0 ? (
+              <div className="space-y-3">
+                {followers.map((follower) => (
+                  <div
+                    key={follower.id}
+                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    onClick={() => navigate(`/${follower.username}`)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0">
+                      {follower.profileImgUrl && (
+                        <img
+                          src={follower.profileImgUrl}
+                          alt={follower.fullName}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {follower.fullName}
+                      </div>
+                      <div className="text-sm text-gray-500 truncate">
+                        @{follower.username}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                아직 팔로워가 없습니다
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -333,7 +502,7 @@ const Profile: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-96 max-h-96 overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">팔로잉</h3>
+              <h3 className="text-lg font-semibold">Following</h3>
               <button
                 onClick={() => setShowFollowingModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -341,9 +510,41 @@ const Profile: React.FC = () => {
                 ✕
               </button>
             </div>
-            <div className="text-center text-gray-500 py-8">
-              아직 팔로잉하는 사용자가 없습니다
-            </div>
+            {followingLoading ? (
+              <div className="text-center text-gray-500 py-8">로딩 중...</div>
+            ) : following.length > 0 ? (
+              <div className="space-y-3">
+                {following.map((followed) => (
+                  <div
+                    key={followed.id}
+                    className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
+                    onClick={() => navigate(`/${followed.username}`)}
+                  >
+                    <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0">
+                      {followed.profileImgUrl && (
+                        <img
+                          src={followed.profileImgUrl}
+                          alt={followed.fullName}
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="font-medium text-gray-900 truncate">
+                        {followed.fullName}
+                      </div>
+                      <div className="text-sm text-gray-500 truncate">
+                        @{followed.username}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-gray-500 py-8">
+                아직 팔로잉하는 사용자가 없습니다
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -367,12 +568,12 @@ const Profile: React.FC = () => {
                 onSuccess={() => {
                   setShowEditProfileModal(false);
                   // 프로필 데이터 새로고침
-                  if (username) {
-                    getProfile(username);
+                  if (profileUsername) {
+                    loadProfileData();
                     // 포스트 데이터도 새로고침
-                    getProfilePosts(0, 10, username);
-                    getProfilePhotos(0, 12, username);
-                    getProfileReels(0, 10, username);
+                    getProfilePosts(0, 10, profileUsername);
+                    getProfilePhotos(0, 12, profileUsername);
+                    getProfileReels(0, 10, profileUsername);
                   }
                 }}
               />

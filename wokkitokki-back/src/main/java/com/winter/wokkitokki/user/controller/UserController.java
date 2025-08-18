@@ -46,7 +46,7 @@ public class UserController {
             } else if (auth != null) {
                 currentUserId = userService.getUserIdByUsername(auth.getName());
             }
-
+            
             UserProfileResponseDto profile = userService.getUserProfile(userId, currentUserId);
             return ResponseEntity.ok(profile);
         }catch (Exception e){

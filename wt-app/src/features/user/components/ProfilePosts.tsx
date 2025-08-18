@@ -7,7 +7,13 @@ import ProfileImage from "./ProfileImage";
 
 type TabType = "photos" | "posts" | "reels";
 
-const ProfilePosts: React.FC = () => {
+interface ProfilePostsProps {
+  username?: string;
+}
+
+const ProfilePosts: React.FC<ProfilePostsProps> = ({
+  username: propUsername,
+}) => {
   const [activeTab, setActiveTab] = useState<TabType>("photos");
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -31,16 +37,18 @@ const ProfilePosts: React.FC = () => {
 
   const { uploadProfileImage } = useUser();
 
-  // Profile 컴포넌트에서 전달받은 사용자명 사용
+  // username 결정: prop으로 받은 username이 있으면 사용, 없으면 현재 로그인한 사용자
   const { user } = useAppSelector((state: any) => state.auth);
-  const username = (user as any)?.username;
+  const username = propUsername || (user as any)?.username;
 
   // 탭 변경 시에만 데이터 로드 (무한 루프 방지)
   useEffect(() => {
-    resetProfilePosts();
-    setCurrentPage(0);
-    loadTabData(activeTab, 0);
-  }, [activeTab]); // username 의존성 제거 (이미 유효함)
+    if (username) {
+      resetProfilePosts();
+      setCurrentPage(0);
+      loadTabData(activeTab, 0);
+    }
+  }, [activeTab, username]); // username 의존성 추가
 
   const loadTabData = async (tab: TabType, page: number) => {
     if (!username) return;

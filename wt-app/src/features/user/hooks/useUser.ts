@@ -1,40 +1,95 @@
-import { useAppDispatch, useAppSelector } from "../../../store/hooks";
-import {
-  fetchUserProfile,
-  updateUserProfile,
-  uploadUserProfileImage,
-} from "../store/userSlice";
-import type { UpdateProfileData } from "../types/userTypes";
-
-// 통합된 포스트 기능도 사용할 수 있도록 추가
-import { usePost } from "../../post/hooks/usePost";
+import { useAppDispatch } from "../../../store/hooks";
+import * as userAPI from "../api/userApi";
+import { setUser } from "../store/userSlice";
 
 export const useUser = () => {
   const dispatch = useAppDispatch();
-  const user = useAppSelector((state) => state.user);
-
-  // 통합된 포스트 기능 사용
-  const postActions = usePost();
 
   const getProfile = async (username: string) => {
-    return await dispatch(fetchUserProfile(username));
-  };
-
-  const updateProfile = async (data: UpdateProfileData) => {
-    return await dispatch(updateUserProfile(data));
+    try {
+      const response = await userAPI.getUserProfile(username);
+      dispatch(setUser(response));
+      return response;
+    } catch (error) {
+      console.error("프로필 조회 실패:", error);
+      throw error;
+    }
   };
 
   const uploadProfileImage = async (file: File) => {
-    const result = await dispatch(uploadUserProfileImage(file));
-    return result;
+    try {
+      const response = await userAPI.uploadProfileImage(file);
+      return response;
+    } catch (error) {
+      console.error("프로필 이미지 업로드 실패:", error);
+      throw error;
+    }
+  };
+
+  const toggleFollow = async (username: string) => {
+    try {
+      const response = await userAPI.toggleFollow(username);
+
+      // 서버 응답에서 팔로우 상태 확인
+      const isFollowing = response.isFollowing;
+      const targetUserProfile = response.targetUserProfile;
+
+      console.log("팔로우 토글 응답:", { isFollowing, targetUserProfile });
+
+      // 성공한 경우 Redux store 업데이트
+      if (targetUserProfile) {
+        dispatch(setUser(targetUserProfile));
+      }
+
+      return {
+        isFollowing,
+        targetUserProfile,
+      };
+    } catch (error: any) {
+      console.error("팔로우 토글 실패:", error);
+
+      const errorMessage =
+        error.response?.data?.error || "팔로우 상태 변경에 실패했습니다.";
+
+      throw {
+        message: errorMessage,
+      };
+    }
+  };
+
+  const getFollowers = async (
+    username: string,
+    page: number = 0,
+    size: number = 20
+  ) => {
+    try {
+      const response = await userAPI.getFollowers(username, page, size);
+      return response;
+    } catch (error) {
+      console.error("팔로워 조회 실패:", error);
+      throw error;
+    }
+  };
+
+  const getFollowing = async (
+    username: string,
+    page: number = 0,
+    size: number = 20
+  ) => {
+    try {
+      const response = await userAPI.getFollowing(username, page, size);
+      return response;
+    } catch (error) {
+      console.error("팔로잉 조회 실패:", error);
+      throw error;
+    }
   };
 
   return {
-    ...user,
     getProfile,
-    updateProfile,
     uploadProfileImage,
-    // 통합된 포스트 기능도 함께 제공
-    ...postActions,
+    toggleFollow,
+    getFollowers,
+    getFollowing,
   };
 };

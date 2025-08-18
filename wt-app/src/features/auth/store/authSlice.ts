@@ -76,7 +76,6 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await login(data);
       const user = {
-        id: res.id, // 사용자 ID 추가
         username: res.username,
         email: res.email,
         fullName: res.fullName,
@@ -140,7 +139,8 @@ const authSlice = createSlice({
       const storedUser = localStorage.getItem("user");
 
       if (storedUser) {
-        state.user = JSON.parse(storedUser);
+        const userData = JSON.parse(storedUser);
+        state.user = userData;
         state.isAuthenticated = true;
       }
 

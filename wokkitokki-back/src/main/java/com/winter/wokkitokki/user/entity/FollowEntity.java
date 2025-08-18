@@ -23,4 +23,5 @@ public class FollowEntity {
     @ManyToOne
     @JoinColumn(name = "following_id")
     private UserEntity following;
+
 }

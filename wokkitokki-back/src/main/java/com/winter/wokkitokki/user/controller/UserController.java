@@ -1,11 +1,13 @@
 package com.winter.wokkitokki.user.controller;
 
+import com.winter.wokkitokki.common.util.JwtUtils;
 import com.winter.wokkitokki.post.dto.PostImageResponseDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
 import com.winter.wokkitokki.post.service.PostService;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -16,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -24,18 +27,26 @@ import java.util.Map;
 public class UserController {
 
     private final UserService userService;
+    private final JwtUtils jwtUtils;
 
     // 프로필 정보 조회 (모든 사용자)
     @GetMapping("/{username}")
-    public ResponseEntity<UserProfileResponseDto> getUserProfile(@PathVariable String username, Authentication auth){
+    public ResponseEntity<UserProfileResponseDto> getUserProfile(
+            @PathVariable String username, 
+            @RequestParam(required = false) String currentUser,
+            Authentication auth){
         try{
             // username → ID 변환
             Long userId = userService.getUserIdByUsername(username);
             Long currentUserId = null;
 
-            if (auth != null) {
+            // currentUser 쿼리 파라미터가 있으면 우선 사용, 없으면 auth에서 가져오기
+            if (currentUser != null && !currentUser.isEmpty()) {
+                currentUserId = userService.getUserIdByUsername(currentUser);
+            } else if (auth != null) {
                 currentUserId = userService.getUserIdByUsername(auth.getName());
             }
+
             UserProfileResponseDto profile = userService.getUserProfile(userId, currentUserId);
             return ResponseEntity.ok(profile);
         }catch (Exception e){
@@ -82,6 +93,8 @@ public class UserController {
         }
     }
 
+    // UserController.java - 정리된 팔로우 관련 API
+
     // 팔로우/언팔로우
     @PostMapping("/{username}/follow")
     public ResponseEntity<Map<String, Object>> toggleFollow(@PathVariable String username, Authentication auth){
@@ -92,10 +105,64 @@ public class UserController {
 
             boolean isFollowing = userService.toggleFollow(followerId, followingId);
 
-            String message = isFollowing ? "팔로우했습니다." : "언팔로우했습니다.";
-            return ResponseEntity.ok(Map.of("message", message, "isFollowing", isFollowing));
+            // 업데이트된 프로필 정보 가져오기
+            UserProfileResponseDto updatedProfile = userService.getUserProfile(followingId, followerId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("isFollowing", isFollowing);
+            response.put("action", isFollowing ? "followed" : "unfollowed");
+            response.put("message", isFollowing ? "팔로우했습니다." : "언팔로우했습니다.");
+            response.put("targetUserProfile", updatedProfile);
+
+            return ResponseEntity.ok(response);
         }catch (Exception e){
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // 팔로워 목록 조회
+    @GetMapping("/{username}/followers")
+    public ResponseEntity<Page<UserProfileResponseDto>> getFollowers(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication auth){
+        try{
+            Pageable pageable = PageRequest.of(page, size);
+            Long userId = userService.getUserIdByUsername(username);
+            Long currentUserId = null;
+
+            if (auth != null) {
+                currentUserId = userService.getUserIdByUsername(auth.getName());
+            }
+
+            Page<UserProfileResponseDto> followers = userService.getFollowers(userId, currentUserId, pageable);
+            return ResponseEntity.ok(followers);
+        }catch (Exception e){
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    // 팔로잉 목록 조회
+    @GetMapping("/{username}/following")
+    public ResponseEntity<Page<UserProfileResponseDto>> getFollowing(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            Authentication auth){
+        try{
+            Pageable pageable = PageRequest.of(page, size);
+            Long userId = userService.getUserIdByUsername(username);
+            Long currentUserId = null;
+
+            if (auth != null) {
+                currentUserId = userService.getUserIdByUsername(auth.getName());
+            }
+
+            Page<UserProfileResponseDto> following = userService.getFollowing(userId, currentUserId, pageable);
+            return ResponseEntity.ok(following);
+        }catch (Exception e){
+            return ResponseEntity.badRequest().build();
         }
     }
 

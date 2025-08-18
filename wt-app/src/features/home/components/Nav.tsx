@@ -8,8 +8,8 @@ import { useAuth } from "../../auth/hooks/useAuth";
 const Nav: React.FC = () => {
   const location = useLocation();
   const { user } = useUser();
-  const { logout } = useAuth();
-  const isProfilePage = location.pathname.startsWith("/profile");
+  const { logout, user: authUser } = useAuth();
+  const isProfilePage = location.pathname === `/${authUser?.username}`;
 
   const navItems = [
     {
@@ -37,7 +37,7 @@ const Nav: React.FC = () => {
       subLabel: "다이렉트 메시지",
     },
     {
-      path: "/profile",
+      path: `/${authUser?.username || "profile"}`,
       icon: "👤",
       label: "프로필",
       subLabel: "내 계정",

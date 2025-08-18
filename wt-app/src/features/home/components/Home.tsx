@@ -217,9 +217,14 @@ const Home: React.FC = () => {
                   />
                   <div className="post-main-content">
                     <div className="post-header">
-                      <span className="post-username">
-                        @{post.authorUsername}
-                      </span>
+                      <div className="post-author-info">
+                        <span className="post-author-name">
+                          {post.authorName}
+                        </span>
+                        <span className="post-username">
+                          @{post.authorUsername}
+                        </span>
+                      </div>
                       <time
                         className="post-timestamp"
                         dateTime={post.createdAt}

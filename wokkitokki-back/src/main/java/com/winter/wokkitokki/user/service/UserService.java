@@ -6,6 +6,7 @@ import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
+import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.entity.FollowEntity;
@@ -33,6 +34,7 @@ public class UserService {
     private final FollowRepository followRepository;
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
+    private final SearchIndexService searchIndexService;
 
     // username → ID 변환 메서드
     public Long getUserIdByUsername(String username) {
@@ -52,7 +54,7 @@ public class UserService {
         int followingCnt = followRepository.countByFollower(user);
 
         boolean isFollowing = false;
-        if(currentUserId != null && !currentUserId.equals(currentUserId)){
+        if(currentUserId != null && !currentUserId.equals(userId)){
             UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
             if(currentUser != null){
                 isFollowing = followRepository.existsByFollowerAndFollowing(currentUser, user);
@@ -126,11 +128,12 @@ public class UserService {
         if(updateDto.getBio()!=null){
             String bio = updateDto.getBio().trim();
             if(bio.length() > 300){
-                throw new RuntimeException("한줄소개는 500자 이내로 작성해주세요.");
+                throw new RuntimeException("한줄소개는 300자 이내로 작성해주세요."); // 500자→300자 수정
             }
             user.setBio(bio.isEmpty()?null:bio);
         }
         UserEntity savedUser = userRepository.save(user);
+        searchIndexService.indexUser(savedUser);
 
         return getUserProfile(savedUser.getId(), savedUser.getId());
     }
@@ -174,6 +177,7 @@ public class UserService {
             String imageUrl = "/uploads/profiles/"+filename;
             user.setProfileImgUrl(imageUrl);
             userRepository.save(user);
+            searchIndexService.indexUser(user);
 
             return imageUrl;
         }catch (IOException e){
@@ -213,17 +217,55 @@ public class UserService {
         if(alreadyFollowing){
             FollowEntity follow = followRepository.findByFollowerAndFollowing(follower, following);
             followRepository.delete(follow);
+            searchIndexService.updateUserStats(followerId);
+            searchIndexService.updateUserStats(followingId);
             return false;
         }else{
             FollowEntity follow = new FollowEntity();
             follow.setFollower(follower);
             follow.setFollowing(following);
             followRepository.save(follow);
+            searchIndexService.updateUserStats(followerId);
+            searchIndexService.updateUserStats(followingId);
             return true;
         }
     }
 
-    // PostEntity -> PostResponseDto 변환 (PostService에서 이동)
+    // 팔로잉 목록 조회
+    public Page<UserProfileResponseDto> getFollowing(Long userId, Long currentUserId, Pageable pageable) {
+        UserEntity user = getUserById(userId);
+        UserEntity currentUser = getCurrentUser(currentUserId);
+
+        Page<FollowEntity> followEntities = followRepository.findByFollower(user, pageable);
+
+        return followEntities.map(follow ->
+                convertToUserProfileDto(follow.getFollowing(), currentUser)
+        );
+    }
+
+
+    // 팔로워 목록 조회
+    public Page<UserProfileResponseDto> getFollowers(Long userId, Long currentUserId, Pageable pageable) {
+        UserEntity user = getUserById(userId);
+        UserEntity currentUser = getCurrentUser(currentUserId);
+
+        Page<FollowEntity> followEntities = followRepository.findByFollowing(user, pageable);
+
+        return followEntities.map(follow ->
+                convertToUserProfileDto(follow.getFollower(), currentUser)
+        );
+    }
+
+    private UserEntity getUserById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+    }
+
+    private UserEntity getCurrentUser(Long currentUserId) {
+        return currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+    }
+
+    // PostEntity -> PostResponseDto 변환
     private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser){
         PostResponseDto dto = new PostResponseDto();
         dto.setId(post.getId());
@@ -245,13 +287,15 @@ public class UserService {
             dto.setCanEdit(isOwner);
             dto.setCanDelete(isOwner);
         }else{
+            dto.setLiked(false);
+            dto.setReposted(false);
             dto.setCanEdit(false);
             dto.setCanDelete(false);
         }
         return dto;
     }
 
-    // PostEntity -> PostImageResponseDto 변환 (PostService에서 이동)
+    // PostEntity -> PostImageResponseDto 변환
     private PostImageResponseDto convertToImageResponseDto(PostEntity post){
         PostImageResponseDto dto = new PostImageResponseDto();
         dto.setId(post.getId());
@@ -261,6 +305,29 @@ public class UserService {
         dto.setCreatedAt(post.getCreatedAt().toString());
 
         return dto;
+    }
+
+    // UserEntity -> UserProfileResponseDto 변환 (단일 메서드로 통일)
+    private UserProfileResponseDto convertToUserProfileDto(UserEntity user, UserEntity currentUser) {
+        UserProfileResponseDto dto = new UserProfileResponseDto();
+        dto.setId(user.getId());
+        dto.setFullName(user.getFullName());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setProfileImgUrl(user.getProfileImgUrl());
+        dto.setBio(user.getBio());
+        dto.setPostCount(postRepository.countByUser(user));
+        dto.setImagePostCount(postRepository.countByUserAndImgUrlIsNotNull(user));
+        dto.setFollowersCount(followRepository.countByFollowing(user));
+        dto.setFollowingCount(followRepository.countByFollower(user));
+        dto.setFollowing(isFollowing(currentUser, user));
+        return dto;
+    }
+
+    // 팔로잉 여부 확인
+    private boolean isFollowing(UserEntity currentUser, UserEntity targetUser) {
+        return currentUser != null &&
+                followRepository.existsByFollowerAndFollowing(currentUser, targetUser);
     }
 
     // 기존 프로필 이미지 파일 삭제하는 private 메서드

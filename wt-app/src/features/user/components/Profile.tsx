@@ -392,7 +392,8 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
               {profilePosts.map((post) => (
                 <div
                   key={post.id}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/post/${post.id}`)}
                 >
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-8 h-8 rounded-full bg-gray-200">
@@ -413,14 +414,16 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
                       </div>
                     </div>
                   </div>
-                  <p className="text-gray-800 mb-3">{post.content}</p>
-                  {post.imgUrl && (
-                    <img
-                      src={post.imgUrl}
-                      alt="포스트 이미지"
-                      className="w-full rounded-lg"
-                    />
-                  )}
+                  <div className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
+                    <p className="text-gray-800 mb-3">{post.content}</p>
+                    {post.imgUrl && (
+                      <img
+                        src={post.imgUrl}
+                        alt="포스트 이미지"
+                        className="w-full rounded-lg"
+                      />
+                    )}
+                  </div>
                   <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
                     <span>❤️ {post.likeCount}</span>
                     <span>🔄 {post.repostCount}</span>
@@ -435,8 +438,8 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
                   key={photo.id}
                   className="aspect-square bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => {
-                    // 사진 클릭 시 상세보기 (임시)
-                    alert(`사진 상세보기: ${photo.content || "이미지 게시글"}`);
+                    // 사진 클릭 시 게시글 상세보기로 이동
+                    navigate(`/post/${photo.id}`);
                   }}
                 >
                   {photo.imgUrl && (
@@ -454,7 +457,8 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
               {profileReels.map((reel) => (
                 <div
                   key={reel.id}
-                  className="border border-gray-200 rounded-lg p-4"
+                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => navigate(`/post/${reel.id}`)}
                 >
                   <div className="flex items-center space-x-3 mb-3">
                     <div className="w-8 h-8 rounded-full bg-gray-200">
@@ -475,14 +479,16 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
                       </div>
                     </div>
                   </div>
-                  <p className="text-gray-800 mb-3">{reel.content}</p>
-                  {reel.imgUrl && (
-                    <img
-                      src={reel.imgUrl}
-                      alt="릴스 이미지"
-                      className="w-full rounded-lg"
-                    />
-                  )}
+                  <div className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
+                    <p className="text-gray-800 mb-3">{reel.content}</p>
+                    {reel.imgUrl && (
+                      <img
+                        src={reel.imgUrl}
+                        alt="릴스 이미지"
+                        className="w-full rounded-lg"
+                      />
+                    )}
+                  </div>
                   <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
                     <span>❤️ {reel.likeCount}</span>
                     <span>🔄 {reel.repostCount}</span>

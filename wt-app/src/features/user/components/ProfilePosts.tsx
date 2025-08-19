@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../../store/hooks";
 import { usePost } from "../../post/hooks/usePost";
 import { useUser } from "../hooks/useUser";
@@ -14,6 +15,7 @@ interface ProfilePostsProps {
 const ProfilePosts: React.FC<ProfilePostsProps> = ({
   username: propUsername,
 }) => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("photos");
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -40,6 +42,11 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   // username 결정: prop으로 받은 username이 있으면 사용, 없으면 현재 로그인한 사용자
   const { user } = useAppSelector((state: any) => state.auth);
   const username = propUsername || (user as any)?.username;
+
+  // 게시글 상세보기로 이동
+  const handlePostClick = (postId: number) => {
+    navigate(`/post/${postId}`);
+  };
 
   // 탭 변경 시에만 데이터 로드 (무한 루프 방지)
   useEffect(() => {
@@ -83,12 +90,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         <div
           key={photo.id}
           className="flex-shrink-0 w-48 h-48 bg-gray-200 overflow-hidden relative group cursor-pointer rounded-lg"
-          onClick={() => {
-            // 글 상세보기로 이동 (임시로 alert로 표시)
-            alert(`게시글 상세보기: ${photo.content || "이미지 게시글"}`);
-            // TODO: 실제로는 게시글 상세 페이지로 이동
-            // navigate(`/post/${photo.id}`);
-          }}
+          onClick={() => handlePostClick(photo.id)}
         >
           <img
             src={photo.imgUrl}
@@ -131,18 +133,23 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                   {new Date(post.createdAt).toLocaleDateString()}
                 </span>
               </div>
-              <p className="text-gray-800 mb-3 leading-relaxed">
-                {post.content}
-              </p>
-              {post.imgUrl && (
-                <div className="mb-3">
-                  <img
-                    src={post.imgUrl}
-                    alt="Post image"
-                    className="w-full max-h-96 object-cover rounded-lg"
-                  />
-                </div>
-              )}
+              <div
+                className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                onClick={() => handlePostClick(post.id)}
+              >
+                <p className="text-gray-800 mb-3 leading-relaxed">
+                  {post.content}
+                </p>
+                {post.imgUrl && (
+                  <div className="mb-3">
+                    <img
+                      src={post.imgUrl}
+                      alt="Post image"
+                      className="w-full max-h-96 object-cover rounded-lg"
+                    />
+                  </div>
+                )}
+              </div>
               <div className="flex items-center space-x-6">
                 <button
                   onClick={() => handleLikeToggle(post.id)}
@@ -174,6 +181,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
           <div
             key={reel.id}
             className="aspect-square bg-gray-200 overflow-hidden relative group cursor-pointer"
+            onClick={() => handlePostClick(reel.id)}
           >
             <img
               src={reel.imgUrl}

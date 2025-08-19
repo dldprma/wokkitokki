@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ProfileImage from "../../user/components/ProfileImage";
-import { getPostDetail } from "../api/postApi";
+import { getPostDetail, toggleLike, toggleRepost } from "../api/postApi";
 import type { Post } from "../type/postTypes";
 
 // PostResponse 타입을 사용하므로 별도 인터페이스 불필요
@@ -38,6 +38,44 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     navigate(`/${username}`);
   };
 
+  const handleLike = async () => {
+    if (!post) return;
+
+    try {
+      const result = await toggleLike(post.id);
+      setPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              isLiked: result.isLiked,
+              likeCount: result.likeCount,
+            }
+          : null
+      );
+    } catch (error) {
+      console.error("좋아요 처리 중 오류 발생:", error);
+    }
+  };
+
+  const handleRepost = async () => {
+    if (!post) return;
+
+    try {
+      const result = await toggleRepost(post.id);
+      setPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              isReposted: result.isReposted,
+              repostCount: result.repostCount,
+            }
+          : null
+      );
+    } catch (error) {
+      console.error("리포스트 처리 중 오류 발생:", error);
+    }
+  };
+
   const formatTimeAgo = (createdAt: string) => {
     const now = new Date();
     const postTime = new Date(createdAt);
@@ -70,10 +108,10 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
             게시글을 찾을 수 없습니다
           </h1>
           <button
-            onClick={() => navigate("/")}
+            onClick={() => navigate(-1)}
             className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
           >
-            홈으로 돌아가기
+            이전 페이지로 돌아가기
           </button>
         </div>
       </div>
@@ -85,10 +123,10 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
       <div className="max-w-2xl mx-auto py-8 px-4">
         {/* 뒤로가기 버튼 */}
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate(-1)}
           className="mb-6 px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
         >
-          ← 홈으로 돌아가기
+          ← 이전 페이지로 돌아가기
         </button>
 
         {/* 게시글 상세 */}
@@ -142,11 +180,21 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
               <span>💬</span>
               <span>댓글</span>
             </button>
-            <button className="flex items-center space-x-2 hover:text-green-500">
+            <button
+              className={`flex items-center space-x-2 transition-colors ${
+                post.isReposted ? "text-green-500" : "hover:text-green-500"
+              }`}
+              onClick={handleRepost}
+            >
               <span>🔄</span>
               <span>{post.repostCount}</span>
             </button>
-            <button className="flex items-center space-x-2 hover:text-red-500">
+            <button
+              className={`flex items-center space-x-2 transition-colors ${
+                post.isLiked ? "text-red-500" : "hover:text-red-500"
+              }`}
+              onClick={handleLike}
+            >
               <span>❤️</span>
               <span>{post.likeCount}</span>
             </button>

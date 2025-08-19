@@ -21,6 +21,8 @@ public class PostResponseDto {
     private boolean canEdit;
     private boolean canDelete;
 
+    private boolean deleted;
+
     // 리포스트인 경우 원본 정보
     private PostResponseDto originalPost;
 }

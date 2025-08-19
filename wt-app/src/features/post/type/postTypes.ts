@@ -13,12 +13,13 @@ export interface Post {
   createdAt: string;
   canEdit?: boolean;
   canDelete?: boolean;
+  isDeleted?: boolean; // 삭제 상태
   originalPost?: Post; // 리포스트인 경우
 }
 
 // 포스트 생성/수정 데이터
 export interface CreatePostData {
-  content: string;
+  content?: string; // content를 선택적으로 변경
   imgUrl?: File | string;
 }
 
@@ -51,6 +52,7 @@ export interface HomeState {
 // 이미지 업로드 응답
 export interface ImageUploadResponse {
   imageUrl: string;
+  message: string;
 }
 
 // 좋아요 응답

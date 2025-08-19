@@ -38,7 +38,7 @@ export const getPostDetail = async (postId: string): Promise<Post> => {
 // 게시글 작성
 export const createPost = async (data: CreatePostData): Promise<any> => {
   const formData = new FormData();
-  formData.append("content", data.content);
+  formData.append("content", data.content || ""); // content가 없으면 빈 문자열
 
   if (data.imgUrl && data.imgUrl instanceof File) {
     formData.append("image", data.imgUrl);
@@ -61,7 +61,20 @@ export const updatePost = async (
   postId: number,
   data: UpdatePostData
 ): Promise<any> => {
-  const response = await api.put(`/api/posts/${postId}`, data);
+  const formData = new FormData();
+  formData.append("content", data.content);
+
+  if (data.imgUrl instanceof File) {
+    formData.append("image", data.imgUrl);
+  } else if (data.imgUrl === undefined) {
+    formData.append("removeImage", "true");
+  }
+
+  const response = await api.put(`/api/posts/${postId}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return response.data;
 };
 

@@ -47,13 +47,14 @@ public class UserService {
     }
 
     // 프로필 조회
-    // 프로필 조회 - 작성글 + 리포스트 모두 포함한 개수
     public UserProfileResponseDto getUserProfile(Long userId, Long currentUserId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
         // 작성글 + 리포스트 모두 포함한 총 활동 개수
-        Long totalActivityCount = postRepository.countUserAllActivity(userId);
+        Long originalPostCount = postRepository.countUserOriginalPosts(userId);
+        Long repostCount = postRepository.countUserReposts(userId);
+        Long totalActivityCount = originalPostCount + repostCount;
 
         // 직접 작성한 이미지 게시글 개수 (리포스트 제외)
         int imgCount = postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user);
@@ -76,8 +77,8 @@ public class UserService {
         profile.setEmail(user.getEmail());
         profile.setProfileImgUrl(user.getProfileImgUrl());
         profile.setBio(user.getBio());
-        profile.setPostCount(totalActivityCount); // 작성글 + 리포스트 총합
-        profile.setImagePostCount(imgCount); // 직접 작성한 이미지 게시글만
+        profile.setPostCount(totalActivityCount);
+        profile.setImagePostCount(imgCount);
         profile.setFollowersCount(followersCnt);
         profile.setFollowingCount(followingCnt);
         profile.setFollowing(isFollowing);
@@ -130,7 +131,7 @@ public class UserService {
         List<PostResponseDto> userPosts = pagedItems.stream()
                 .map(item -> {
                     PostEntity post = postMap.get(item.getPostId());
-                    if (post != null) {
+                    if (post != null && !post.isDeleted()) {
                         PostResponseDto dto = convertToResponseDto(post, finalCurrentUser);
 
                         // 리포스트 정보 설정
@@ -379,7 +380,10 @@ public class UserService {
         dto.setBio(user.getBio());
 
         // 작성글 + 리포스트 총 활동 개수
-        dto.setPostCount(postRepository.countUserAllActivity(user.getId()));
+        Long originalPostCount = postRepository.countUserOriginalPosts(user.getId());
+        Long repostCount = postRepository.countUserReposts(user.getId());
+        dto.setPostCount(originalPostCount + repostCount);
+
         // 직접 작성한 이미지 게시글만
         dto.setImagePostCount(postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user));
         dto.setFollowersCount(followRepository.countByFollowing(user));

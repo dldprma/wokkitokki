@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { useAppSelector } from "../../../store/hooks";
-import { useUser } from "../hooks/useUser";
+import { useAppSelector, useAppDispatch } from "../../../store/hooks";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { updateUserProfile } from "../store/userSlice";
 
 interface EditProfileProps {
   onClose: () => void;
@@ -9,7 +10,8 @@ interface EditProfileProps {
 
 const EditProfile: React.FC<EditProfileProps> = ({ onClose, onSuccess }) => {
   const { user } = useAppSelector((state) => state.auth);
-  const { updateProfile } = useUser();
+  const dispatch = useAppDispatch();
+  const { checkUsernameDuplicate } = useAuth();
 
   const [formData, setFormData] = useState({
     fullName: (user as any)?.fullName || "",
@@ -34,12 +36,20 @@ const EditProfile: React.FC<EditProfileProps> = ({ onClose, onSuccess }) => {
 
     setIsCheckingUsername(true);
     try {
-      // 여기서는 간단한 검증만 수행 (실제로는 API 호출)
-      // 백엔드에 username 중복 검증 API가 있다면 사용
-      if (username.includes("admin") || username.includes("test")) {
+      // 실제 username 중복 검증 API 호출
+      const result = await checkUsernameDuplicate(username);
+      if (
+        result.meta.requestStatus === "fulfilled" &&
+        (result.payload as any)?.exists
+      ) {
         setUsernameError("이미 사용 중인 사용자명입니다.");
-      } else {
+      } else if (
+        result.meta.requestStatus === "fulfilled" &&
+        !(result.payload as any)?.exists
+      ) {
         setUsernameError("");
+      } else {
+        setUsernameError("사용자명 확인 중 오류가 발생했습니다.");
       }
     } catch (error) {
       setUsernameError("사용자명 확인 중 오류가 발생했습니다.");
@@ -70,10 +80,12 @@ const EditProfile: React.FC<EditProfileProps> = ({ onClose, onSuccess }) => {
     setLoading(true);
     try {
       // username을 포함하여 프로필 업데이트
-      await updateProfile({
-        ...formData,
-        username: formData.username,
-      });
+      await dispatch(
+        updateUserProfile({
+          ...formData,
+          username: formData.username,
+        })
+      );
       onSuccess();
     } catch (error) {
       console.error("프로필 수정 실패:", error);

@@ -24,6 +24,10 @@ const SearchResults: React.FC<SearchResultsProps> = ({
   const handleUserClick = (username: string) => {
     navigate(`/${username}`);
   };
+
+  const handlePostClick = (postId: number) => {
+    navigate(`/post/${postId}`);
+  };
   if (loading && users.length === 0 && posts.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8">
@@ -117,7 +121,8 @@ const SearchResults: React.FC<SearchResultsProps> = ({
             {posts.map((post) => (
               <div
                 key={`search-post-${post.id}`}
-                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handlePostClick(post.id)}
               >
                 <div className="flex items-start space-x-3">
                   {post.imgUrl && (

@@ -2,6 +2,7 @@ import api from "../../../utils/axios";
 import type {
   CreatePostData,
   UpdatePostData,
+  Post,
   PostResponse,
   ProfilePostsResponse,
   ProfilePhotosResponse,
@@ -18,6 +19,16 @@ export const getFeedPosts = async (
 ): Promise<PostResponse> => {
   try {
     const response = await api.get(`/api/posts/feed?page=${page}&size=${size}`);
+    return response.data;
+  } catch (error) {
+    throw error;
+  }
+};
+
+// 게시글 상세 조회
+export const getPostDetail = async (postId: string): Promise<Post> => {
+  try {
+    const response = await api.get(`/api/posts/${postId}`);
     return response.data;
   } catch (error) {
     throw error;

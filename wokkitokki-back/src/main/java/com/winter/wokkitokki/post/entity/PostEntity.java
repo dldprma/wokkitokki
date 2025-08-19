@@ -31,6 +31,18 @@ public class PostEntity {
     private int likeCount = 0;
     private int repostCount = 0;
 
+    @Column
+    private LocalDateTime updatedAt;
+
+    @Column(name = "is_deleted", nullable = false)
+    private boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
     @ManyToOne
     @JoinColumn(name = "original_post_id")
     private PostEntity originalPost;

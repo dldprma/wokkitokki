@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.post.service;
 
+import com.winter.wokkitokki.common.service.FileService;
 import com.winter.wokkitokki.post.dto.*;
 import com.winter.wokkitokki.post.entity.LikeEntity;
 import com.winter.wokkitokki.post.entity.PostEntity;
@@ -11,50 +12,67 @@ import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.UUID;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class PostService {
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
     private final UserRepository userRepository;
     private final SearchIndexService searchIndexService;
+    private final FileService fileService;
 
-    // 게시글 작성
+    // 게시글 작성 (MultipartFile로 통일)
     @Transactional
-    public PostResponseDto createPost(Long userId, PostCreateRequestDto requestDto){
-        UserEntity user = userRepository.findById(userId).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+    public PostResponseDto createPost(Long userId, String content, MultipartFile image) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
         // 내용과 이미지 둘 다 없으면 에러
-        boolean hasContent = requestDto.getContent() != null && !requestDto.getContent().trim().isEmpty();
-        boolean hasImage = requestDto.getImgUrl() != null && !requestDto.getImgUrl().trim().isEmpty();
+        boolean hasContent = content != null && !content.trim().isEmpty();
+        boolean hasImage = image != null && !image.isEmpty();
 
         if (!hasContent && !hasImage) {
             throw new RuntimeException("게시글 내용 또는 이미지를 입력해주세요.");
         }
 
         // 내용 길이 제한
-        if(requestDto.getContent() != null && requestDto.getContent().length() > 1000){
+        if (content != null && content.length() > 1000) {
             throw new RuntimeException("게시글은 1000자 이내로 작성해주세요.");
         }
 
         PostEntity post = new PostEntity();
-        post.setContent(hasContent ? requestDto.getContent().trim() : "");
-        post.setImgUrl(requestDto.getImgUrl());
+        post.setContent(hasContent ? content.trim() : "");
         post.setUser(user);
         post.setLikeCount(0);
         post.setRepostCount(0);
+        post.setDeleted(false); // 삭제 상태 초기화
+        post.setDeletedAt(null);
+
+        // 이미지 업로드 처리
+        if (hasImage) {
+            // 파일 검증
+            fileService.validateImageFile(image);
+            fileService.validateFileSize(image, 5 * 1024 * 1024); // 5MB
+
+            try {
+                String imageUrl = fileService.uploadFile(image, "posts");
+                post.setImgUrl(imageUrl);
+            } catch (Exception e) {
+                throw new RuntimeException("이미지 업로드에 실패했습니다.", e);
+            }
+        }
 
         PostEntity savedPost = postRepository.save(post);
         searchIndexService.indexPost(savedPost);
@@ -63,96 +81,215 @@ public class PostService {
 
     // 게시글 수정
     @Transactional
-    public PostResponseDto updatePost(Long postId, Long userId, PostUpdateRequestDto requestDto){
-        PostEntity post = postRepository.findById(postId).orElseThrow(()->new RuntimeException("게시글을 찾을 수 없습니다."));
-        UserEntity currentUser = userRepository.findById(userId).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+    public PostResponseDto updatePost(Long postId, Long userId, PostUpdateRequestDto requestDto,
+                                      MultipartFile image, Boolean removeImage) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다."));
+
+        // 삭제된 게시글인지 확인
+        if (post.isDeleted()) {
+            throw new RuntimeException("삭제된 게시글은 수정할 수 없습니다.");
+        }
+
+        UserEntity currentUser = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
         // 본인 게시글인지 확인
-        if(!post.getUser().getId().equals(userId)){
+        if (!post.getUser().getId().equals(userId)) {
             throw new RuntimeException("본인의 게시글만 수정할 수 있습니다.");
         }
 
-        // 내용이 비었는지 확인
-        if(requestDto.getContent() == null || requestDto.getContent().trim().isEmpty()){
+        // 내용 검증 및 업데이트
+        if (requestDto.getContent() == null || requestDto.getContent().trim().isEmpty()) {
             throw new RuntimeException("게시글 내용을 입력해주세요");
         }
-
-        // 내용 길이 제한
-        if(requestDto.getContent().length() > 1000){
+        if (requestDto.getContent().length() > 1000) {
             throw new RuntimeException("게시글은 1000자 이내로 작성해주세요");
         }
-
-        // 내용 업데이트
         post.setContent(requestDto.getContent().trim());
+        post.setUpdatedAt(LocalDateTime.now()); // 수정 시간 업데이트
+
+        // 이미지 삭제 요청이 있는 경우
+        if (Boolean.TRUE.equals(removeImage)) {
+            if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
+                // 실제 파일은 삭제하지 않고 URL만 제거 (논리적 삭제)
+                // 실제 파일 삭제는 배치 작업으로 나중에 처리
+                log.info("이미지 논리적 삭제: {}", post.getImgUrl());
+            }
+            post.setImgUrl(null);
+        }
+        // 새 이미지가 있는 경우
+        else if (image != null && !image.isEmpty()) {
+            // 기존 이미지가 있다면 논리적 삭제 표시
+            if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
+                log.info("기존 이미지 교체: {}", post.getImgUrl());
+            }
+
+            // 파일 검증
+            fileService.validateImageFile(image);
+            fileService.validateFileSize(image, 5 * 1024 * 1024); // 5MB
+
+            try {
+                String imageUrl = fileService.uploadFile(image, "posts");
+                post.setImgUrl(imageUrl);
+            } catch (Exception e) {
+                throw new RuntimeException("이미지 업로드에 실패했습니다.", e);
+            }
+        }
+
         PostEntity updatedPost = postRepository.save(post);
         searchIndexService.indexPost(updatedPost);
 
         return convertToResponseDto(updatedPost, currentUser);
     }
 
-    // 게시글 삭제 (본인만 가능)
+    // 게시글 논리적 삭제 (본인만 가능)
     @Transactional
     public void deletePost(Long postId, Long userId) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
+
+        // 이미 삭제된 게시글인지 확인
+        if (post.isDeleted()) {
+            throw new RuntimeException("이미 삭제된 게시글입니다.");
+        }
 
         // 본인 게시글인지 확인
         if (!post.getUser().getId().equals(userId)) {
             throw new RuntimeException("본인의 게시글만 삭제할 수 있습니다");
         }
 
-        // 게시글에 이미지가 있다면 파일도 삭제
-        if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
-            deletePostImage(post.getImgUrl());
-        }
+        // 논리적 삭제 처리
+        post.setDeleted(true);
+        post.setDeletedAt(LocalDateTime.now());
+        post.setDeletedBy(userId); // 삭제한 사용자 ID 기록
 
-        // 관련된 좋아요, 리포스트 데이터도 자동으로 삭제됨
-        postRepository.delete(post);
+        // 게시글 내용도 마스킹 처리 (선택사항)
+        post.setContent("[삭제된 게시글입니다]");
+
+        postRepository.save(post);
+
+        // 검색 인덱스에서 제거
         searchIndexService.deletePostIndex(postId);
+
+        log.info("게시글 논리적 삭제 완료 - PostId: {}, UserId: {}", postId, userId);
     }
 
-    // 홈 피드 (팔로잉한 사람들 + 내 포스트)
-    public Page<PostResponseDto> getFeedPosts(Long userId, Pageable pageable){
-        UserEntity user = userRepository.findById(userId).orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
-        Page<PostEntity> posts = postRepository.findFeedPosts(userId, pageable);
+    // 게시글 완전 삭제 (관리자용)
+    @Transactional
+    public void permanentDeletePost(Long postId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
+
+        // 물리적 파일 삭제
+        if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
+            try {
+                fileService.deleteFile(post.getImgUrl());
+            } catch (Exception e) {
+                log.warn("게시글 이미지 삭제 실패: " + post.getImgUrl(), e);
+            }
+        }
+
+        // DB에서 완전 삭제
+        postRepository.delete(post);
+        searchIndexService.deletePostIndex(postId);
+
+        log.info("게시글 완전 삭제 완료 - PostId: {}", postId);
+    }
+
+    // 게시글 이미지 업로드 (별도 API용 - 선택사항)
+    @Transactional
+    public String uploadPostImage(MultipartFile file) {
+        // 파일 검증
+        fileService.validateImageFile(file);
+        fileService.validateFileSize(file, 10 * 1024 * 1024); // 10MB
+
+        try {
+            return fileService.uploadFile(file, "posts");
+        } catch (Exception e) {
+            throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    // 삭제된 게시글 복구 (관리자용)
+    @Transactional
+    public PostResponseDto restorePost(Long postId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
+
+        if (!post.isDeleted()) {
+            throw new RuntimeException("삭제되지 않은 게시글입니다.");
+        }
+
+        // 복구 처리
+        post.setDeleted(false);
+        post.setDeletedAt(null);
+        post.setDeletedBy(null);
+        post.setContent("[복구된 게시글]"); // 원본 내용 복구 로직 필요
+
+        PostEntity restoredPost = postRepository.save(post);
+        searchIndexService.indexPost(restoredPost);
+
+        log.info("게시글 복구 완료 - PostId: {}", postId);
+        return convertToResponseDto(restoredPost, post.getUser());
+    }
+
+    // 홈 피드 (삭제되지 않은 게시글만)
+    public Page<PostResponseDto> getFeedPosts(Long userId, Pageable pageable) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        // Repository에서 deleted = false 조건 추가 필요
+        Page<PostEntity> posts = postRepository.findFeedPostsNotDeleted(userId, pageable);
         return posts.map(post -> convertToResponseDto(post, user));
     }
 
-    // 특정 포스트 상세조회
-    public PostResponseDto getPostDetail(Long postId, Long currentUserId){
-        PostEntity post = postRepository.findById(postId).orElseThrow(()->new RuntimeException("포스트를 찾을 수 없습니다."));
+    // 특정 포스트 상세조회 (삭제된 게시글 제외)
+    public PostResponseDto getPostDetail(Long postId, Long currentUserId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("포스트를 찾을 수 없습니다."));
+
+        // 삭제된 게시글인지 확인
+        if (post.isDeleted()) {
+            throw new RuntimeException("삭제된 게시글입니다.");
+        }
 
         UserEntity currentUser = null;
-        if(currentUserId != null){
+        if (currentUserId != null) {
             currentUser = userRepository.findById(currentUserId).orElse(null);
         }
         return convertToResponseDto(post, currentUser);
     }
 
-    // 좋아요 토글
+    // 좋아요 토글 (삭제된 게시글에는 불가)
     @Transactional
-    public LikeResponseDto toggleLike(Long postId, Long userId){
+    public LikeResponseDto toggleLike(Long postId, Long userId) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
         PostEntity post = postRepository.findById(postId)
-                .orElseThrow(()->new RuntimeException("포스트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("포스트를 찾을 수 없습니다."));
+
+        // 삭제된 게시글인지 확인
+        if (post.isDeleted()) {
+            throw new RuntimeException("삭제된 게시글에는 좋아요를 할 수 없습니다.");
+        }
 
         // 이미 좋아요 했는지 확인
         boolean alreadyLiked = likeRepository.existsByUserAndPost(user, post);
 
-        if(alreadyLiked){
+        if (alreadyLiked) {
             LikeEntity like = likeRepository.findByUserAndPost(user, post);
             likeRepository.delete(like);
 
             // 음수값 방지 로직
             int currentCount = post.getLikeCount();
-            int newCount = Math.max(0, currentCount -1);
+            int newCount = Math.max(0, currentCount - 1);
             post.setLikeCount(newCount);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
 
             return new LikeResponseDto(false, post.getLikeCount());
-        }else{
+        } else {
             LikeEntity like = new LikeEntity();
             like.setUser(user);
             like.setPost(post);
@@ -167,19 +304,23 @@ public class PostService {
         }
     }
 
-    // 리포스트 토글
+    // 리포스트 토글 (삭제된 게시글에는 불가)
     @Transactional
-    public RepostResponseDto toggleRepost(Long postId, Long userId){
+    public RepostResponseDto toggleRepost(Long postId, Long userId) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
-
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
         PostEntity post = postRepository.findById(postId)
-                .orElseThrow(()->new RuntimeException("포스트를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("포스트를 찾을 수 없습니다."));
+
+        // 삭제된 게시글인지 확인
+        if (post.isDeleted()) {
+            throw new RuntimeException("삭제된 게시글은 리포스트할 수 없습니다.");
+        }
 
         // 이미 리포스트 했는지 확인
         boolean alreadyReposted = repostRepository.existsByUserAndPost(user, post);
 
-        if(alreadyReposted){
+        if (alreadyReposted) {
             // 리포스트 취소
             RepostEntity repost = repostRepository.findByUserAndPost(user, post);
             repostRepository.delete(repost);
@@ -192,7 +333,7 @@ public class PostService {
             searchIndexService.updatePostStats(postId);
 
             return new RepostResponseDto(false, post.getRepostCount());
-        }else{
+        } else {
             RepostEntity repost = new RepostEntity();
             repost.setUser(user);
             repost.setPost(post);
@@ -206,65 +347,8 @@ public class PostService {
         }
     }
 
-    // 게시글 이미지 업로드
-    @Transactional
-    public String uploadPostImage(MultipartFile file) {
-        // 파일이 비어있는지 확인
-        if (file.isEmpty()) {
-            throw new RuntimeException("파일이 비어있습니다");
-        }
-
-        // 이미지 파일인지 확인
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new RuntimeException("이미지 파일만 업로드 가능합니다.");
-        }
-
-        String originalFilename = file.getOriginalFilename();
-        if(originalFilename == null){
-            throw new RuntimeException("파일명이 없습니다.");
-        }
-
-        String extension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
-        if(!extension.equals(".jpg") && !extension.equals(".jpeg") && !extension.equals(".png")){
-            throw new RuntimeException("JPG, JPEG, PNG 파일만 업로드 가능합니다.");
-        }
-
-        // 파일 크기 검증 (10MB)
-        if (file.getSize() > 10 * 1024 * 1024) {
-            throw new RuntimeException("파일 크기는 10MB 이하로 해주세요");
-        }
-
-        try {
-            // 프론트엔드 public/uploads 폴더에 저장
-            String projectRoot = System.getProperty("user.dir");
-            String frontendPath = projectRoot.replace("wokkitokki-back", "wt-app");
-            File uploadDir = new File(frontendPath, "public/uploads/posts");
-
-            // 디렉토리가 없으면 생성
-            if (!uploadDir.exists()) {
-                boolean created = uploadDir.mkdirs();
-            }
-
-            // 파일 이름 만들기 (UUID 사용)
-            String filename = UUID.randomUUID().toString() + extension;
-
-            // 파일 저장
-            File saveFile = new File(uploadDir, filename);
-
-            file.transferTo(saveFile);
-
-            // 프론트엔드에서 접근 가능한 URL 반환
-            return "/uploads/posts/" + filename;
-
-        } catch (IOException e) {
-            e.printStackTrace();
-            throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage());
-        }
-    }
-
     // PostEntity -> PostResponseDto 변환 (단일 메서드로 통일)
-    private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser){
+    private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser) {
         PostResponseDto dto = new PostResponseDto();
         dto.setId(post.getId());
         dto.setContent(post.getContent());
@@ -275,35 +359,22 @@ public class PostService {
         dto.setLikeCount(post.getLikeCount());
         dto.setRepostCount(post.getRepostCount());
         dto.setCreatedAt(post.getCreatedAt().toString());
+        dto.setDeleted(post.isDeleted()); // 삭제 상태 추가
 
         // 현재 사용자가 좋아요/리포스트 했는지 확인
-        if(currentUser != null){
+        if (currentUser != null) {
             dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
             dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
 
             boolean isOwner = post.getUser().getId().equals(currentUser.getId());
-            dto.setCanEdit(isOwner);
-            dto.setCanDelete(isOwner);
-        }else{
+            dto.setCanEdit(isOwner && !post.isDeleted()); // 삭제된 게시글은 수정 불가
+            dto.setCanDelete(isOwner && !post.isDeleted()); // 삭제된 게시글은 재삭제 불가
+        } else {
             dto.setLiked(false);
             dto.setReposted(false);
             dto.setCanEdit(false);
             dto.setCanDelete(false);
         }
         return dto;
-    }
-
-    // 게시글 이미지 파일 삭제하는 private 메서드
-    private void deletePostImage(String imageUrl) {
-        try {
-            String filename = imageUrl.substring(imageUrl.lastIndexOf("/") + 1);
-            File filePath = new File("uploads/posts", filename);
-            if (filePath.exists()) {
-                filePath.delete();
-            }
-        } catch (Exception e) {
-            // 로그 기록만 하고 예외는 던지지 않음
-            System.err.println("게시글 이미지 삭제 실패: " + e.getMessage());
-        }
     }
 }

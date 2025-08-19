@@ -7,7 +7,7 @@ import { useAuth } from "../../auth/hooks/useAuth";
 
 const Nav: React.FC = () => {
   const location = useLocation();
-  const { user } = useUser();
+  const { profileUser } = useUser();
   const { logout, user: authUser } = useAuth();
   const isProfilePage = location.pathname === `/${authUser?.username}`;
 

@@ -64,23 +64,25 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
     @Query("SELECT p FROM PostEntity p WHERE p.id IN :postIds AND p.deleted = false")
     List<PostEntity> findPostsByIds(@Param("postIds") List<Long> postIds);
 
-    // 사용자의 원본 게시글 조회 (리포스트가 아닌)
+    // 사용자의 원본 게시글 조회
     @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(" +
             "p.id, p.createdAt, 'POST', null, null) " +
             "FROM PostEntity p " +
-            "WHERE p.user.id = :userId AND p.originalPost IS NULL " +
+            "WHERE p.user.id = :userId AND p.originalPost IS NULL AND p.deleted = false " +
             "ORDER BY p.createdAt DESC")
     List<FeedItemDto> findUserOriginalPosts(@Param("userId") Long userId);
 
     // 사용자가 리포스트한 게시글 조회
     @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(" +
-            "p.originalPost.id, p.createdAt, 'REPOST', p.user.id, p.user.username) " +
-            "FROM PostEntity p " +
-            "WHERE p.user.id = :userId AND p.originalPost IS NOT NULL " +
-            "ORDER BY p.createdAt DESC")
+            "r.post.id, r.repostedAt, 'REPOST', r.user.id, r.user.username) " +
+            "FROM RepostEntity r " +
+            "WHERE r.user.id = :userId AND r.post.deleted = false " +
+            "ORDER BY r.repostedAt DESC")
     List<FeedItemDto> findUserReposts(@Param("userId") Long userId);
 
-    // 사용자의 전체 활동 개수 (원본 게시글 + 리포스트)
-    @Query("SELECT COUNT(p) FROM PostEntity p WHERE p.user.id = :userId")  // Post → PostEntity
-    Long countUserAllActivity(@Param("userId") Long userId);
+    @Query("SELECT COUNT(p) FROM PostEntity p WHERE p.user.id = :userId AND p.originalPost IS NULL AND p.deleted = false")
+    Long countUserOriginalPosts(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(r) FROM RepostEntity r WHERE r.user.id = :userId")
+    Long countUserReposts(@Param("userId") Long userId);
 }

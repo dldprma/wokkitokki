@@ -29,6 +29,14 @@ export const uploadProfileImage = async (
   return response.data;
 };
 
+// 프로필 이미지 제거 API
+export const removeProfileImage = async (): Promise<{ message: string }> => {
+  const response = await api.delete("/api/users/profile/image", {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
 // 사용자 정보 조회 API
 export const getUserProfile = async (
   username: string,

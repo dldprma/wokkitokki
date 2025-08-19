@@ -20,7 +20,6 @@ const LoginForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("로그인 시도 시작:", formData.username);
     dispatch(clearError());
 
     try {
@@ -29,21 +28,17 @@ const LoginForm = () => {
         setTimeout(() => reject(new Error("로그인 요청 시간 초과")), 10000);
       });
 
-      console.log("로그인 API 호출 시작");
       const result = await Promise.race([
         dispatch(loginUser(formData)),
         timeoutPromise,
       ]);
 
-      console.log("로그인 결과:", result);
       if (loginUser.fulfilled.match(result)) {
-        console.log("로그인 성공, 홈으로 이동");
         navigate("/");
       } else if (loginUser.rejected.match(result)) {
-        console.log("로그인 실패:", result.error);
+        // 로그인 실패 처리
       }
     } catch (error) {
-      console.error("로그인 에러:", error);
       // 에러가 발생하면 로딩 상태를 강제로 false로 설정
       dispatch(setLoading(false));
     }

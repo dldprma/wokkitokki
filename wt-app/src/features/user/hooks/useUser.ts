@@ -1,9 +1,10 @@
-import { useAppDispatch } from "../../../store/hooks";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import * as userAPI from "../api/userApi";
 import { setUser } from "../store/userSlice";
 
 export const useUser = () => {
   const dispatch = useAppDispatch();
+  const { user: profileUser } = useAppSelector((state) => state.user);
 
   const getProfile = async (username: string) => {
     try {
@@ -22,6 +23,16 @@ export const useUser = () => {
       return response;
     } catch (error) {
       console.error("프로필 이미지 업로드 실패:", error);
+      throw error;
+    }
+  };
+
+  const removeProfileImage = async () => {
+    try {
+      const response = await userAPI.removeProfileImage();
+      return response;
+    } catch (error) {
+      console.error("프로필 이미지 제거 실패:", error);
       throw error;
     }
   };
@@ -84,8 +95,10 @@ export const useUser = () => {
   };
 
   return {
+    profileUser,
     getProfile,
     uploadProfileImage,
+    removeProfileImage,
     toggleFollow,
     getFollowers,
     getFollowing,

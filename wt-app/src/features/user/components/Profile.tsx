@@ -9,6 +9,7 @@ import EditProfile from "./EditProfile";
 import { updateProfileImage } from "../../auth/store/authSlice";
 import type { UserProfile } from "../types/userTypes";
 import { usePost } from "../../post/hooks/usePost";
+import { useUser } from "../hooks/useUser";
 import { settingAccessToken } from "../../../utils/axios";
 
 interface ProfileProps {
@@ -72,6 +73,9 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     toggleLike,
     toggleRepost,
   } = usePost();
+
+  // 사용자 관련 기능은 useUser에서 가져오기
+  const { removeProfileImage } = useUser();
 
   // profileUsername이 변경될 때마다 프로필 데이터 로드
   useEffect(() => {
@@ -348,7 +352,9 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
           <div className="flex items-center space-x-6 mt-6 border-t pt-6">
             <div className="text-center">
               <div className="text-lg font-semibold text-gray-900">
-                {profileUser?.postCount || profilePosts.length}
+                {profilePosts.length > 0
+                  ? profilePosts.length
+                  : profileUser?.postCount || 0}
               </div>
               <div className="text-sm text-gray-600">게시글</div>
             </div>
@@ -385,7 +391,11 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("posts")}
           >
-            게시글 ({profileUser?.postCount || 0})
+            게시글 (
+            {profilePosts.length > 0
+              ? profilePosts.length
+              : profileUser?.postCount || 0}
+            )
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
@@ -395,7 +405,11 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("photos")}
           >
-            사진 ({profileUser?.imagePostCount || 0})
+            사진 (
+            {profilePhotos.length > 0
+              ? profilePhotos.length
+              : profileUser?.imagePostCount || 0}
+            )
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
@@ -405,7 +419,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("reels")}
           >
-            릴스
+            릴스 ({profileReels.length > 0 ? profileReels.length : 0})
           </button>
         </div>
 
@@ -482,7 +496,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             <div className="text-center text-gray-500 py-8">
               {activeTab === "posts" && "아직 게시글이 없습니다"}
               {activeTab === "photos" && "아직 사진이 없습니다"}
-              {activeTab === "reels" && "아직 Reels가 없습니다"}
+              {activeTab === "reels" && "아직 릴스가 없습니다"}
             </div>
           )}
         </div>

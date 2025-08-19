@@ -74,7 +74,13 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         console.error("탭 데이터 로드 실패:", error);
       }
     },
-    [username, getProfilePhotos, getProfilePosts, getProfileReels]
+    [
+      username,
+      getProfilePhotos,
+      getProfilePosts,
+      getProfileReels,
+      profilePosts.length,
+    ]
   );
 
   const loadMore = async () => {
@@ -126,9 +132,9 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
               />
               <div className="flex-1">
                 {/* 리포스트 정보 표시 */}
-                {post.isRepost && post.repostedBy && (
+                {post.isRepost && (
                   <div className="repost-info text-sm text-gray-500 mb-2">
-                    🔄 {post.repostedBy}님이 리포스트했습니다
+                    🔄 {post.repostedBy || "사용자"}님이 리포스트했습니다
                   </div>
                 )}
                 <div className="flex items-center space-x-2 mb-2">
@@ -335,7 +341,6 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   // DM 보내기 처리
   const handleDmClick = (username: string) => {
     // DM 페이지로 이동 (향후 구현)
-    console.log(`DM 보내기: ${username}`);
     // TODO: DM 기능 구현 시 navigate(`/dm/${username}`) 사용
   };
 

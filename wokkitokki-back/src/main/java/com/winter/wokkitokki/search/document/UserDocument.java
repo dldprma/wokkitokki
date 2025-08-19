@@ -1,8 +1,8 @@
 package com.winter.wokkitokki.search.document;
 
-import jakarta.persistence.Id;
 import lombok.Getter;
 import lombok.Setter;
+import org.springframework.data.annotation.Id;
 import org.springframework.data.elasticsearch.annotations.Document;
 import org.springframework.data.elasticsearch.annotations.Field;
 import org.springframework.data.elasticsearch.annotations.FieldType;
@@ -11,12 +11,12 @@ import org.springframework.data.elasticsearch.annotations.FieldType;
 @Getter @Setter
 public class UserDocument {
     @Id
-    private String id; // userId를 String으로 저장
+    private String id;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(type = FieldType.Text, analyzer = "nori")
     private String username;
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(type = FieldType.Text, analyzer = "nori")
     private String fullName;
 
     @Field(type = FieldType.Text)

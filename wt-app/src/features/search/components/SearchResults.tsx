@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import type { UserSearchResult, PostSearchResult } from "../types/searchTypes";
 
 interface SearchResultsProps {
@@ -18,6 +19,11 @@ const SearchResults: React.FC<SearchResultsProps> = ({
   hasMore,
   onLoadMore,
 }) => {
+  const navigate = useNavigate();
+
+  const handleUserClick = (username: string) => {
+    navigate(`/${username}`);
+  };
   if (loading && users.length === 0 && posts.length === 0) {
     return (
       <div className="bg-white rounded-lg shadow-sm p-8">
@@ -67,7 +73,8 @@ const SearchResults: React.FC<SearchResultsProps> = ({
             {users.map((user) => (
               <div
                 key={user.id}
-                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
+                className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => handleUserClick(user.username)}
               >
                 <div className="flex items-center space-x-3">
                   {user.profileImgUrl && (
@@ -80,9 +87,11 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                   <div className="flex-1">
                     <div className="flex items-center space-x-2 mb-1">
                       <span className="font-semibold text-gray-900">
-                        {user.fullName}
+                        {user.fullName || user.username || "Unknown User"}
                       </span>
-                      <span className="text-gray-500">@{user.username}</span>
+                      <span className="text-gray-500">
+                        @{user.username || "unknown"}
+                      </span>
                     </div>
                     {user.bio && (
                       <p className="text-gray-600 text-sm mb-2">{user.bio}</p>
@@ -136,10 +145,10 @@ const SearchResults: React.FC<SearchResultsProps> = ({
                     </div>
                     <div className="mt-2 text-sm text-gray-600">
                       <span className="font-medium">
-                        {post.author.fullName}
+                        {post.authorName || "Unknown Author"}
                       </span>
                       <span className="text-gray-500 ml-2">
-                        @{post.author.username}
+                        @{post.authorUsername || "unknown"}
                       </span>
                     </div>
                   </div>

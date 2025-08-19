@@ -98,13 +98,15 @@ const SearchContent: React.FC = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto py-8 px-4">
         {/* 검색 헤더 */}
-        <div className="mb-8">
+        <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-gray-900 mb-4">검색</h1>
-          <SearchBar
-            placeholder="게시글, 사용자를 검색해보세요..."
-            className="max-w-2xl"
-            onSearch={handleSearch}
-          />
+          <div className="flex justify-center">
+            <SearchBar
+              placeholder="게시글, 사용자를 검색해보세요..."
+              className="max-w-2xl w-full"
+              onSearch={handleSearch}
+            />
+          </div>
         </div>
 
         {/* 검색 결과가 있는 경우에만 필터와 결과 표시 */}

@@ -1,19 +1,5 @@
 // 백엔드 DTO와 일치하는 타입 정의
 
-// 페이지네이션 응답 타입 (Spring Data Page)
-export interface Page<T> {
-  content: T[];
-  totalElements: number;
-  totalPages: number;
-  size: number;
-  number: number;
-  first: boolean;
-  last: boolean;
-  numberOfElements: number;
-  hasNext: boolean;
-  hasPrevious: boolean;
-}
-
 // 검색 요청 타입 (SearchRequestDto)
 export interface SearchRequest {
   keyword: string;
@@ -21,6 +7,20 @@ export interface SearchRequest {
   sortBy?: string;
   page?: number;
   size?: number;
+}
+
+// 페이지 타입 정의
+export interface Page<T> {
+  content: T[];
+  hasNext: boolean;
+  hasPrevious: boolean;
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+  numberOfElements: number;
+  first: boolean;
+  last: boolean;
 }
 
 // 검색 응답 타입 (SearchResponseDto)
@@ -57,12 +57,12 @@ export interface PostSearchResult {
   repostCount: number;
   isLiked: boolean;
   isReposted: boolean;
-  author: {
-    id: number;
-    username: string;
-    fullName: string;
-    profileImgUrl?: string;
-  };
+  authorName: string;
+  authorUsername: string;
+  authorProfileImg?: string;
+  canEdit: boolean;
+  canDelete: boolean;
+  originalPost?: PostSearchResult;
 }
 
 // 검색어 제안 타입 (SearchSuggestionDto)

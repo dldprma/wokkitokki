@@ -39,10 +39,14 @@ function App() {
       dispatch(initializeAuth());
       const storedUser = localStorage.getItem("user");
       if (storedUser) {
-        dispatch(refreshUserToken());
-      } else {
-        dispatch(setInitialized());
+        try {
+          await dispatch(refreshUserToken()).unwrap();
+        } catch (error) {
+          // 토큰 갱신 실패 시 로그인 페이지로 리다이렉트
+          console.error("토큰 갱신 실패, 로그인 필요");
+        }
       }
+      dispatch(setInitialized());
     };
 
     initApp();

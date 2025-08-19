@@ -141,7 +141,8 @@ const authSlice = createSlice({
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         state.user = userData;
-        state.isAuthenticated = true;
+        // 사용자 정보만 복원하고 토큰은 복원하지 않음
+        state.isAuthenticated = false; // 토큰이 없으므로 인증되지 않은 상태
       }
 
       state.isInitialized = true;

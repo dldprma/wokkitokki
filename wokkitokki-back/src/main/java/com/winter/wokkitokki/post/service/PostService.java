@@ -85,6 +85,7 @@ public class PostService {
         // 내용 업데이트
         post.setContent(requestDto.getContent().trim());
         PostEntity updatedPost = postRepository.save(post);
+        searchIndexService.indexPost(updatedPost);
 
         return convertToResponseDto(updatedPost, currentUser);
     }

@@ -13,7 +13,7 @@ public class PostDocument {
     @Id
     private String id; // postId를 String으로 저장
 
-    @Field(type = FieldType.Text, analyzer = "standard")
+    @Field(type = FieldType.Text, analyzer = "nori")
     private String content;
 
     @Field(type = FieldType.Keyword)

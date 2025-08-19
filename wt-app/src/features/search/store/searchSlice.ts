@@ -253,13 +253,14 @@ const searchSlice = createSlice({
       .addCase(performSearch.fulfilled, (state, action) => {
         state.loading = false;
         state.searchResponse = action.payload;
+        // 백엔드 응답에서 Page 구조로 users와 posts를 받아옴
         state.users = action.payload.users?.content || [];
         state.posts = action.payload.posts?.content || [];
         state.totalResults = action.payload.totalResults;
         state.currentKeyword = action.payload.keyword;
+        // hasMore는 users 또는 posts 중 하나라도 다음 페이지가 있으면 true
         state.hasMore =
           action.payload.users?.hasNext ||
-          false ||
           action.payload.posts?.hasNext ||
           false;
       })

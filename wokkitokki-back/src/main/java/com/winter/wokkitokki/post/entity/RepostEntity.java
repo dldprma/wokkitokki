@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.time.LocalDateTime;
+
 @Entity
 @Table(name="reposts", uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "post_id"})})
 @Getter @Setter
@@ -24,4 +26,12 @@ public class RepostEntity {
     @ManyToOne
     @JoinColumn(name = "post_id")
     private PostEntity post;
+
+    @Column(name = "reposted_at")
+    private LocalDateTime repostedAt = LocalDateTime.now();
+
+    @PrePersist
+    protected void onCreate() {
+        repostedAt = LocalDateTime.now();
+    }
 }

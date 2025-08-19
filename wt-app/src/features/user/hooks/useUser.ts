@@ -34,8 +34,6 @@ export const useUser = () => {
       const isFollowing = response.isFollowing;
       const targetUserProfile = response.targetUserProfile;
 
-      console.log("팔로우 토글 응답:", { isFollowing, targetUserProfile });
-
       // 성공한 경우 Redux store 업데이트
       if (targetUserProfile) {
         dispatch(setUser(targetUserProfile));

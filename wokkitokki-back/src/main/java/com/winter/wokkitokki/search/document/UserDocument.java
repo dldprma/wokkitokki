@@ -35,5 +35,5 @@ public class UserDocument {
     private int followingCount;
 
     @Field(type = FieldType.Integer)
-    private int postCount;
+    private Long postCount;
 }

@@ -80,11 +80,19 @@ const homeSlice = createSlice({
           likeCount: Math.max(0, Number(p.likeCount ?? 0)),
           repostCount: Math.max(0, Number(p.repostCount ?? 0)),
         }));
+
         if (action.payload.number === 0) {
+          // 첫 페이지인 경우 기존 데이터 교체
           state.posts = normalized;
         } else {
-          state.posts = [...state.posts, ...normalized];
+          // 추가 페이지인 경우 중복 제거 후 추가
+          const existingIds = new Set(state.posts.map((p: any) => p.id));
+          const newPosts = normalized.filter(
+            (p: any) => !existingIds.has(p.id)
+          );
+          state.posts = [...state.posts, ...newPosts];
         }
+
         state.hasMore = action.payload.hasNext;
         state.page = action.payload.number;
       })

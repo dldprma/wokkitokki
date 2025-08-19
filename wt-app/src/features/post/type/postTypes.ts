@@ -13,7 +13,13 @@ export interface Post {
   createdAt: string;
   canEdit?: boolean;
   canDelete?: boolean;
-  isDeleted?: boolean; // 삭제 상태
+  deleted: boolean; // 삭제 상태 (백엔드와 일치)
+
+  // 리포스트 관련 필드
+  isRepost?: boolean;
+  repostedBy?: string;
+  repostedAt?: string;
+  originalCreatedAt?: string;
   originalPost?: Post; // 리포스트인 경우
 }
 

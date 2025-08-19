@@ -13,7 +13,7 @@ public class UserProfileResponseDto {
     private String email;
     private String profileImgUrl;
     private String bio;
-    private int postCount;
+    private Long postCount;
     private int imagePostCount;
     private int followersCount;
     private int followingCount;

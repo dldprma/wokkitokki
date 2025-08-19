@@ -53,7 +53,7 @@ const SearchHistory: React.FC<SearchHistoryProps> = ({
       <div className="py-2">
         {history.slice(0, 5).map((item) => (
           <div
-            key={item.id}
+            key={`search-history-${item.id}`}
             className="flex items-center justify-between px-4 py-2 hover:bg-gray-50 transition-colors"
           >
             <button

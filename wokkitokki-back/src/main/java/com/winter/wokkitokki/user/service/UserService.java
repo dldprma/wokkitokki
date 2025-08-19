@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.user.service;
 
+import com.winter.wokkitokki.post.dto.FeedItemDto;
 import com.winter.wokkitokki.post.dto.PostImageResponseDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
 import com.winter.wokkitokki.post.entity.PostEntity;
@@ -15,6 +16,7 @@ import com.winter.wokkitokki.user.repository.FollowRepository;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,7 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -44,19 +47,24 @@ public class UserService {
     }
 
     // 프로필 조회
-    public UserProfileResponseDto getUserProfile(Long userId, Long currentUserId){
+    // 프로필 조회 - 작성글 + 리포스트 모두 포함한 개수
+    public UserProfileResponseDto getUserProfile(Long userId, Long currentUserId) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        int postCount = postRepository.countByUser(user);
-        int imgCount = postRepository.countByUserAndImgUrlIsNotNull(user);
+        // 작성글 + 리포스트 모두 포함한 총 활동 개수
+        Long totalActivityCount = postRepository.countUserAllActivity(userId);
+
+        // 직접 작성한 이미지 게시글 개수 (리포스트 제외)
+        int imgCount = postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user);
+
         int followersCnt = followRepository.countByFollowing(user);
         int followingCnt = followRepository.countByFollower(user);
 
         boolean isFollowing = false;
-        if(currentUserId != null && !currentUserId.equals(userId)){
+        if (currentUserId != null && !currentUserId.equals(userId)) {
             UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
-            if(currentUser != null){
+            if (currentUser != null) {
                 isFollowing = followRepository.existsByFollowerAndFollowing(currentUser, user);
             }
         }
@@ -68,8 +76,8 @@ public class UserService {
         profile.setEmail(user.getEmail());
         profile.setProfileImgUrl(user.getProfileImgUrl());
         profile.setBio(user.getBio());
-        profile.setPostCount(postCount);
-        profile.setImagePostCount(imgCount);
+        profile.setPostCount(totalActivityCount); // 작성글 + 리포스트 총합
+        profile.setImagePostCount(imgCount); // 직접 작성한 이미지 게시글만
         profile.setFollowersCount(followersCnt);
         profile.setFollowingCount(followingCnt);
         profile.setFollowing(isFollowing);
@@ -77,27 +85,79 @@ public class UserService {
         return profile;
     }
 
+
     // 특정 사용자의 모든 포스트 조회
-    public Page<PostResponseDto> getUserPosts(Long userId, Long currentUserId, Pageable pageable){
+    public Page<PostResponseDto> getUserPosts(Long userId, Long currentUserId, Pageable pageable) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        Page<PostEntity> posts = postRepository.findByUserOrderByCreatedAtDesc(user, pageable);
+        // 1. 사용자가 작성한 게시글 조회
+        List<FeedItemDto> originalPosts = postRepository.findUserOriginalPosts(userId);
 
+        // 2. 사용자가 리포스트한 게시글 조회
+        List<FeedItemDto> userReposts = postRepository.findUserReposts(userId);
+
+        // 3. 모든 활동 합치기
+        List<FeedItemDto> allActivity = new ArrayList<>();
+        allActivity.addAll(originalPosts);
+        allActivity.addAll(userReposts);
+
+        // 4. 시간순 정렬 (최신순)
+        allActivity.sort((a, b) -> b.getSortTime().compareTo(a.getSortTime()));
+
+        // 5. 페이징 처리
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), allActivity.size());
+        List<FeedItemDto> pagedItems = allActivity.subList(start, end);
+
+        // 6. 게시글 ID 추출 및 실제 게시글 조회
+        List<Long> postIds = pagedItems.stream()
+                .map(FeedItemDto::getPostId)
+                .toList();
+
+        List<PostEntity> posts = postRepository.findPostsByIds(postIds);
+        Map<Long, PostEntity> postMap = posts.stream()
+                .collect(Collectors.toMap(PostEntity::getId, p -> p));
+
+        // 7. 현재 사용자 정보
         UserEntity currentUser = null;
-        if(currentUserId != null){
+        if (currentUserId != null) {
             currentUser = userRepository.findById(currentUserId).orElse(null);
         }
         final UserEntity finalCurrentUser = currentUser;
-        return posts.map(post->convertToResponseDto(post, finalCurrentUser));
+
+        // 8. DTO 변환
+        List<PostResponseDto> userPosts = pagedItems.stream()
+                .map(item -> {
+                    PostEntity post = postMap.get(item.getPostId());
+                    if (post != null) {
+                        PostResponseDto dto = convertToResponseDto(post, finalCurrentUser);
+
+                        // 리포스트 정보 설정
+                        if ("REPOST".equals(item.getType())) {
+                            dto.setRepost(true);
+                            dto.setRepostedBy(item.getRepostUsername());
+                            dto.setRepostedAt(item.getSortTime().toString());
+                            dto.setOriginalCreatedAt(post.getCreatedAt().toString());
+                        }
+
+                        return dto;
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        // 9. Page 객체 생성
+        return new PageImpl<>(userPosts, pageable, allActivity.size());
     }
 
-    // 특정 사용자의 이미지 포스트만 조회
-    public Page<PostImageResponseDto> getUserImagePosts(Long userId, Pageable pageable){
+    public Page<PostImageResponseDto> getUserImagePosts(Long userId, Pageable pageable) {
         UserEntity user = userRepository.findById(userId)
-                .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        Page<PostEntity> imagePosts = postRepository.findByUserAndImgUrlIsNotNullOrderByCreatedAtDesc(user, pageable);
+        // 직접 작성한 이미지 게시글만 (리포스트한 이미지는 제외)
+        Page<PostEntity> imagePosts = postRepository.findByUserAndImgUrlIsNotNullAndDeletedFalseOrderByCreatedAtDesc(user, pageable);
         return imagePosts.map(this::convertToImageResponseDto);
     }
 
@@ -277,6 +337,7 @@ public class UserService {
         dto.setLikeCount(post.getLikeCount());
         dto.setRepostCount(post.getRepostCount());
         dto.setCreatedAt(post.getCreatedAt().toString());
+        dto.setDeleted(post.isDeleted()); // 삭제 상태 추가
 
         // 현재 사용자가 좋아요/리포스트 했는지 확인
         if(currentUser != null){
@@ -284,8 +345,8 @@ public class UserService {
             dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
 
             boolean isOwner = post.getUser().getId().equals(currentUser.getId());
-            dto.setCanEdit(isOwner);
-            dto.setCanDelete(isOwner);
+            dto.setCanEdit(isOwner && !post.isDeleted());
+            dto.setCanDelete(isOwner && !post.isDeleted()); // 삭제된 게시글은 재삭제 불가
         }else{
             dto.setLiked(false);
             dto.setReposted(false);
@@ -316,8 +377,11 @@ public class UserService {
         dto.setEmail(user.getEmail());
         dto.setProfileImgUrl(user.getProfileImgUrl());
         dto.setBio(user.getBio());
-        dto.setPostCount(postRepository.countByUser(user));
-        dto.setImagePostCount(postRepository.countByUserAndImgUrlIsNotNull(user));
+
+        // 작성글 + 리포스트 총 활동 개수
+        dto.setPostCount(postRepository.countUserAllActivity(user.getId()));
+        // 직접 작성한 이미지 게시글만
+        dto.setImagePostCount(postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user));
         dto.setFollowersCount(followRepository.countByFollowing(user));
         dto.setFollowingCount(followRepository.countByFollower(user));
         dto.setFollowing(isFollowing(currentUser, user));

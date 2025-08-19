@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { useUser } from "../hooks/useUser";
 import { updateUserProfile } from "../store/userSlice";
 
 interface EditProfileProps {
@@ -12,6 +13,7 @@ const EditProfile: React.FC<EditProfileProps> = ({ onClose, onSuccess }) => {
   const { user } = useAppSelector((state) => state.auth);
   const dispatch = useAppDispatch();
   const { checkUsernameDuplicate } = useAuth();
+  const { removeProfileImage } = useUser();
 
   const [formData, setFormData] = useState({
     fullName: (user as any)?.fullName || "",
@@ -104,6 +106,22 @@ const EditProfile: React.FC<EditProfileProps> = ({ onClose, onSuccess }) => {
     }));
   };
 
+  // 프로필 이미지 제거 처리
+  const handleRemoveProfileImage = async () => {
+    if (!window.confirm("프로필 이미지를 제거하시겠습니까?")) {
+      return;
+    }
+
+    try {
+      await removeProfileImage();
+      onSuccess(); // 프로필 데이터 새로고침
+      alert("프로필 이미지가 제거되었습니다.");
+    } catch (error) {
+      console.error("프로필 이미지 제거 실패:", error);
+      alert("프로필 이미지 제거에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
@@ -166,21 +184,31 @@ const EditProfile: React.FC<EditProfileProps> = ({ onClose, onSuccess }) => {
         />
       </div>
 
-      <div className="flex justify-end space-x-3 pt-4">
+      <div className="flex justify-between items-center pt-4">
         <button
           type="button"
-          onClick={onClose}
-          className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+          onClick={handleRemoveProfileImage}
+          className="px-4 py-2 text-red-600 border border-red-300 rounded-md hover:bg-red-50"
         >
-          취소
+          프로필 이미지 제거
         </button>
-        <button
-          type="submit"
-          disabled={loading || !!usernameError || isCheckingUsername}
-          className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? "저장 중..." : "저장"}
-        </button>
+
+        <div className="flex space-x-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            disabled={loading || !!usernameError || isCheckingUsername}
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? "저장 중..." : "저장"}
+          </button>
+        </div>
       </div>
     </form>
   );

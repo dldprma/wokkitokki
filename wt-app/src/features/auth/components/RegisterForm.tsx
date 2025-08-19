@@ -45,6 +45,7 @@ const RegisterForm = () => {
   const [usernameExists, setUsernameExists] = useState(false);
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [emailExists, setEmailExists] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const {
     register,
@@ -149,8 +150,12 @@ const RegisterForm = () => {
     const result = await dispatch(registerUser(data));
 
     if (registerUser.fulfilled.match(result)) {
-      alert("회원가입이 완료되었습니다.");
-      navigate("/login");
+      setSuccessMessage(
+        "회원가입이 완료되었습니다! 로그인 페이지로 이동합니다."
+      );
+      setTimeout(() => {
+        navigate("/login");
+      }, 2000); // 2초 후 로그인 페이지로 이동
     }
   };
 
@@ -229,6 +234,7 @@ const RegisterForm = () => {
             </div>
 
             {error && <p className="errorMsg">{error}</p>}
+            {successMessage && <p className="successMsg">{successMessage}</p>}
 
             <button
               type="submit"

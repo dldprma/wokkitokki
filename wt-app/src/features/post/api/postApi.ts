@@ -117,10 +117,14 @@ export const getProfilePosts = async (
   size: number = 10,
   username?: string
 ): Promise<ProfilePostsResponse> => {
-  const response = await api.get(
-    `/api/users/${username}/posts?page=${page}&size=${size}`
-  );
-  return response.data;
+  try {
+    const response = await api.get(
+      `/api/users/${username}/posts?page=${page}&size=${size}`
+    );
+    return response.data;
+  } catch (error: any) {
+    throw error;
+  }
 };
 
 // 내 프로필 사진 조회 (이미지만)

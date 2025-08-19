@@ -26,12 +26,20 @@
   @apply text-[#2561D9] font-medium;
 }
 
+.registerLink {
+  @apply text-[#2561D9] font-medium hover:text-blue-700 transition-colors;
+}
+
 .footer {
   @apply text-[#262626] text-sm mt-8 text-center;
 }
 
 .errorMsg {
   @apply text-sm text-[#F23827] mt-1 ml-1;
+}
+
+.successMsg {
+  @apply text-sm text-[#10B981] mt-1 ml-1 font-medium;
 }
 
 .login-form .inputField {

@@ -1,13 +1,17 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHome } from "../hooks/useHome";
 import { useUser } from "../../user/hooks/useUser";
 import { usePost } from "../../post/hooks/usePost";
+import { useAuth } from "../../auth/hooks/useAuth";
 import ProfileImage from "../../user/components/ProfileImage";
 import "../../../css/Home.css";
-import { useAppSelector } from "../../../store/hooks";
+import { useAppSelector, useAppDispatch } from "../../../store/hooks";
+import { setLoading, clearError, setError } from "../store/homeSlice";
 
 const Home: React.FC = () => {
+  const dispatch = useAppDispatch();
+
   const {
     isAuthenticated,
     isInitialized,
@@ -17,18 +21,24 @@ const Home: React.FC = () => {
     loading,
     error,
     hasMore,
-    getPosts,
+    getPosts: originalGetPosts,
     createPost,
     toggleLike,
     toggleRepost,
+    deletePost,
   } = useHome();
+
+  // getPosts 함수를 useCallback으로 최적화
+  const getPosts = useCallback(originalGetPosts, [originalGetPosts]);
   const { posts: feedPosts } = useAppSelector((state) => state.home);
-  const { user: profileUser } = useUser();
+  const { profileUser } = useUser();
+  const { user: authUser } = useAuth();
   const navigate = useNavigate();
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const isInitialLoad = useRef(true);
 
   // 사용자 프로필로 이동
   const handleUserClick = (username: string) => {
@@ -41,12 +51,27 @@ const Home: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isInitialized && isAuthenticated && !authLoading) {
-      getPosts(0, 10);
-    }
-  }, [isInitialized, isAuthenticated, authLoading, getPosts]);
+    if (
+      isInitialized &&
+      isAuthenticated &&
+      !authLoading &&
+      isInitialLoad.current
+    ) {
+      isInitialLoad.current = false;
 
-  const handleCreatePost = async () => {
+      // API 호출에 타임아웃 설정
+      const timeoutId = setTimeout(() => {
+        dispatch(setLoading(false));
+        dispatch(setError("데이터 로드 시간 초과"));
+      }, 10000); // 10초 타임아웃
+
+      getPosts(0, 10).finally(() => {
+        clearTimeout(timeoutId);
+      });
+    }
+  }, [isInitialized, isAuthenticated, authLoading, dispatch]);
+
+  const handleCreatePost = useCallback(async () => {
     if (!newPostContent.trim() && !selectedImage) return;
 
     try {
@@ -64,7 +89,7 @@ const Home: React.FC = () => {
     } catch (error) {
       alert("게시글 작성에 실패했습니다. 다시 시도해주세요.");
     }
-  };
+  }, [newPostContent, selectedImage, createPost, getPosts]);
 
   // 이미지 선택 처리
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -123,6 +148,22 @@ const Home: React.FC = () => {
     }
   };
 
+  // 게시글 삭제 처리
+  const handleDeletePost = async (postId: number) => {
+    if (!window.confirm("게시글을 삭제하시겠습니까?")) {
+      return;
+    }
+
+    try {
+      await deletePost(postId);
+      // 삭제 후 피드 새로고침
+      getPosts(0, 10);
+    } catch (error) {
+      console.error("게시글 삭제 실패:", error);
+      alert("게시글 삭제에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
+
   const formatTimeAgo = (createdAt: string) => {
     const now = new Date();
     const postTime = new Date(createdAt);
@@ -150,8 +191,8 @@ const Home: React.FC = () => {
         <article className="new-post-container">
           <div className="new-post-content">
             <ProfileImage
-              imageUrl={profileUser?.profileImgUrl}
-              username={profileUser?.username || ""}
+              imageUrl={authUser?.profileImgUrl}
+              username={authUser?.username || ""}
               size="md"
               className="new-post-avatar"
             />
@@ -331,6 +372,19 @@ const Home: React.FC = () => {
         </div>
       </section>
 
+      {/* 게시글이 없을 때 메시지 */}
+      {!loading && feedPosts.length === 0 && (
+        <section className="no-posts-section">
+          <div className="no-posts-container">
+            <div className="no-posts-icon">📝</div>
+            <h3 className="no-posts-title">아직 게시글이 없습니다</h3>
+            <p className="no-posts-description">
+              첫 번째 게시글을 작성해보세요!
+            </p>
+          </div>
+        </section>
+      )}
+
       {/* 로딩 상태 */}
       {loading && (
         <section className="loading-section">
@@ -354,7 +408,7 @@ const Home: React.FC = () => {
         <section className="load-more-section">
           <div className="load-more-container">
             <button
-              onClick={() => getFeedPosts(feedPosts.length / 10, 10)}
+              onClick={() => getPosts(feedPosts.length / 10, 10)}
               className="load-more-btn"
               aria-label="더 많은 게시글 보기"
             >

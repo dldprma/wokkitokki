@@ -72,7 +72,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
           <div className="space-y-3">
             {users.map((user) => (
               <div
-                key={user.id}
+                key={`search-user-${user.id}`}
                 className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow cursor-pointer"
                 onClick={() => handleUserClick(user.username)}
               >
@@ -116,7 +116,7 @@ const SearchResults: React.FC<SearchResultsProps> = ({
           <div className="space-y-3">
             {posts.map((post) => (
               <div
-                key={post.id}
+                key={`search-post-${post.id}`}
                 className="bg-white rounded-lg shadow-sm p-4 hover:shadow-md transition-shadow"
               >
                 <div className="flex items-start space-x-3">

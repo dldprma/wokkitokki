@@ -69,6 +69,8 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     getProfilePosts,
     getProfilePhotos,
     getProfileReels,
+    toggleLike,
+    toggleRepost,
   } = usePost();
 
   // profileUsername이 변경될 때마다 프로필 데이터 로드
@@ -126,6 +128,30 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     } catch (error) {
       console.error("팔로우/언팔로우 실패:", error);
       alert("팔로우 상태 변경에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
+
+  // 좋아요 토글 처리
+  const handleLikeToggle = async (postId: number) => {
+    if (!profileUsername) return;
+    try {
+      await toggleLike(postId);
+      // 프로필 데이터 새로고침
+      await getProfilePosts(0, 10, profileUsername);
+    } catch (error) {
+      console.error("Profile: 좋아요 토글 실패", error);
+    }
+  };
+
+  // 리포스트 토글 처리
+  const handleRepostToggle = async (postId: number) => {
+    if (!profileUsername) return;
+    try {
+      await toggleRepost(postId);
+      // 프로필 데이터 새로고침
+      await getProfilePosts(0, 10, profileUsername);
+    } catch (error) {
+      console.error("Profile: 리포스트 토글 실패", error);
     }
   };
 
@@ -379,63 +405,19 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("reels")}
           >
-            Reels
+            릴스
           </button>
         </div>
 
         {/* 프로필 포스트 */}
         <div className="mt-6">
-          {profileLoading ? (
-            <div className="text-center text-gray-500 py-8">로딩 중...</div>
-          ) : activeTab === "posts" && profilePosts.length > 0 ? (
-            <div className="space-y-4">
-              {profilePosts.map((post) => (
-                <div
-                  key={post.id}
-                  className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
-                  onClick={() => navigate(`/post/${post.id}`)}
-                >
-                  <div className="flex items-center space-x-3 mb-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-200">
-                      {post.authorProfileImg && (
-                        <img
-                          src={post.authorProfileImg}
-                          alt={post.authorName}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      )}
-                    </div>
-                    <div>
-                      <div className="font-medium text-gray-900">
-                        {post.authorName}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        @{post.authorUsername}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors">
-                    <p className="text-gray-800 mb-3">{post.content}</p>
-                    {post.imgUrl && (
-                      <img
-                        src={post.imgUrl}
-                        alt="포스트 이미지"
-                        className="w-full rounded-lg"
-                      />
-                    )}
-                  </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-500 mt-3">
-                    <span>❤️ {post.likeCount}</span>
-                    <span>🔄 {post.repostCount}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : activeTab === "photos" && profilePhotos.length > 0 ? (
+          {activeTab === "posts" ? (
+            <ProfilePosts username={profileUsername} />
+          ) : activeTab === "photos" ? (
             <div className="grid grid-cols-3 gap-4">
               {profilePhotos.map((photo) => (
                 <div
-                  key={photo.id}
+                  key={`photo-${photo.id}`}
                   className="aspect-square bg-gray-200 rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
                   onClick={() => {
                     // 사진 클릭 시 게시글 상세보기로 이동
@@ -456,7 +438,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             <div className="space-y-4">
               {profileReels.map((reel) => (
                 <div
-                  key={reel.id}
+                  key={`reel-${reel.id}`}
                   className="border border-gray-200 rounded-lg p-4 cursor-pointer hover:shadow-md transition-shadow"
                   onClick={() => navigate(`/post/${reel.id}`)}
                 >
@@ -525,7 +507,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
               <div className="space-y-3">
                 {followers.map((follower) => (
                   <div
-                    key={follower.id}
+                    key={`follower-${follower.id}`}
                     className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
                     onClick={() => navigate(`/${follower.username}`)}
                   >
@@ -577,7 +559,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
               <div className="space-y-3">
                 {following.map((followed) => (
                   <div
-                    key={followed.id}
+                    key={`followed-${followed.id}`}
                     className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded cursor-pointer"
                     onClick={() => navigate(`/${followed.username}`)}
                   >

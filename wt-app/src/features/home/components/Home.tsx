@@ -17,12 +17,12 @@ const Home: React.FC = () => {
     loading,
     error,
     hasMore,
-    getFeedPosts,
+    getPosts,
     createPost,
     toggleLike,
     toggleRepost,
   } = useHome();
-  const { feedPosts } = usePost();
+  const { posts: feedPosts } = useAppSelector((state) => state.home);
   const { user: profileUser } = useUser();
   const navigate = useNavigate();
   const [newPostContent, setNewPostContent] = useState("");
@@ -42,9 +42,9 @@ const Home: React.FC = () => {
 
   useEffect(() => {
     if (isInitialized && isAuthenticated && !authLoading) {
-      getFeedPosts(0, 10);
+      getPosts(0, 10);
     }
-  }, [isInitialized, isAuthenticated, authLoading]);
+  }, [isInitialized, isAuthenticated, authLoading, getPosts]);
 
   const handleCreatePost = async () => {
     if (!newPostContent.trim() && !selectedImage) return;
@@ -60,7 +60,7 @@ const Home: React.FC = () => {
       setImagePreview("");
 
       // 피드 새로고침
-      getFeedPosts(0, 10);
+      getPosts(0, 10);
     } catch (error) {
       alert("게시글 작성에 실패했습니다. 다시 시도해주세요.");
     }
@@ -217,103 +217,117 @@ const Home: React.FC = () => {
       {/* 게시글 목록 */}
       <section className="posts-section">
         <div className="posts-container">
-          {feedPosts.map((post: any) => {
-            return (
-              <article key={post.id} className="post-card">
-                <div className="post-content">
-                  <div
-                    className="cursor-pointer hover:opacity-80"
-                    onClick={() => handleUserClick(post.authorUsername)}
-                  >
-                    <ProfileImage
-                      imageUrl={post.authorProfileImg}
-                      username={post.authorUsername}
-                      size="md"
-                      className="post-avatar"
-                    />
-                  </div>
-                  <div className="post-main-content">
-                    <div className="post-header">
-                      <div
-                        className="post-author-info cursor-pointer hover:opacity-80"
-                        onClick={() => handleUserClick(post.authorUsername)}
-                      >
-                        <span className="post-author-name">
-                          {post.authorName}
-                        </span>
-                        <span className="post-username">
-                          @{post.authorUsername}
-                        </span>
-                      </div>
-                      <time
-                        className="post-timestamp"
-                        dateTime={post.createdAt}
-                      >
-                        {formatTimeAgo(post.createdAt)}
-                      </time>
-                    </div>
-
+          {feedPosts
+            .filter(
+              (post: any, index: number, arr: any[]) =>
+                arr.findIndex((p: any) => p.id === post.id) === index
+            )
+            .map((post: any) => {
+              return (
+                <article key={`home-post-${post.id}`} className="post-card">
+                  <div className="post-content">
                     <div
-                      className="post-text-content cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                      onClick={() => handlePostClick(post.id)}
+                      className="cursor-pointer hover:opacity-80"
+                      onClick={() => handleUserClick(post.authorUsername)}
                     >
-                      <p className="post-text">{post.content}</p>
-                      {/* 이미지가 있는 경우 표시 */}
-                      {post.imgUrl && (
-                        <div className="post-image-container mt-3">
-                          <img
-                            src={post.imgUrl}
-                            alt="Post image"
-                            className="post-image w-full max-h-96 object-cover rounded-lg"
-                          />
-                        </div>
-                      )}
+                      <ProfileImage
+                        imageUrl={post.authorProfileImg}
+                        username={post.authorUsername}
+                        size="md"
+                        className="post-avatar"
+                      />
                     </div>
-
-                    <footer className="post-actions">
-                      <div className="post-interaction-buttons">
-                        <button className="post-comment-btn" aria-label="댓글">
-                          <span>💬</span>
-                          <span className="post-interaction-count">0</span>
-                        </button>
-                        <button
-                          onClick={() => handleRepost(post.id)}
-                          className={`post-repost-btn ${
-                            post.isReposted
-                              ? "post-repost-btn-active"
-                              : "post-repost-btn-inactive"
-                          }`}
-                          aria-label="리포스트"
+                    <div className="post-main-content">
+                      <div className="post-header">
+                        {/* 리포스트 정보 표시 */}
+                        {post.isRepost && post.repostedBy && (
+                          <div className="repost-info text-sm text-gray-500 mb-1">
+                            🔄 {post.repostedBy}님이 리포스트했습니다
+                          </div>
+                        )}
+                        <div
+                          className="post-author-info cursor-pointer hover:opacity-80"
+                          onClick={() => handleUserClick(post.authorUsername)}
                         >
-                          <span>🔄</span>
-                          <span className="post-interaction-count">
-                            {post.repostCount}
+                          <span className="post-author-name">
+                            {post.authorName}
                           </span>
-                        </button>
-                        <button
-                          onClick={() => handleLike(post.id)}
-                          className={`post-like-btn ${
-                            post.isLiked
-                              ? "post-like-btn-active"
-                              : "post-like-btn-inactive"
-                          }`}
-                          aria-label={post.isLiked ? "좋아요 취소" : "좋아요"}
+                          <span className="post-username">
+                            @{post.authorUsername}
+                          </span>
+                        </div>
+                        <time
+                          className="post-timestamp"
+                          dateTime={post.createdAt}
                         >
-                          <span>❤️</span>
-                          <span className="post-interaction-count">
-                            {post.likeCount}
-                          </span>
-                        </button>
-                        <button className="post-share-btn" aria-label="공유">
-                          <span>📤</span>
-                        </button>
+                          {formatTimeAgo(post.createdAt)}
+                        </time>
                       </div>
-                    </footer>
+
+                      <div
+                        className="post-text-content cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                        onClick={() => handlePostClick(post.id)}
+                      >
+                        <p className="post-text">{post.content}</p>
+                        {/* 이미지가 있는 경우 표시 */}
+                        {post.imgUrl && (
+                          <div className="post-image-container mt-3">
+                            <img
+                              src={post.imgUrl}
+                              alt="Post image"
+                              className="post-image w-full max-h-96 object-cover rounded-lg"
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <footer className="post-actions">
+                        <div className="post-interaction-buttons">
+                          <button
+                            className="post-comment-btn"
+                            aria-label="댓글"
+                          >
+                            <span>💬</span>
+                            <span className="post-interaction-count">0</span>
+                          </button>
+                          <button
+                            onClick={() => handleRepost(post.id)}
+                            className={`post-repost-btn ${
+                              post.isReposted
+                                ? "post-repost-btn-active"
+                                : "post-repost-btn-inactive"
+                            }`}
+                            aria-label="리포스트"
+                          >
+                            <span>🔄</span>
+                            <span className="post-interaction-count">
+                              {post.repostCount}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleLike(post.id)}
+                            className={`post-like-btn ${
+                              post.isLiked
+                                ? "post-like-btn-active"
+                                : "post-like-btn-inactive"
+                            }`}
+                            aria-label={post.isLiked ? "좋아요 취소" : "좋아요"}
+                          >
+                            <span>❤️</span>
+                            <span className="post-interaction-count">
+                              {post.likeCount}
+                            </span>
+                          </button>
+                          <button className="post-share-btn" aria-label="공유">
+                            <span>📤</span>
+                          </button>
+                        </div>
+                      </footer>
+                    </div>
                   </div>
-                </div>
-              </article>
-            );
-          })}
+                </article>
+              );
+            })}
         </div>
       </section>
 

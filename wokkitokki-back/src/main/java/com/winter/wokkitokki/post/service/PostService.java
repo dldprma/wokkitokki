@@ -14,12 +14,18 @@ import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -234,15 +240,67 @@ public class PostService {
         return convertToResponseDto(restoredPost, post.getUser());
     }
 
-    // 홈 피드 (삭제되지 않은 게시글만)
+    // 홈 피드 (리포스트 시간 포함)
+    @Transactional(readOnly = true)
     public Page<PostResponseDto> getFeedPosts(Long userId, Pageable pageable) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // Repository에서 deleted = false 조건 추가 필요
-        Page<PostEntity> posts = postRepository.findFeedPostsNotDeleted(userId, pageable);
-        return posts.map(post -> convertToResponseDto(post, user));
+        // 1. 원본 게시글 조회
+        List<FeedItemDto> originalPosts = postRepository.findOriginalPosts(userId);
+
+        // 2. 리포스트 조회
+        List<FeedItemDto> repostedPosts = postRepository.findRepostedPosts(userId);
+
+        // 3. 모든 피드 아이템 합치기
+        List<FeedItemDto> allFeedItems = new ArrayList<>();
+        allFeedItems.addAll(originalPosts);
+        allFeedItems.addAll(repostedPosts);
+
+        // 4. 시간순 정렬 (최신순)
+        allFeedItems.sort((a, b) -> b.getSortTime().compareTo(a.getSortTime()));
+
+        // 5. 페이징 처리
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), allFeedItems.size());
+        List<FeedItemDto> pagedItems = allFeedItems.subList(start, end);
+
+        // 6. 게시글 ID 추출
+        List<Long> postIds = pagedItems.stream()
+                .map(FeedItemDto::getPostId)
+                .toList();
+
+        // 7. 실제 게시글 조회
+        List<PostEntity> posts = postRepository.findPostsByIds(postIds);
+        Map<Long, PostEntity> postMap = posts.stream()
+                .collect(Collectors.toMap(PostEntity::getId, p -> p));
+
+        // 8. DTO 변환
+        List<PostResponseDto> feedPosts = pagedItems.stream()
+                .map(item -> {
+                    PostEntity post = postMap.get(item.getPostId());
+                    if (post != null) {
+                        PostResponseDto dto = convertToResponseDto(post, user);
+
+                        // 리포스트 정보 설정
+                        if ("REPOST".equals(item.getType())) {
+                            dto.setRepost(true);
+                            dto.setRepostedBy(item.getRepostUsername());
+                            dto.setRepostedAt(item.getSortTime().toString());
+                            dto.setOriginalCreatedAt(post.getCreatedAt().toString());
+                        }
+
+                        return dto;
+                    }
+                    return null;
+                })
+                .filter(Objects::nonNull)
+                .toList();
+
+        // 9. Page 객체 생성
+        return new PageImpl<>(feedPosts, pageable, allFeedItems.size());
     }
+
 
     // 특정 포스트 상세조회 (삭제된 게시글 제외)
     public PostResponseDto getPostDetail(Long postId, Long currentUserId) {
@@ -337,6 +395,7 @@ public class PostService {
             RepostEntity repost = new RepostEntity();
             repost.setUser(user);
             repost.setPost(post);
+            repost.setRepostedAt(LocalDateTime.now()); // 리포스트 시간 설정
             repostRepository.save(repost);
 
             post.setRepostCount(post.getRepostCount() + 1);

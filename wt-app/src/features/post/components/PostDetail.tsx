@@ -226,7 +226,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
   }
 
   // 삭제된 게시글인 경우
-  if (post.isDeleted) {
+  if (post.deleted) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">

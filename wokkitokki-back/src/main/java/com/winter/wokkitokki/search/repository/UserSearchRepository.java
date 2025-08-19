@@ -16,4 +16,6 @@ public interface UserSearchRepository extends ElasticsearchRepository<UserDocume
     // 자동완성용 (prefix 검색)
     @Query("{\"multi_match\": {\"query\": \"?0\", \"fields\": [\"username^2\", \"fullName\"], \"type\": \"phrase_prefix\"}}")
     List<UserDocument> findByUsernameOrFullNameStartingWith(String keyword);
+
+    List<UserDocument> findByUsernameIgnoreCase(String username);
 }

@@ -14,6 +14,7 @@ import LoginPage from "./pages/LoginPage";
 import HomePage from "./pages/HomePage";
 import SearchPage from "./pages/SearchPage";
 import UserProfilePage from "./pages/UserProfilePage";
+import PostDetailPage from "./pages/PostDetailPage";
 
 // axios에 Redux store 설정
 setStore(store);
@@ -102,6 +103,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <SearchPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/post/:postId"
+              element={
+                <ProtectedRoute>
+                  <PostDetailPage />
                 </ProtectedRoute>
               }
             />

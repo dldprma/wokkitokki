@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useHome } from "../hooks/useHome";
 import { useUser } from "../../user/hooks/useUser";
 import { usePost } from "../../post/hooks/usePost";
@@ -23,10 +24,21 @@ const Home: React.FC = () => {
   } = useHome();
   const { feedPosts } = usePost();
   const { user: profileUser } = useUser();
+  const navigate = useNavigate();
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // 사용자 프로필로 이동
+  const handleUserClick = (username: string) => {
+    navigate(`/${username}`);
+  };
+
+  // 게시글 상세보기로 이동
+  const handlePostClick = (postId: number) => {
+    navigate(`/post/${postId}`);
+  };
 
   useEffect(() => {
     if (isInitialized && isAuthenticated && !authLoading) {
@@ -209,15 +221,23 @@ const Home: React.FC = () => {
             return (
               <article key={post.id} className="post-card">
                 <div className="post-content">
-                  <ProfileImage
-                    imageUrl={post.authorProfileImg}
-                    username={post.authorUsername}
-                    size="md"
-                    className="post-avatar"
-                  />
+                  <div
+                    className="cursor-pointer hover:opacity-80"
+                    onClick={() => handleUserClick(post.authorUsername)}
+                  >
+                    <ProfileImage
+                      imageUrl={post.authorProfileImg}
+                      username={post.authorUsername}
+                      size="md"
+                      className="post-avatar"
+                    />
+                  </div>
                   <div className="post-main-content">
                     <div className="post-header">
-                      <div className="post-author-info">
+                      <div
+                        className="post-author-info cursor-pointer hover:opacity-80"
+                        onClick={() => handleUserClick(post.authorUsername)}
+                      >
                         <span className="post-author-name">
                           {post.authorName}
                         </span>
@@ -233,7 +253,10 @@ const Home: React.FC = () => {
                       </time>
                     </div>
 
-                    <div className="post-text-content">
+                    <div
+                      className="post-text-content cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                      onClick={() => handlePostClick(post.id)}
+                    >
                       <p className="post-text">{post.content}</p>
                       {/* 이미지가 있는 경우 표시 */}
                       {post.imgUrl && (

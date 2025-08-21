@@ -4,7 +4,12 @@ import {
   type PayloadAction,
 } from "@reduxjs/toolkit";
 import type { CreatePostData, HomeState } from "../types/homeTypes";
-import { createPost, getFeedPosts } from "../api/homeApi";
+import {
+  createPost,
+  getFeedPosts,
+  toggleLike,
+  toggleRepost,
+} from "../api/homeApi";
 
 const initialState: HomeState = {
   posts: [],
@@ -47,6 +52,44 @@ export const createNewPost = createAsyncThunk(
   }
 );
 
+// 좋아요 토글
+export const togglePostLike = createAsyncThunk(
+  "home/toggleLike",
+  async (postId: number, { rejectWithValue }) => {
+    try {
+      const response = await toggleLike(postId);
+      return {
+        postId,
+        isLiked: response.isLiked,
+        likeCount: response.likeCount,
+      };
+    } catch (err: any) {
+      return rejectWithValue(
+        err.response?.data?.message || "좋아요 처리에 실패했습니다."
+      );
+    }
+  }
+);
+
+// 리포스트 토글
+export const togglePostRepost = createAsyncThunk(
+  "home/toggleRepost",
+  async (postId: number, { rejectWithValue }) => {
+    try {
+      const response = await toggleRepost(postId);
+      return {
+        postId,
+        isReposted: response.isReposted,
+        repostCount: response.repostCount,
+      };
+    } catch (err: any) {
+      return rejectWithValue(
+        err.response?.data?.message || "리포스트 처리에 실패했습니다."
+      );
+    }
+  }
+);
+
 const homeSlice = createSlice({
   name: "home",
   initialState,
@@ -75,22 +118,30 @@ const homeSlice = createSlice({
       })
       .addCase(fetchFeedPosts.fulfilled, (state, action) => {
         state.loading = false;
-        const normalized = action.payload.content.map((p: any) => ({
-          ...p,
-          likeCount: Math.max(0, Number(p.likeCount ?? 0)),
-          repostCount: Math.max(0, Number(p.repostCount ?? 0)),
-        }));
+        const normalized = action.payload.content.map(
+          (p: any) =>
+            ({
+              ...p,
+              likeCount: Math.max(0, Number(p.likeCount ?? 0)),
+              repostCount: Math.max(0, Number(p.repostCount ?? 0)),
+              // isLiked와 isReposted 필드도 명시적으로 설정 (undefined인 경우 false로 처리)
+              isLiked: Boolean(p.isLiked ?? false),
+              isReposted: Boolean(p.isReposted ?? false),
+            } as any)
+        );
 
         if (action.payload.number === 0) {
           // 첫 페이지인 경우 기존 데이터 교체
-          state.posts = normalized;
+          (state as any).posts = normalized;
         } else {
           // 추가 페이지인 경우 중복 제거 후 추가
-          const existingIds = new Set(state.posts.map((p: any) => p.id));
+          const existingIds = new Set(
+            (state as any).posts.map((p: any) => p.id)
+          );
           const newPosts = normalized.filter(
             (p: any) => !existingIds.has(p.id)
           );
-          state.posts = [...state.posts, ...newPosts];
+          (state as any).posts = [...(state as any).posts, ...newPosts];
         }
 
         state.hasMore = action.payload.hasNext;
@@ -99,26 +150,43 @@ const homeSlice = createSlice({
       .addCase(fetchFeedPosts.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
-      })
+      });
 
-      // 새 게시글 작성
+    // 새 게시글 작성
+    builder
       .addCase(createNewPost.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
       .addCase(createNewPost.fulfilled, (state, action) => {
         state.loading = false;
-        const p = action.payload as any;
-        state.posts.unshift({
-          ...p,
-          likeCount: Math.max(0, Number(p.likeCount ?? 0)),
-          repostCount: Math.max(0, Number(p.repostCount ?? 0)),
-        });
+        // 새 게시글을 피드 맨 위에 추가
+        state.posts.unshift(action.payload);
       })
       .addCase(createNewPost.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });
+
+    // 좋아요 토글
+    builder.addCase(togglePostLike.fulfilled, (state, action) => {
+      const { postId, isLiked, likeCount } = action.payload;
+      const post = state.posts.find((p) => p.id === postId);
+      if (post) {
+        post.isLiked = isLiked;
+        post.likeCount = likeCount;
+      }
+    });
+
+    // 리포스트 토글
+    builder.addCase(togglePostRepost.fulfilled, (state, action) => {
+      const { postId, isReposted, repostCount } = action.payload;
+      const post = state.posts.find((p) => p.id === postId);
+      if (post) {
+        post.isReposted = isReposted;
+        post.repostCount = repostCount;
+      }
+    });
   },
 });
 

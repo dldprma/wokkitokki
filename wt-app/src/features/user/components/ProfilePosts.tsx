@@ -116,11 +116,17 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
 
   // 글+사진 리스트형 (트위터 스타일)
   const renderPostsList = () => {
+    // 중복된 post.id 제거
+    const uniquePosts = profilePosts.filter(
+      (post: Post, index: number, arr: Post[]) =>
+        arr.findIndex((p: Post) => p.id === post.id) === index
+    );
+
     return (
       <div className="space-y-4">
-        {profilePosts.map((post: Post) => (
+        {uniquePosts.map((post: Post) => (
           <div
-            key={`post-${post.id}`}
+            key={`profile-post-${post.id}`}
             className="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow"
           >
             <div className="flex items-start space-x-3">
@@ -174,18 +180,26 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                   </button>
                   <button
                     onClick={() => handleRepostToggle(post.id)}
-                    className="flex items-center space-x-2 text-gray-500 hover:text-green-500 transition-colors"
+                    className={`flex items-center space-x-2 transition-colors ${
+                      post.isReposted
+                        ? "text-green-500"
+                        : "text-gray-500 hover:text-green-500"
+                    }`}
                     aria-label="리포스트"
                   >
-                    <span>🔄</span>
+                    <span>{post.isReposted ? "↪️" : "🔄"}</span>
                     <span className="text-sm">{post.repostCount}</span>
                   </button>
                   <button
                     onClick={() => handleLikeToggle(post.id)}
-                    className="flex items-center space-x-2 text-gray-500 hover:text-red-500 transition-colors"
+                    className={`flex items-center space-x-2 transition-colors ${
+                      post.isLiked
+                        ? "text-red-500"
+                        : "text-gray-500 hover:text-red-500"
+                    }`}
                     aria-label="좋아요"
                   >
-                    <span>❤️</span>
+                    <span>{post.isLiked ? "❤️" : "🤍"}</span>
                     <span className="text-sm">{post.likeCount}</span>
                   </button>
                   <button
@@ -275,7 +289,11 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
       case "photos":
         return profilePhotos.length;
       case "posts":
-        return profilePosts.length;
+        // 중복 제거된 포스트 수 반환
+        return profilePosts.filter(
+          (post: Post, index: number, arr: Post[]) =>
+            arr.findIndex((p: Post) => p.id === post.id) === index
+        ).length;
       case "reels":
         return profileReels.length;
       default:
@@ -293,7 +311,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
       case "reels":
         return "릴스";
       default:
-        return "";
+        return "게시글";
     }
   };
 
@@ -306,7 +324,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
       case "reels":
         return "첫 번째 동영상을 업로드해보세요!";
       default:
-        return "";
+        return "첫 번째 게시글을 작성해보세요!";
     }
   };
 
@@ -314,8 +332,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   const handleLikeToggle = async (postId: number) => {
     try {
       await toggleLike(postId);
-      // 현재 탭의 데이터 새로고침
-      await loadTabData(activeTab, 0);
+      // 데이터 새로고침 제거 - 상태가 즉시 반영되도록
     } catch (error) {
       console.error("ProfilePosts: 좋아요 토글 실패", error);
     }
@@ -325,8 +342,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   const handleRepostToggle = async (postId: number) => {
     try {
       await toggleRepost(postId);
-      // 현재 탭의 데이터 새로고침
-      await loadTabData(activeTab, 0);
+      // 데이터 새로고침 제거 - 상태가 즉시 반영되도록
     } catch (error) {
       console.error("ProfilePosts: 리포스트 토글 실패", error);
     }

@@ -96,8 +96,8 @@ const Home: React.FC = () => {
     const file = e.target.files?.[0];
     if (file) {
       // 파일 크기 검증 (5MB 이하)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("이미지 크기는 5MB 이하여야 합니다.");
+      if (file.size > 10 * 1024 * 1024) {
+        alert("이미지 크기는 10MB 이하여야 합니다.");
         return;
       }
 
@@ -340,7 +340,7 @@ const Home: React.FC = () => {
                             }`}
                             aria-label="리포스트"
                           >
-                            <span>🔄</span>
+                            <span>{post.isReposted ? "↪️" : "🔄"}</span>
                             <span className="post-interaction-count">
                               {post.repostCount}
                             </span>
@@ -354,7 +354,7 @@ const Home: React.FC = () => {
                             }`}
                             aria-label={post.isLiked ? "좋아요 취소" : "좋아요"}
                           >
-                            <span>❤️</span>
+                            <span>{post.isLiked ? "❤️" : "🤍"}</span>
                             <span className="post-interaction-count">
                               {post.likeCount}
                             </span>

@@ -170,37 +170,12 @@ public class PostService {
         post.setDeletedAt(LocalDateTime.now());
         post.setDeletedBy(userId); // 삭제한 사용자 ID 기록
 
-        // 게시글 내용도 마스킹 처리 (선택사항)
-        post.setContent("[삭제된 게시글입니다]");
-
         postRepository.save(post);
 
         // 검색 인덱스에서 제거
         searchIndexService.deletePostIndex(postId);
 
         log.info("게시글 논리적 삭제 완료 - PostId: {}, UserId: {}", postId, userId);
-    }
-
-    // 게시글 완전 삭제 (관리자용)
-    @Transactional
-    public void permanentDeletePost(Long postId) {
-        PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
-
-        // 물리적 파일 삭제
-        if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
-            try {
-                fileService.deleteFile(post.getImgUrl());
-            } catch (Exception e) {
-                log.warn("게시글 이미지 삭제 실패: " + post.getImgUrl(), e);
-            }
-        }
-
-        // DB에서 완전 삭제
-        postRepository.delete(post);
-        searchIndexService.deletePostIndex(postId);
-
-        log.info("게시글 완전 삭제 완료 - PostId: {}", postId);
     }
 
     // 게시글 이미지 업로드 (별도 API용 - 선택사항)
@@ -215,29 +190,6 @@ public class PostService {
         } catch (Exception e) {
             throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage(), e);
         }
-    }
-
-    // 삭제된 게시글 복구 (관리자용)
-    @Transactional
-    public PostResponseDto restorePost(Long postId) {
-        PostEntity post = postRepository.findById(postId)
-                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
-
-        if (!post.isDeleted()) {
-            throw new RuntimeException("삭제되지 않은 게시글입니다.");
-        }
-
-        // 복구 처리
-        post.setDeleted(false);
-        post.setDeletedAt(null);
-        post.setDeletedBy(null);
-        post.setContent("[복구된 게시글]"); // 원본 내용 복구 로직 필요
-
-        PostEntity restoredPost = postRepository.save(post);
-        searchIndexService.indexPost(restoredPost);
-
-        log.info("게시글 복구 완료 - PostId: {}", postId);
-        return convertToResponseDto(restoredPost, post.getUser());
     }
 
     // 홈 피드 (리포스트 시간 포함)
@@ -426,8 +378,8 @@ public class PostService {
             dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
 
             boolean isOwner = post.getUser().getId().equals(currentUser.getId());
-            dto.setCanEdit(isOwner && !post.isDeleted()); // 삭제된 게시글은 수정 불가
-            dto.setCanDelete(isOwner && !post.isDeleted()); // 삭제된 게시글은 재삭제 불가
+            dto.setCanEdit(isOwner && !post.isDeleted());
+            dto.setCanDelete(isOwner && !post.isDeleted());
         } else {
             dto.setLiked(false);
             dto.setReposted(false);
@@ -436,4 +388,49 @@ public class PostService {
         }
         return dto;
     }
+
+    // 게시글 완전 삭제 (관리자용)
+    @Transactional
+    public void permanentDeletePost(Long postId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
+
+        // 물리적 파일 삭제
+        if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
+            try {
+                fileService.deleteFile(post.getImgUrl());
+            } catch (Exception e) {
+                log.warn("게시글 이미지 삭제 실패: " + post.getImgUrl(), e);
+            }
+        }
+
+        // DB에서 완전 삭제
+        postRepository.delete(post);
+        searchIndexService.deletePostIndex(postId);
+
+        log.info("게시글 완전 삭제 완료 - PostId: {}", postId);
+    }
+
+    // 삭제된 게시글 복구 (관리자용)
+    @Transactional
+    public PostResponseDto restorePost(Long postId) {
+        PostEntity post = postRepository.findById(postId)
+                .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
+
+        if (!post.isDeleted()) {
+            throw new RuntimeException("삭제되지 않은 게시글입니다.");
+        }
+
+        // 복구 처리
+        post.setDeleted(false);
+        post.setDeletedAt(null);
+        post.setDeletedBy(null);
+
+        PostEntity restoredPost = postRepository.save(post);
+        searchIndexService.indexPost(restoredPost);
+
+        log.info("게시글 복구 완료 - PostId: {}", postId);
+        return convertToResponseDto(restoredPost, post.getUser());
+    }
+
 }

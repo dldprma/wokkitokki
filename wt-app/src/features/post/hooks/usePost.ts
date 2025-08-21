@@ -67,16 +67,7 @@ export const usePost = () => {
   const toggleLike = async (postId: number) => {
     try {
       const result = await dispatch(togglePostLike(postId));
-
-      // 좋아요 성공 후 피드 데이터 새로고침
-      if (togglePostLike.fulfilled.match(result)) {
-        try {
-          await dispatch(fetchFeedPosts({ page: 0, size: 10 }));
-        } catch (refreshError) {
-          console.error("피드 데이터 새로고침 실패:", refreshError);
-        }
-      }
-
+      // postSlice에서 이미 상태를 업데이트하므로 새로고침 불필요
       return result;
     } catch (error) {
       console.error("좋아요 처리 실패:", error);
@@ -87,16 +78,7 @@ export const usePost = () => {
   const toggleRepost = async (postId: number) => {
     try {
       const result = await dispatch(togglePostRepost(postId));
-
-      // 리포스트 성공 후 피드 데이터 새로고침
-      if (togglePostRepost.fulfilled.match(result)) {
-        try {
-          await dispatch(fetchFeedPosts({ page: 0, size: 10 }));
-        } catch (refreshError) {
-          console.error("피드 데이터 새로고침 실패:", refreshError);
-        }
-      }
-
+      // postSlice에서 이미 상태를 업데이트하므로 새로고침 불필요
       return result;
     } catch (error) {
       console.error("리포스트 처리 실패:", error);

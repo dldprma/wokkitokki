@@ -404,7 +404,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
               }`}
               onClick={handleRepost}
             >
-              <span>🔄</span>
+              <span>{post.isReposted ? "🔄" : "↪️"}</span>
               <span>{post.repostCount}</span>
             </button>
             <button
@@ -413,7 +413,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
               }`}
               onClick={handleLike}
             >
-              <span>❤️</span>
+              <span>{post.isLiked ? "❤️" : "🤍"}</span>
               <span>{post.likeCount}</span>
             </button>
             <button className="flex items-center space-x-2 hover:text-blue-500">

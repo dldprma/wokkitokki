@@ -259,13 +259,14 @@ public class PostService {
         if (alreadyReposted) {
             RepostEntity repost = repostRepository.findByUserAndPost(user, post);
             repostRepository.delete(repost);
-            redisFeedIntegration.handleRepostRemoved(postId, userId);
 
             int currentCount = post.getRepostCount();
             int newCount = Math.max(0, currentCount - 1);
             post.setRepostCount(newCount);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
+            redisFeedIntegration.handleRepostRemoved(postId, userId);
+//            redisFeedIntegration.invalidateUserFeedCache(userId);
 
             return new RepostResponseDto(false, post.getRepostCount());
         } else {
@@ -279,6 +280,7 @@ public class PostService {
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
             redisFeedIntegration.handleRepostCreated(postId, userId, LocalDateTime.now());
+//            redisFeedIntegration.invalidateUserFeedCache(userId);
 
             return new RepostResponseDto(true, post.getRepostCount());
         }

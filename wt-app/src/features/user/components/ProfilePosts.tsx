@@ -59,7 +59,6 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   // 탭 변경 시에만 데이터 로드 (무한 루프 방지)
   useEffect(() => {
     if (username) {
-      resetProfilePosts();
       setCurrentPage(0);
       loadTabData(activeTab, 0);
     }
@@ -85,13 +84,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         console.error("탭 데이터 로드 실패:", error);
       }
     },
-    [
-      username,
-      getProfilePhotos,
-      getProfilePosts,
-      getProfileReels,
-      profilePosts.length,
-    ]
+    [username, getProfilePhotos, getProfilePosts, getProfileReels]
   );
 
   const loadMore = async () => {
@@ -138,14 +131,6 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     return (
       <div className="space-y-4">
         {uniquePosts.map((post: Post) => {
-          // 디버깅: 리포스트 정보 확인
-          console.log("Profile post debug:", {
-            postId: post.id,
-            isRepost: post.isRepost,
-            repostedBy: post.repostedBy,
-            content: post.content,
-          });
-
           return (
             <div
               key={`profile-post-${post.id}`}
@@ -218,25 +203,25 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                     <button
                       onClick={() => handleRepostToggle(post.id)}
                       className={`flex items-center space-x-2 transition-colors ${
-                        post.isReposted
+                        post.reposted
                           ? "text-green-500"
                           : "text-gray-500 hover:text-green-500"
                       }`}
                       aria-label="리포스트"
                     >
-                      <span>{post.isReposted ? "↪️" : "🔄"}</span>
+                      <span>{post.reposted ? "↪️" : "🔄"}</span>
                       <span className="text-sm">{post.repostCount}</span>
                     </button>
                     <button
                       onClick={() => handleLikeToggle(post.id)}
                       className={`flex items-center space-x-2 transition-colors ${
-                        post.isLiked
+                        post.liked
                           ? "text-red-500"
                           : "text-gray-500 hover:text-red-500"
                       }`}
                       aria-label="좋아요"
                     >
-                      <span>{post.isLiked ? "❤️" : "🤍"}</span>
+                      <span>{post.liked ? "❤️" : "🤍"}</span>
                       <span className="text-sm">{post.likeCount}</span>
                     </button>
                     <button
@@ -376,7 +361,9 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   // 리포스트 토글 처리
   const handleRepostToggle = async (postId: number) => {
     try {
-      await toggleRepost(postId);
+      console.log("ProfilePosts: 리포스트 토글 시작, postId:", postId);
+      const result = await toggleRepost(postId);
+      console.log("ProfilePosts: 리포스트 토글 결과:", result);
       // 데이터 새로고침 제거 - 상태가 즉시 반영되도록
     } catch (error) {
       console.error("ProfilePosts: 리포스트 토글 실패", error);

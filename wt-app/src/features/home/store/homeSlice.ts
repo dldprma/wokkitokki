@@ -60,7 +60,7 @@ export const togglePostLike = createAsyncThunk(
       const response = await toggleLike(postId);
       return {
         postId,
-        isLiked: response.isLiked,
+        liked: response.liked,
         likeCount: response.likeCount,
       };
     } catch (err: any) {
@@ -79,7 +79,7 @@ export const togglePostRepost = createAsyncThunk(
       const response = await toggleRepost(postId);
       return {
         postId,
-        isReposted: response.isReposted,
+        reposted: response.reposted,
         repostCount: response.repostCount,
       };
     } catch (err: any) {
@@ -124,9 +124,9 @@ const homeSlice = createSlice({
               ...p,
               likeCount: Math.max(0, Number(p.likeCount ?? 0)),
               repostCount: Math.max(0, Number(p.repostCount ?? 0)),
-              // isLiked와 isReposted 필드도 명시적으로 설정 (undefined인 경우 false로 처리)
-              isLiked: Boolean(p.isLiked ?? false),
-              isReposted: Boolean(p.isReposted ?? false),
+              // 백엔드에서 받는 필드명 사용
+              liked: Boolean(p.liked ?? false),
+              reposted: Boolean(p.reposted ?? false),
               // 리포스트 관련 필드도 명시적으로 설정
               isRepost: Boolean(p.isRepost ?? false),
               repostedBy: p.repostedBy || null,
@@ -173,21 +173,34 @@ const homeSlice = createSlice({
 
     // 좋아요 토글
     builder.addCase(togglePostLike.fulfilled, (state, action) => {
-      const { postId, isLiked, likeCount } = action.payload;
+      const { postId, liked, likeCount } = action.payload;
       const post = (state as any).posts.find((p: any) => p.id === postId);
       if (post) {
-        post.isLiked = isLiked;
+        post.liked = liked;
         post.likeCount = likeCount;
       }
     });
 
     // 리포스트 토글
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
-      const { postId, isReposted, repostCount } = action.payload;
+      const { postId, reposted, repostCount } = action.payload;
+
+      // 모든 포스트 배열에서 해당 게시글 찾아서 상태 업데이트
       const post = (state as any).posts.find((p: any) => p.id === postId);
       if (post) {
-        (post as any).isReposted = isReposted;
-        (post as any).repostCount = repostCount;
+        (post as any).reposted = reposted;
+        // 리포스트 상태에 따라 카운트 조정
+        if (reposted) {
+          (post as any).repostCount = Math.max(
+            0,
+            (post as any).repostCount + 1
+          );
+        } else {
+          (post as any).repostCount = Math.max(
+            0,
+            (post as any).repostCount - 1
+          );
+        }
         // repostedBy는 백엔드에서 관리되므로 프론트엔드에서 수정하지 않음
       }
     });

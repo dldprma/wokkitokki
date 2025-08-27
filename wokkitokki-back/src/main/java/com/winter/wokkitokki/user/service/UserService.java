@@ -57,10 +57,8 @@ public class UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // 작성글 + 리포스트 모두 포함한 총 활동 개수
+        // 작성글 갯수만
         Long originalPostCount = postRepository.countUserOriginalPosts(userId);
-        Long repostCount = postRepository.countUserReposts(userId);
-        Long totalActivityCount = originalPostCount + repostCount;
 
         // 직접 작성한 이미지 게시글 개수 (리포스트 제외)
         int imgCount = postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user);
@@ -83,7 +81,7 @@ public class UserService {
         profile.setEmail(user.getEmail());
         profile.setProfileImgUrl(user.getProfileImgUrl());
         profile.setBio(user.getBio());
-        profile.setPostCount(totalActivityCount);
+        profile.setPostCount(originalPostCount);
         profile.setImagePostCount(imgCount);
         profile.setFollowersCount(followersCnt);
         profile.setFollowingCount(followingCnt);

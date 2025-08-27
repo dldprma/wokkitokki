@@ -3,6 +3,7 @@ package com.winter.wokkitokki.post.service;
 import com.winter.wokkitokki.post.dto.FeedItemDto;
 import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.PostRepository;
+import com.winter.wokkitokki.post.repository.RepostRepository;
 import com.winter.wokkitokki.user.repository.FollowRepository;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +27,7 @@ public class RedisFeedService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
+    private final RepostRepository repostRepository;
 
     private static final String FEED_KEY_PREFIX = "user:feed:";
     private static final int FEED_CACHE_SIZE = 1000;
@@ -364,11 +366,19 @@ public class RedisFeedService {
             // 1. 리포스트 항목 제거
             redisTemplate.opsForZSet().remove(cacheKey, postId);
 
-            // 2. 팔로워가 원본 작성자를 팔로우하고 있다면 원본 시간으로 복구
-            if (isFollowing(followerId, post.getUser().getId())) {
-                redisTemplate.opsForZSet().add(cacheKey, postId, originalScore);
-                log.debug("원본 복구 - FollowerId: {}, PostId: {}, OriginalScore: {}, 원본시간: {}",
-                        followerId, postId, originalScore, post.getCreatedAt());
+            // 1. 리포스트 항목 제거
+            redisTemplate.opsForZSet().remove(cacheKey, postId);
+
+            // 2. 게시글이 팔로워 피드에 남아있어야 하는지 확인
+            boolean shouldKeepInFeed = shouldPostRemainInFeed(followerId, postId, post.getUser().getId());
+
+            if (shouldKeepInFeed) {
+                // 가장 최근 활동 시간으로 복구
+                double restoreScore = getMostRecentActivityScore(followerId, postId, post);
+                redisTemplate.opsForZSet().add(cacheKey, postId, restoreScore);
+
+                log.debug("게시글 복구 - FollowerId: {}, PostId: {}, RestoreScore: {}",
+                        followerId, postId, restoreScore);
             }
         }
 
@@ -376,18 +386,73 @@ public class RedisFeedService {
         String userCacheKey = FEED_KEY_PREFIX + userId;
         redisTemplate.opsForZSet().remove(userCacheKey, postId);
 
-        // 본인이 원본 작성자이거나 원본 작성자를 팔로우하고 있다면 원본으로 복구
-        if (post.getUser().getId().equals(userId) || isFollowing(userId, post.getUser().getId())) {
-            redisTemplate.opsForZSet().add(userCacheKey, postId, originalScore);
-            log.debug("본인 피드 원본 복구 - UserId: {}, PostId: {}, OriginalScore: {}",
-                    userId, postId, originalScore);
+        // 본인이 원본 작성자이거나 원본 작성자를 팔로우하고 있거나 다른 팔로우 중인 사용자가 리포스트했다면 복구
+        boolean shouldKeepInUserFeed = shouldPostRemainInFeed(userId, postId, post.getUser().getId());
+
+        if (shouldKeepInUserFeed) {
+            double restoreScore = getMostRecentActivityScore(userId, postId, post);
+            redisTemplate.opsForZSet().add(userCacheKey, postId, restoreScore);
+            log.debug("본인 피드 게시글 복구 - UserId: {}, PostId: {}, RestoreScore: {}",
+                    userId, postId, restoreScore);
         }
 
-        log.info("리포스트 취소 및 원본 복구 완료 - PostId: {}, UserId: {}, 원본시간: {}, OriginalScore: {}",
-                postId, userId, post.getCreatedAt(), originalScore);
+        log.info("리포스트 취소 및 선택적 복구 완료 - PostId: {}, UserId: {}", postId, userId);
     }
 
+    /**
+     * 특정 사용자의 피드에 게시글이 남아있어야 하는지 확인
+     */
+    private boolean shouldPostRemainInFeed(Long userId, Long postId, Long originalAuthorId) {
+        // 1. 본인이 원본 작성자인 경우
+        if (userId.equals(originalAuthorId)) {
+            return true;
+        }
 
+        // 2. 원본 작성자를 팔로우하고 있는 경우
+        if (isFollowing(userId, originalAuthorId)) {
+            return true;
+        }
+
+        // 3. 팔로우 중인 다른 사용자가 이 게시글을 리포스트했는지 확인
+        return hasFollowingUserReposted(userId, postId);
+    }
+
+    /**
+     * 팔로우 중인 사용자 중 누군가가 해당 게시글을 리포스트했는지 확인
+     */
+    private boolean hasFollowingUserReposted(Long userId, Long postId) {
+        // 현재 사용자가 팔로우하고 있는 사용자들 조회
+        List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(userId);
+
+        if (followingIds.isEmpty()) {
+            return false;
+        }
+
+        // 해당 게시글을 리포스트한 사용자들 중 팔로우 중인 사용자가 있는지 확인
+        return repostRepository.existsByPostIdAndUserIdIn(postId, followingIds);
+    }
+
+    /**
+     * 가장 최근 활동 시간으로 score 계산
+     */
+    private double getMostRecentActivityScore(Long userId, Long postId, PostEntity post) {
+        // 1. 원본 게시글 시간
+        double originalScore = calculateScore(post.getCreatedAt());
+
+        // 2. 팔로우 중인 사용자들의 리포스트 시간 중 가장 최근 것
+        List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(userId);
+        if (!followingIds.isEmpty()) {
+            Optional<LocalDateTime> mostRecentRepost = repostRepository
+                    .findMostRecentRepostTimeByPostIdAndUserIdIn(postId, followingIds);
+
+            if (mostRecentRepost.isPresent()) {
+                double repostScore = calculateScore(mostRecentRepost.get());
+                return Math.max(originalScore, repostScore);
+            }
+        }
+
+        return originalScore;
+    }
 
     // 팔로우 관계 확인 메서드 (캐시 추가로 성능 개선)
     private boolean isFollowing(Long followerId, Long followingId) {

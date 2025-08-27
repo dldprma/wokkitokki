@@ -361,10 +361,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   // 리포스트 토글 처리
   const handleRepostToggle = async (postId: number) => {
     try {
-      console.log("ProfilePosts: 리포스트 토글 시작, postId:", postId);
       const result = await toggleRepost(postId);
-      console.log("ProfilePosts: 리포스트 토글 결과:", result);
-      // 데이터 새로고침 제거 - 상태가 즉시 반영되도록
     } catch (error) {
       console.error("ProfilePosts: 리포스트 토글 실패", error);
     }

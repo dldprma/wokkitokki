@@ -484,15 +484,10 @@ const postSlice = createSlice({
     // 리포스트 토글
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
       const { postId, reposted, currentUsername } = action.payload;
-      console.log(
-        "postSlice: togglePostRepost.fulfilled 실행:",
-        action.payload
-      );
 
       // 프로필 포스트에서 해당 게시글 찾기
       const originalPost = state.profilePosts.find((p) => p.id === postId);
       if (!originalPost) {
-        console.log("postSlice: 원본 게시글을 찾을 수 없음:", postId);
         return;
       }
 
@@ -500,34 +495,37 @@ const postSlice = createSlice({
         // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
         const repostedPost = {
           ...originalPost,
-          id: Date.now(), // 임시 ID (백엔드에서 실제 ID를 받아야 함)
+          id: postId, // 임시 ID 대신 원본 ID 사용 (400 에러 해결)
           reposted: true,
-          repostCount: originalPost.repostCount + 1,
+          repostCount: action.payload.repostCount || originalPost.repostCount, // 백엔드에서 받은 카운트 사용
           isRepost: true,
           repostedBy: currentUsername, // 실제 현재 사용자 username
           repostedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(), // 리포스트 시간을 생성 시간으로
         };
 
-        // 프로필 포스트 맨 위에 추가
-        state.profilePosts.unshift(repostedPost);
+        // 불변성을 보장하기 위해 새로운 배열 생성
+        const newProfilePosts = [...state.profilePosts];
+
+        // 새로운 리포스트 게시글을 맨 위에 추가
+        newProfilePosts.unshift(repostedPost);
 
         // 원본 게시글을 피드에서 제거 (중복 방지)
-        const originalPostIndex = state.profilePosts.findIndex(
+        const originalPostIndex = newProfilePosts.findIndex(
           (p) => p.id === postId
         );
         if (originalPostIndex !== -1) {
-          state.profilePosts.splice(originalPostIndex, 1);
-          console.log("postSlice: 원본 게시글 제거됨 (중복 방지)");
+          newProfilePosts.splice(originalPostIndex, 1);
         }
 
-        console.log("postSlice: 리포스트 게시글 추가됨:", repostedPost.id);
+        // 완전히 새로운 상태 객체 생성 (불변성 보장)
+        state.profilePosts = [...newProfilePosts];
       } else {
         // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 추가
         const repostedPostIndex = state.profilePosts.findIndex(
           (p) =>
             p.isRepost &&
-            p.repostedBy === "나" &&
+            p.repostedBy === currentUsername &&
             p.content === originalPost.content
         );
 
@@ -552,32 +550,21 @@ const postSlice = createSlice({
             (post, index) =>
               !(
                 post.isRepost &&
-                post.repostedBy === "나" &&
+                post.repostedBy === currentUsername &&
                 post.content === originalPost.content
               )
           );
-
-          console.log("postSlice: 리포스트 게시글 제거됨");
-          console.log("postSlice: 원본 게시글 원래 위치에 복원됨");
 
           // 완전히 새로운 상태 객체 생성
           state.profilePosts = [...filteredPosts];
         }
       }
 
-      // 원본 게시글의 상태도 업데이트
-      originalPost.reposted = reposted;
-      if (reposted) {
-        originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
-      } else {
-        originalPost.repostCount = Math.max(0, originalPost.repostCount - 1);
+      // 백엔드에서 받은 repostCount로 업데이트
+      if (action.payload.repostCount !== undefined) {
+        // 원본 게시글의 repostCount 업데이트
+        originalPost.repostCount = action.payload.repostCount;
       }
-
-      console.log(
-        "postSlice: 원본 게시글 상태 업데이트됨:",
-        originalPost.reposted,
-        originalPost.repostCount
-      );
     });
 
     // ===== 프로필 관련 리듀서 =====

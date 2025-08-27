@@ -180,13 +180,17 @@ export const togglePostLike = createAsyncThunk(
 // 리포스트 토글
 export const togglePostRepost = createAsyncThunk(
   "post/togglePostRepost",
-  async (postId: number, { rejectWithValue }) => {
+  async (postId: number, { rejectWithValue, getState }) => {
     try {
       const response = await toggleRepost(postId);
+      const state = getState() as any;
+      const currentUsername = state.auth.user?.username || "알 수 없음";
+
       return {
         postId,
         reposted: response.isReposted, // isReposted 필드 사용
         repostCount: response.repostCount,
+        currentUsername,
       };
     } catch (err: any) {
       return rejectWithValue(
@@ -479,7 +483,7 @@ const postSlice = createSlice({
 
     // 리포스트 토글
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
-      const { postId, reposted } = action.payload;
+      const { postId, reposted, currentUsername } = action.payload;
       console.log(
         "postSlice: togglePostRepost.fulfilled 실행:",
         action.payload
@@ -500,7 +504,7 @@ const postSlice = createSlice({
           reposted: true,
           repostCount: originalPost.repostCount + 1,
           isRepost: true,
-          repostedBy: "나", // 현재 사용자 (실제로는 백엔드에서 받아야 함)
+          repostedBy: currentUsername, // 실제 현재 사용자 username
           repostedAt: new Date().toISOString(),
           createdAt: new Date().toISOString(), // 리포스트 시간을 생성 시간으로
         };

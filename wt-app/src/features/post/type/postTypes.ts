@@ -15,6 +15,7 @@ export interface Post {
   repostedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  comments?: any[]; // 댓글 배열 (백엔드에서 받을 예정)
 }
 
 export interface PostImage {

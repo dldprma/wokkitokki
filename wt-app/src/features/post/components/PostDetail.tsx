@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../../store/hooks";
 import ProfileImage from "../../user/components/ProfileImage";
+import { CommentList } from "../../comment";
 import {
   getPostDetail,
   toggleLike,
@@ -9,7 +10,7 @@ import {
   updatePost,
   deletePost,
 } from "../api/postApi";
-import type { Post, UpdatePostData } from "../type/postTypes";
+import type { Post } from "../type/postTypes";
 
 // PostResponse 타입을 사용하므로 별도 인터페이스 불필요
 
@@ -457,6 +458,20 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
             </button>
           </div>
         </article>
+
+        {/* 댓글 섹션 */}
+        <div className="mt-8">
+          <CommentList
+            postId={post.id}
+            showComposer={true}
+            onCommentUpdate={() => {
+              // 댓글이 업데이트되면 게시글 정보를 다시 불러옴
+              if (postId) {
+                getPostDetail(postId).then(setPost).catch(console.error);
+              }
+            }}
+          />
+        </div>
       </div>
     </div>
   );

@@ -28,6 +28,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!postId) return;
@@ -47,6 +48,21 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
 
     fetchPost();
   }, [postId]);
+
+  // 메뉴 외부 클릭 시 메뉴 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest(".menu-container")) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const handleUserClick = (username: string) => {
     navigate(`/${username}`);
@@ -285,28 +301,47 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
               </div>
             </div>
 
-            {/* 오른쪽: 시간과 수정/삭제 버튼 */}
+            {/* 오른쪽: 시간과 점 세 개 메뉴 */}
             <div className="flex items-center space-x-3">
               <span className="text-gray-500 text-sm">
                 {formatTimeAgo(post.createdAt)}
               </span>
 
-              {/* 내가 쓴 게시글이면 수정/삭제 버튼 표시 */}
+              {/* 내가 쓴 게시글이면 점 세 개 메뉴 표시 */}
               {user?.username === post.authorUsername && (
-                <div className="flex space-x-2">
+                <div className="relative menu-container">
                   <button
-                    onClick={handleEditStart}
-                    className="px-3 py-1 text-sm bg-blue-100 text-blue-600 rounded-md hover:bg-blue-200 transition-colors"
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
+                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="메뉴"
                   >
-                    수정
+                    ⋯
                   </button>
-                  <button
-                    onClick={handleDelete}
-                    disabled={deleteLoading}
-                    className="px-3 py-1 text-sm bg-red-100 text-red-600 rounded-md hover:bg-red-200 transition-colors disabled:opacity-50"
-                  >
-                    {deleteLoading ? "삭제 중..." : "삭제"}
-                  </button>
+
+                  {/* 드롭다운 메뉴 */}
+                  {isMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                      <button
+                        onClick={() => {
+                          handleEditStart();
+                          setIsMenuOpen(false);
+                        }}
+                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 first:rounded-t-lg last:rounded-b-lg last:border-b-0"
+                      >
+                        ✏️ 수정하기
+                      </button>
+                      <button
+                        onClick={() => {
+                          handleDelete();
+                          setIsMenuOpen(false);
+                        }}
+                        disabled={deleteLoading}
+                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 border-b border-gray-100 first:rounded-t-lg last:rounded-b-lg last:border-b-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        🗑️ {deleteLoading ? "삭제 중..." : "삭제하기"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

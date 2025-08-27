@@ -36,6 +36,12 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     toggleRepost,
   } = usePost();
 
+  // 중복된 post.id 제거
+  const uniquePosts = profilePosts.filter(
+    (post: Post, index: number, arr: Post[]) =>
+      arr.findIndex((p: Post) => p.id === post.id) === index
+  );
+
   // username 결정: prop으로 받은 username이 있으면 사용, 없으면 현재 로그인한 사용자
   const { user } = useAppSelector((state: any) => state.auth);
   const username = propUsername || (user as any)?.username;
@@ -43,6 +49,11 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   // 게시글 상세보기로 이동
   const handlePostClick = (postId: number) => {
     navigate(`/post/${postId}`);
+  };
+
+  // 사용자 프로필로 이동
+  const handleUserClick = (username: string) => {
+    navigate(`/${username}`);
   };
 
   // 탭 변경 시에만 데이터 로드 (무한 루프 방지)
@@ -114,106 +125,133 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     </div>
   );
 
-  // 글+사진 리스트형 (트위터 스타일)
+  // 포스트 리스트 렌더링
   const renderPostsList = () => {
-    // 중복된 post.id 제거
-    const uniquePosts = profilePosts.filter(
-      (post: Post, index: number, arr: Post[]) =>
-        arr.findIndex((p: Post) => p.id === post.id) === index
-    );
+    if (uniquePosts.length === 0) {
+      return (
+        <div className="text-center text-gray-500 py-8">
+          아직 게시글이 없습니다
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-4">
-        {uniquePosts.map((post: Post) => (
-          <div
-            key={`profile-post-${post.id}`}
-            className="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow"
-          >
-            <div className="flex items-start space-x-3">
-              <ProfileImage
-                imageUrl={post.authorProfileImg}
-                username={post.authorUsername}
-                size="md"
-                className="w-10 h-10 flex-shrink-0"
-              />
-              <div className="flex-1">
-                {/* 리포스트 정보 표시 */}
-                {post.isRepost && (
-                  <div className="repost-info text-sm text-gray-500 mb-2">
-                    🔄 {post.repostedBy || "사용자"}님이 리포스트했습니다
-                  </div>
-                )}
-                <div className="flex items-center space-x-2 mb-2">
-                  <span className="font-semibold text-gray-900">
-                    {post.authorName}
-                  </span>
-                  <span className="text-gray-500">@{post.authorUsername}</span>
-                  <span className="text-gray-400 text-sm">
-                    {new Date(post.createdAt).toLocaleDateString()}
-                  </span>
+        {uniquePosts.map((post: Post) => {
+          // 디버깅: 리포스트 정보 확인
+          console.log("Profile post debug:", {
+            postId: post.id,
+            isRepost: post.isRepost,
+            repostedBy: post.repostedBy,
+            content: post.content,
+          });
+
+          return (
+            <div
+              key={`profile-post-${post.id}`}
+              className="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow"
+            >
+              {/* 리포스트 정보 표시 */}
+              {post.repostedBy && (
+                <div className="repost-info text-sm text-gray-500 mb-2">
+                  🔄 {post.repostedBy}님이 리포스트했습니다
                 </div>
+              )}
+              <div className="flex items-start space-x-3">
                 <div
-                  className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                  onClick={() => handlePostClick(post.id)}
+                  className="cursor-pointer hover:opacity-80 transition-opacity"
+                  onClick={() => handleUserClick(post.authorUsername)}
                 >
-                  <p className="text-gray-800 mb-3 leading-relaxed">
-                    {post.content}
-                  </p>
-                  {post.imgUrl && (
-                    <div className="mb-3">
-                      <img
-                        src={post.imgUrl}
-                        alt="Post image"
-                        className="w-full max-h-96 object-cover rounded-lg"
-                      />
-                    </div>
-                  )}
+                  <ProfileImage
+                    imageUrl={post.authorProfileImg}
+                    username={post.authorUsername}
+                    size="md"
+                    className="w-10 h-10 flex-shrink-0"
+                  />
                 </div>
-                <div className="flex items-center space-x-6">
-                  <button
-                    onClick={() => handleCommentClick(post.id)}
-                    className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
-                    aria-label="댓글"
+                <div className="flex-1">
+                  <div
+                    className="flex items-center justify-between mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleUserClick(post.authorUsername)}
                   >
-                    <span>💬</span>
-                    <span className="text-sm">0</span>
-                  </button>
-                  <button
-                    onClick={() => handleRepostToggle(post.id)}
-                    className={`flex items-center space-x-2 transition-colors ${
-                      post.isReposted
-                        ? "text-green-500"
-                        : "text-gray-500 hover:text-green-500"
-                    }`}
-                    aria-label="리포스트"
+                    <div className="flex items-center space-x-2">
+                      <span className="font-semibold text-gray-900">
+                        {post.authorName}
+                      </span>
+                      <span className="text-gray-500">
+                        @{post.authorUsername}
+                      </span>
+                    </div>
+                    <span className="text-gray-400 text-sm">
+                      {new Date(post.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {/* 게시글 내용 */}
+                  <div
+                    className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                    onClick={() => handlePostClick(post.id)}
                   >
-                    <span>{post.isReposted ? "↪️" : "🔄"}</span>
-                    <span className="text-sm">{post.repostCount}</span>
-                  </button>
-                  <button
-                    onClick={() => handleLikeToggle(post.id)}
-                    className={`flex items-center space-x-2 transition-colors ${
-                      post.isLiked
-                        ? "text-red-500"
-                        : "text-gray-500 hover:text-red-500"
-                    }`}
-                    aria-label="좋아요"
-                  >
-                    <span>{post.isLiked ? "❤️" : "🤍"}</span>
-                    <span className="text-sm">{post.likeCount}</span>
-                  </button>
-                  <button
-                    onClick={() => handleDmClick(post.authorUsername)}
-                    className="flex items-center space-x-2 text-gray-500 hover:text-purple-500 transition-colors"
-                    aria-label="DM 보내기"
-                  >
-                    <span>📤</span>
-                  </button>
+                    <p className="text-gray-800 mb-3 leading-relaxed">
+                      {post.content}
+                    </p>
+                    {post.imgUrl && (
+                      <div className="mb-3">
+                        <img
+                          src={post.imgUrl}
+                          alt="Post image"
+                          className="w-full max-h-96 object-cover rounded-lg"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 상호작용 버튼들 */}
+                  <div className="flex items-center space-x-6">
+                    <button
+                      onClick={() => handleCommentClick(post.id)}
+                      className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
+                      aria-label="댓글"
+                    >
+                      <span>💬</span>
+                      <span className="text-sm">0</span>
+                    </button>
+                    <button
+                      onClick={() => handleRepostToggle(post.id)}
+                      className={`flex items-center space-x-2 transition-colors ${
+                        post.isReposted
+                          ? "text-green-500"
+                          : "text-gray-500 hover:text-green-500"
+                      }`}
+                      aria-label="리포스트"
+                    >
+                      <span>{post.isReposted ? "↪️" : "🔄"}</span>
+                      <span className="text-sm">{post.repostCount}</span>
+                    </button>
+                    <button
+                      onClick={() => handleLikeToggle(post.id)}
+                      className={`flex items-center space-x-2 transition-colors ${
+                        post.isLiked
+                          ? "text-red-500"
+                          : "text-gray-500 hover:text-red-500"
+                      }`}
+                      aria-label="좋아요"
+                    >
+                      <span>{post.isLiked ? "❤️" : "🤍"}</span>
+                      <span className="text-sm">{post.likeCount}</span>
+                    </button>
+                    <button
+                      onClick={() => handleDmClick(post.authorUsername)}
+                      className="flex items-center space-x-2 text-gray-500 hover:text-purple-500 transition-colors"
+                      aria-label="DM 보내기"
+                    >
+                      <span>📤</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
@@ -289,11 +327,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
       case "photos":
         return profilePhotos.length;
       case "posts":
-        // 중복 제거된 포스트 수 반환
-        return profilePosts.filter(
-          (post: Post, index: number, arr: Post[]) =>
-            arr.findIndex((p: Post) => p.id === post.id) === index
-        ).length;
+        // uniquePosts의 길이 반환 (이미 중복 제거됨)
+        return uniquePosts.length;
       case "reels":
         return profileReels.length;
       default:

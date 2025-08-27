@@ -266,6 +266,19 @@ const Home: React.FC = () => {
             .map((post: any) => {
               return (
                 <article key={`home-post-${post.id}`} className="post-card">
+                  {/* 리포스트 문구 - 첫 줄 전용 */}
+                  {post.repostedBy && (
+                    <div className="repost-info text-sm text-gray-500 mb-2">
+                      🔄 {post.repostedBy}님이 리포스트했습니다
+                    </div>
+                  )}
+                  {console.log("Home post debug:", {
+                    postId: post.id,
+                    repostedBy: post.repostedBy,
+                    isReposted: post.isReposted,
+                    content: post.content,
+                    fullPost: post,
+                  })}
                   <div className="post-content">
                     <div
                       className="cursor-pointer hover:opacity-80"
@@ -280,12 +293,6 @@ const Home: React.FC = () => {
                     </div>
                     <div className="post-main-content">
                       <div className="post-header">
-                        {/* 리포스트 정보 표시 */}
-                        {post.isRepost && post.repostedBy && (
-                          <div className="repost-info text-sm text-gray-500 mb-1">
-                            🔄 {post.repostedBy}님이 리포스트했습니다
-                          </div>
-                        )}
                         <div
                           className="post-author-info cursor-pointer hover:opacity-80"
                           onClick={() => handleUserClick(post.authorUsername)}

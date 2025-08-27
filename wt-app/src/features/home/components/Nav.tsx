@@ -1,13 +1,11 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
-import { useUser } from "../../user/hooks/useUser";
 import "../../../css/Nav.css";
 import ProfileImage from "../../user/components/ProfileImage";
 import { useAuth } from "../../auth/hooks/useAuth";
 
 const Nav: React.FC = () => {
   const location = useLocation();
-  const { profileUser } = useUser();
   const { logout, user: authUser } = useAuth();
   const isProfilePage = location.pathname === `/${authUser?.username}`;
 

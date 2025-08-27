@@ -9,6 +9,7 @@ import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -24,10 +25,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 @RequiredArgsConstructor
+@Slf4j
 public class UserController {
 
     private final UserService userService;
-    private final JwtUtils jwtUtils;
 
     // 프로필 정보 조회 (모든 사용자)
     @GetMapping("/{username}")
@@ -92,8 +93,6 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
     }
-
-    // UserController.java - 정리된 팔로우 관련 API
 
     // 팔로우/언팔로우
     @PostMapping("/{username}/follow")

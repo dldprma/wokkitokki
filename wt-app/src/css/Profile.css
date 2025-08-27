@@ -76,6 +76,32 @@
   @apply bg-white rounded-lg p-6 shadow-sm border;
 }
 
+/* 리포스트 정보 스타일 */
+.repost-info {
+  @apply flex items-center space-x-2 text-gray-500 text-sm mb-2 p-2 bg-gray-50 rounded-lg border-l-4 border-accent-500;
+}
+
+.repost-info-icon {
+  @apply text-accent-500 text-base;
+}
+
+.repost-info-text {
+  @apply font-medium;
+}
+
+/* compact 버전의 리포스트 정보 스타일 (같은 라인에 표시) */
+.repost-info-compact {
+  @apply flex items-center space-x-2 text-gray-500 text-sm;
+}
+
+.repost-info-icon-compact {
+  @apply text-accent-500 text-base;
+}
+
+.repost-info-text-compact {
+  @apply font-medium;
+}
+
 /* Empty State */
 .empty-state {
   @apply text-center py-12;

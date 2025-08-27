@@ -5,6 +5,7 @@ import { useUser } from "../../user/hooks/useUser";
 import { usePost } from "../../post/hooks/usePost";
 import { useAuth } from "../../auth/hooks/useAuth";
 import ProfileImage from "../../user/components/ProfileImage";
+import { CommentPreview } from "../../comment";
 import "../../../css/Home.css";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { setLoading, clearError, setError } from "../store/homeSlice";
@@ -321,6 +322,15 @@ const Home: React.FC = () => {
                             />
                           </div>
                         )}
+
+                        {/* 댓글 미리보기 */}
+                        {post.comments && post.comments.length > 0 && (
+                          <CommentPreview
+                            comments={post.comments}
+                            postId={post.id}
+                            maxComments={2}
+                          />
+                        )}
                       </div>
 
                       <footer className="post-actions">
@@ -330,7 +340,9 @@ const Home: React.FC = () => {
                             aria-label="댓글"
                           >
                             <span>💬</span>
-                            <span className="post-interaction-count">0</span>
+                            <span className="post-interaction-count">
+                              {post.commentCount || 0}
+                            </span>
                           </button>
                           <button
                             onClick={() => handleRepost(post.id)}

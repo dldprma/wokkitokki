@@ -214,7 +214,16 @@ const homeSlice = createSlice({
         // 홈 피드 맨 위에 추가
         (state as any).posts.unshift(repostedPost);
 
-        console.log("homeSlice: 리포스트 게시글 추가됨:", repostedPost.id);
+        // 원본 게시글을 피드에서 제거 (중복 방지)
+        const originalPostIndex = (state as any).posts.findIndex(
+          (p: any) => p.id === postId
+        );
+        if (originalPostIndex !== -1) {
+          (state as any).posts.splice(originalPostIndex, 1);
+        }
+
+        // 리포스트된 게시글의 reposted 상태를 true로 설정 (버튼 활성화용)
+        repostedPost.reposted = true;
       } else {
         // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 복원
         const repostedPostIndex = (state as any).posts.findIndex(
@@ -236,24 +245,43 @@ const homeSlice = createSlice({
 
           // 리포스트된 게시글을 원본 게시글으로 교체
           (state as any).posts.splice(repostedPostIndex, 1, restoredPost);
-
-          console.log("homeSlice: 리포스트 게시글 제거되고 원본 게시글 복원됨");
         }
       }
 
-      // 원본 게시글의 상태도 업데이트
-      originalPost.reposted = isReposted; // isReposted가 아니라 reposted 사용
-      if (isReposted) {
-        originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
-      } else {
-        originalPost.repostCount = Math.max(0, originalPost.repostCount - 1);
-      }
+      // 리포스트 취소 시: 실제 피드에 있는 게시글의 상태를 직접 업데이트
+      if (!isReposted) {
+        // 리포스트 취소 시: 피드에 있는 게시글의 모든 리포스트 관련 상태를 완전히 초기화
+        const feedPost = (state as any).posts.find(
+          (p: any) =>
+            p.id === postId ||
+            (p.content === originalPost.content && !p.isRepost)
+        );
+        if (feedPost) {
+          // 모든 리포스트 관련 상태를 완전히 초기화
+          feedPost.reposted = false;
+          feedPost.isRepost = false;
+          feedPost.repostedBy = null;
+          feedPost.repostedAt = null;
+          feedPost.repostCount = Math.max(0, feedPost.repostCount - 1);
 
-      console.log(
-        "homeSlice: 원본 게시글 상태 업데이트됨:",
-        originalPost.isReposted,
-        originalPost.repostCount
-      );
+          console.log(
+            "homeSlice: 피드 게시글 모든 상태 완전 초기화됨:",
+            feedPost.reposted,
+            feedPost.isRepost,
+            feedPost.repostedBy,
+            feedPost.repostCount
+          );
+        }
+      } else {
+        // 리포스트 추가 시: 원본 게시글 상태 업데이트
+        originalPost.reposted = true;
+        originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
+        console.log(
+          "homeSlice: 원본 게시글 상태 업데이트됨:",
+          originalPost.reposted,
+          originalPost.repostCount
+        );
+      }
     });
   },
 });

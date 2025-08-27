@@ -272,13 +272,7 @@ const Home: React.FC = () => {
                       🔄 {post.repostedBy}님이 리포스트했습니다
                     </div>
                   )}
-                  {console.log("Home post debug:", {
-                    postId: post.id,
-                    repostedBy: post.repostedBy,
-                    isReposted: post.isReposted,
-                    content: post.content,
-                    fullPost: post,
-                  })}
+
                   <div className="post-content">
                     <div
                       className="cursor-pointer hover:opacity-80"
@@ -341,13 +335,13 @@ const Home: React.FC = () => {
                           <button
                             onClick={() => handleRepost(post.id)}
                             className={`post-repost-btn ${
-                              post.isReposted
+                              post.reposted
                                 ? "post-repost-btn-active"
                                 : "post-repost-btn-inactive"
                             }`}
                             aria-label="리포스트"
                           >
-                            <span>{post.isReposted ? "↪️" : "🔄"}</span>
+                            <span>{post.reposted ? "↪️" : "🔄"}</span>
                             <span className="post-interaction-count">
                               {post.repostCount}
                             </span>
@@ -355,13 +349,13 @@ const Home: React.FC = () => {
                           <button
                             onClick={() => handleLike(post.id)}
                             className={`post-like-btn ${
-                              post.isLiked
+                              post.liked
                                 ? "post-like-btn-active"
                                 : "post-like-btn-inactive"
                             }`}
-                            aria-label={post.isLiked ? "좋아요 취소" : "좋아요"}
+                            aria-label={post.liked ? "좋아요 취소" : "좋아요"}
                           >
-                            <span>{post.isLiked ? "❤️" : "🤍"}</span>
+                            <span>{post.liked ? "❤️" : "🤍"}</span>
                             <span className="post-interaction-count">
                               {post.likeCount}
                             </span>

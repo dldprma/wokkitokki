@@ -166,7 +166,7 @@ export const togglePostLike = createAsyncThunk(
       const response = await toggleLike(postId);
       return {
         postId,
-        isLiked: response.isLiked,
+        liked: response.isLiked, // isLiked 필드 사용
         likeCount: response.likeCount,
       };
     } catch (err: any) {
@@ -185,7 +185,7 @@ export const togglePostRepost = createAsyncThunk(
       const response = await toggleRepost(postId);
       return {
         postId,
-        isReposted: response.isReposted,
+        reposted: response.isReposted, // isReposted 필드 사용
         repostCount: response.repostCount,
       };
     } catch (err: any) {
@@ -455,15 +455,15 @@ const postSlice = createSlice({
 
     // 좋아요 토글
     builder.addCase(togglePostLike.fulfilled, (state, action) => {
-      const { postId, isLiked } = action.payload;
+      const { postId, liked } = action.payload;
 
       // 모든 포스트 배열에서 해당 게시글 찾아서 업데이트
       const updatePostInArray = (posts: any[]) => {
         const post = posts.find((p) => p.id === postId);
         if (post) {
-          post.isLiked = isLiked;
+          post.liked = liked;
           // 좋아요 상태에 따라 카운트 조정
-          if (isLiked) {
+          if (liked) {
             post.likeCount = Math.max(0, post.likeCount + 1);
           } else {
             post.likeCount = Math.max(0, post.likeCount - 1);
@@ -479,26 +479,101 @@ const postSlice = createSlice({
 
     // 리포스트 토글
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
-      const { postId, isReposted } = action.payload;
+      const { postId, reposted } = action.payload;
+      console.log(
+        "postSlice: togglePostRepost.fulfilled 실행:",
+        action.payload
+      );
 
-      // 모든 포스트 배열에서 해당 게시글 찾아서 업데이트
-      const updatePostInArray = (posts: any[]) => {
-        const post = posts.find((p) => p.id === postId);
-        if (post) {
-          post.isReposted = isReposted;
-          // 리포스트 상태에 따라 카운트 조정
-          if (isReposted) {
-            post.repostCount = Math.max(0, post.repostCount + 1);
-          } else {
-            post.repostCount = Math.max(0, post.repostCount - 1);
-          }
+      // 프로필 포스트에서 해당 게시글 찾기
+      const originalPost = state.profilePosts.find((p) => p.id === postId);
+      if (!originalPost) {
+        console.log("postSlice: 원본 게시글을 찾을 수 없음:", postId);
+        return;
+      }
+
+      if (reposted) {
+        // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
+        const repostedPost = {
+          ...originalPost,
+          id: Date.now(), // 임시 ID (백엔드에서 실제 ID를 받아야 함)
+          reposted: true,
+          repostCount: originalPost.repostCount + 1,
+          isRepost: true,
+          repostedBy: "나", // 현재 사용자 (실제로는 백엔드에서 받아야 함)
+          repostedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(), // 리포스트 시간을 생성 시간으로
+        };
+
+        // 프로필 포스트 맨 위에 추가
+        state.profilePosts.unshift(repostedPost);
+
+        // 원본 게시글을 피드에서 제거 (중복 방지)
+        const originalPostIndex = state.profilePosts.findIndex(
+          (p) => p.id === postId
+        );
+        if (originalPostIndex !== -1) {
+          state.profilePosts.splice(originalPostIndex, 1);
+          console.log("postSlice: 원본 게시글 제거됨 (중복 방지)");
         }
-      };
 
-      // 피드 포스트에서 업데이트
-      updatePostInArray(state.feedPosts);
-      // 프로필 포스트에서 업데이트
-      updatePostInArray(state.profilePosts);
+        console.log("postSlice: 리포스트 게시글 추가됨:", repostedPost.id);
+      } else {
+        // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 추가
+        const repostedPostIndex = state.profilePosts.findIndex(
+          (p) =>
+            p.isRepost &&
+            p.repostedBy === "나" &&
+            p.content === originalPost.content
+        );
+
+        if (repostedPostIndex !== -1) {
+          // 상태 변경을 확실히 감지하기 위해 완전히 새로운 객체 생성
+          const newProfilePosts = state.profilePosts.map((post, index) => {
+            if (index === repostedPostIndex) {
+              // 리포스트된 게시글 위치에 원본 게시글 복원
+              return {
+                ...originalPost,
+                reposted: false,
+                isRepost: false,
+                repostedBy: null,
+                repostedAt: null,
+              };
+            }
+            return post;
+          });
+
+          // 리포스트된 게시글 제거 (filter 사용)
+          const filteredPosts = newProfilePosts.filter(
+            (post, index) =>
+              !(
+                post.isRepost &&
+                post.repostedBy === "나" &&
+                post.content === originalPost.content
+              )
+          );
+
+          console.log("postSlice: 리포스트 게시글 제거됨");
+          console.log("postSlice: 원본 게시글 원래 위치에 복원됨");
+
+          // 완전히 새로운 상태 객체 생성
+          state.profilePosts = [...filteredPosts];
+        }
+      }
+
+      // 원본 게시글의 상태도 업데이트
+      originalPost.reposted = reposted;
+      if (reposted) {
+        originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
+      } else {
+        originalPost.repostCount = Math.max(0, originalPost.repostCount - 1);
+      }
+
+      console.log(
+        "postSlice: 원본 게시글 상태 업데이트됨:",
+        originalPost.reposted,
+        originalPost.repostCount
+      );
     });
 
     // ===== 프로필 관련 리듀서 =====
@@ -515,9 +590,9 @@ const postSlice = createSlice({
           ...p,
           likeCount: Math.max(0, Number(p.likeCount ?? 0)),
           repostCount: Math.max(0, Number(p.repostCount ?? 0)),
-          // isLiked, isReposted, isRepost, repostedBy 필드도 명시적으로 설정
-          isLiked: Boolean(p.isLiked ?? false),
-          isReposted: Boolean(p.isReposted ?? false),
+          // 백엔드에서 전달되는 실제 필드명 사용
+          liked: Boolean(p.liked ?? false),
+          reposted: Boolean(p.reposted ?? false),
           // 백엔드에서 전달하는 isRepost 필드 사용
           isRepost: Boolean(p.isRepost ?? false),
           repostedBy: p.repostedBy || null,

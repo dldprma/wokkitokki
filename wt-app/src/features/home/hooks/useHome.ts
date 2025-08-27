@@ -35,7 +35,7 @@ export const useHome = () => {
   const toggleRepost = async (postId: number) => {
     try {
       const result = await dispatch(togglePostRepost(postId));
-      // postSlice에서 이미 상태를 업데이트하므로 새로고침 불필요
+      // homeSlice에서 이미 상태를 업데이트하므로 새로고침 불필요
       return result;
     } catch (error) {
       console.error("리포스트 처리 실패:", error);

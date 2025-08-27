@@ -61,7 +61,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
         prev
           ? {
               ...prev,
-              isLiked: result.isLiked,
+              liked: result.liked,
               likeCount: result.likeCount,
             }
           : null
@@ -80,7 +80,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
         prev
           ? {
               ...prev,
-              isReposted: result.isReposted,
+              reposted: result.reposted,
               repostCount: result.repostCount,
             }
           : null
@@ -400,20 +400,20 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
             </button>
             <button
               className={`flex items-center space-x-2 transition-colors ${
-                post.isReposted ? "text-green-500" : "hover:text-green-500"
+                post.reposted ? "text-green-500" : "hover:text-green-500"
               }`}
               onClick={handleRepost}
             >
-              <span>{post.isReposted ? "🔄" : "↪️"}</span>
+              <span>{post.reposted ? "🔄" : "↪️"}</span>
               <span>{post.repostCount}</span>
             </button>
             <button
               className={`flex items-center space-x-2 transition-colors ${
-                post.isLiked ? "text-red-500" : "hover:text-red-500"
+                post.liked ? "text-red-500" : "hover:text-red-500"
               }`}
               onClick={handleLike}
             >
-              <span>{post.isLiked ? "❤️" : "🤍"}</span>
+              <span>{post.liked ? "❤️" : "🤍"}</span>
               <span>{post.likeCount}</span>
             </button>
             <button className="flex items-center space-x-2 hover:text-blue-500">

@@ -6,6 +6,7 @@ import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
 import com.winter.wokkitokki.user.entity.UserEntity;
+import com.winter.wokkitokki.user.repository.FollowRepository;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -27,6 +28,7 @@ public class RedisFeedIntegration {
     private final UserRepository userRepository;
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
+    private final FollowRepository followRepository;
 
     /**
      * 피드 조회 (Redis 기반) - PostService 의존성 제거
@@ -197,6 +199,20 @@ public class RedisFeedIntegration {
             log.debug("Redis feed cache invalidated for user: {}", userId);
         } catch (Exception e) {
             log.error("Failed to invalidate Redis feed cache for user: {}", userId, e);
+        }
+    }
+
+    public void invalidateFollowerCaches(Long userId) {
+        try {
+            List<Long> followerIds = followRepository.findFollowerIdsByFollowingId(userId);
+
+            for (Long followerId : followerIds) {
+                redisFeedService.invalidateFeedCache(followerId);
+            }
+
+            log.debug("Invalidated feed cache for {} followers of user {}", followerIds.size(), userId);
+        } catch (Exception e) {
+            log.error("Failed to invalidate follower caches for user: {}", userId, e);
         }
     }
 }

@@ -1,4 +1,5 @@
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import { useNavigate } from "react-router-dom";
 import {
   checkUsername,
   loginUser,
@@ -9,6 +10,7 @@ import type { LoginData, RegisterData } from "../types/authTypes";
 
 export const useAuth = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const auth = useAppSelector((state) => state.auth);
 
   const register = async (data: RegisterData) => {
@@ -20,7 +22,12 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    return await dispatch(logoutUser());
+    const result = await dispatch(logoutUser());
+    if (logoutUser.fulfilled.match(result)) {
+      // 로그아웃 성공 시 홈 페이지로 이동
+      navigate("/");
+    }
+    return result;
   };
 
   const checkUsernameDuplicate = async (username: string) => {

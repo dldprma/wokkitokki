@@ -1,5 +1,7 @@
 package com.winter.wokkitokki.user.service;
 
+import com.winter.wokkitokki.auth.service.JwtBlacklistService;
+import com.winter.wokkitokki.common.util.JwtUtils;
 import com.winter.wokkitokki.post.dto.FeedItemDto;
 import com.winter.wokkitokki.post.dto.PostImageResponseDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
@@ -7,6 +9,7 @@ import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
+import com.winter.wokkitokki.post.service.RedisFeedIntegration;
 import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
@@ -15,6 +18,7 @@ import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.FollowRepository;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +34,7 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class UserService {
 
     private final UserRepository userRepository;
@@ -38,6 +43,7 @@ public class UserService {
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
     private final SearchIndexService searchIndexService;
+    private final RedisFeedIntegration redisFeedIntegration;
 
     // username → ID 변환 메서드
     public Long getUserIdByUsername(String username) {
@@ -93,7 +99,7 @@ public class UserService {
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
         // 1. 사용자가 작성한 게시글 조회
-        List<FeedItemDto> originalPosts = postRepository.findUserOriginalPosts(userId);
+        List<FeedItemDto> originalPosts = postRepository.findOriginalPostsByUserId(userId);
 
         // 2. 사용자가 리포스트한 게시글 조회
         List<FeedItemDto> userReposts = postRepository.findUserReposts(userId);
@@ -275,19 +281,31 @@ public class UserService {
         // 이미 팔로잉 했는지
         boolean alreadyFollowing = followRepository.existsByFollowerAndFollowing(follower, following);
 
-        if(alreadyFollowing){
-            FollowEntity follow = followRepository.findByFollowerAndFollowing(follower, following);
-            followRepository.delete(follow);
+        if (alreadyFollowing) {
+            // 언팔로우
+            followRepository.findByFollowerAndFollowing(follower, following)
+                    .ifPresent(followRepository::delete);
+
             searchIndexService.updateUserStats(followerId);
             searchIndexService.updateUserStats(followingId);
+
+            // Redis 피드 업데이트 추가
+            redisFeedIntegration.handleUserUnfollowed(followerId, followingId);
+
             return false;
-        }else{
+        } else {
+            // 팔로우
             FollowEntity follow = new FollowEntity();
             follow.setFollower(follower);
             follow.setFollowing(following);
             followRepository.save(follow);
+
             searchIndexService.updateUserStats(followerId);
             searchIndexService.updateUserStats(followingId);
+
+            // Redis 피드 업데이트 추가
+            redisFeedIntegration.handleUserFollowed(followerId, followingId);
+
             return true;
         }
     }

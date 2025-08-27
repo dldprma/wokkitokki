@@ -127,6 +127,9 @@ const homeSlice = createSlice({
               // isLiked와 isReposted 필드도 명시적으로 설정 (undefined인 경우 false로 처리)
               isLiked: Boolean(p.isLiked ?? false),
               isReposted: Boolean(p.isReposted ?? false),
+              // 리포스트 관련 필드도 명시적으로 설정
+              isRepost: Boolean(p.isRepost ?? false),
+              repostedBy: p.repostedBy || null,
             } as any)
         );
 
@@ -171,7 +174,7 @@ const homeSlice = createSlice({
     // 좋아요 토글
     builder.addCase(togglePostLike.fulfilled, (state, action) => {
       const { postId, isLiked, likeCount } = action.payload;
-      const post = state.posts.find((p) => p.id === postId);
+      const post = (state as any).posts.find((p: any) => p.id === postId);
       if (post) {
         post.isLiked = isLiked;
         post.likeCount = likeCount;
@@ -181,10 +184,11 @@ const homeSlice = createSlice({
     // 리포스트 토글
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
       const { postId, isReposted, repostCount } = action.payload;
-      const post = state.posts.find((p) => p.id === postId);
+      const post = (state as any).posts.find((p: any) => p.id === postId);
       if (post) {
-        post.isReposted = isReposted;
-        post.repostCount = repostCount;
+        (post as any).isReposted = isReposted;
+        (post as any).repostCount = repostCount;
+        // repostedBy는 백엔드에서 관리되므로 프론트엔드에서 수정하지 않음
       }
     });
   },

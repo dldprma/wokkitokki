@@ -515,6 +515,12 @@ const postSlice = createSlice({
           ...p,
           likeCount: Math.max(0, Number(p.likeCount ?? 0)),
           repostCount: Math.max(0, Number(p.repostCount ?? 0)),
+          // isLiked, isReposted, isRepost, repostedBy 필드도 명시적으로 설정
+          isLiked: Boolean(p.isLiked ?? false),
+          isReposted: Boolean(p.isReposted ?? false),
+          // 백엔드에서 전달하는 isRepost 필드 사용
+          isRepost: Boolean(p.isRepost ?? false),
+          repostedBy: p.repostedBy || null,
         }));
         if (action.payload.number === 0) {
           state.profilePosts = normalized;
@@ -561,15 +567,13 @@ const postSlice = createSlice({
       })
       .addCase(fetchProfileReels.fulfilled, (state, action) => {
         state.reelsLoading = false;
-        const normalized = action.payload.content.map((p: any) => ({
-          ...p,
-          likeCount: Math.max(0, Number(p.likeCount ?? 0)),
-          repostCount: Math.max(0, Number(p.repostCount ?? 0)),
-        }));
         if (action.payload.number === 0) {
-          state.profileReels = normalized;
+          state.profileReels = action.payload.content;
         } else {
-          state.profileReels = [...state.profileReels, ...normalized];
+          state.profileReels = [
+            ...state.profileReels,
+            ...action.payload.content,
+          ];
         }
         state.reelsHasMore = !action.payload.last;
         state.reelsPage = action.payload.number;

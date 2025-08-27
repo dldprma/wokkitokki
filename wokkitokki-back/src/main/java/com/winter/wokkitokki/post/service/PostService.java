@@ -14,17 +14,13 @@ import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,8 +34,9 @@ public class PostService {
     private final UserRepository userRepository;
     private final SearchIndexService searchIndexService;
     private final FileService fileService;
+    private final RedisFeedIntegration redisFeedIntegration;
 
-    // 게시글 작성 (MultipartFile로 통일)
+    // 게시글 작성
     @Transactional
     public PostResponseDto createPost(Long userId, String content, MultipartFile image) {
         UserEntity user = userRepository.findById(userId)
@@ -63,12 +60,11 @@ public class PostService {
         post.setUser(user);
         post.setLikeCount(0);
         post.setRepostCount(0);
-        post.setDeleted(false); // 삭제 상태 초기화
+        post.setDeleted(false);
         post.setDeletedAt(null);
 
         // 이미지 업로드 처리
         if (hasImage) {
-            // 파일 검증
             fileService.validateImageFile(image);
             fileService.validateFileSize(image, 5 * 1024 * 1024); // 5MB
 
@@ -82,6 +78,7 @@ public class PostService {
 
         PostEntity savedPost = postRepository.save(post);
         searchIndexService.indexPost(savedPost);
+        redisFeedIntegration.handlePostCreated(savedPost);
         return convertToResponseDto(savedPost, user);
     }
 
@@ -118,20 +115,16 @@ public class PostService {
         // 이미지 삭제 요청이 있는 경우
         if (Boolean.TRUE.equals(removeImage)) {
             if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
-                // 실제 파일은 삭제하지 않고 URL만 제거 (논리적 삭제)
-                // 실제 파일 삭제는 배치 작업으로 나중에 처리
                 log.info("이미지 논리적 삭제: {}", post.getImgUrl());
             }
             post.setImgUrl(null);
         }
         // 새 이미지가 있는 경우
         else if (image != null && !image.isEmpty()) {
-            // 기존 이미지가 있다면 논리적 삭제 표시
             if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
                 log.info("기존 이미지 교체: {}", post.getImgUrl());
             }
 
-            // 파일 검증
             fileService.validateImageFile(image);
             fileService.validateFileSize(image, 5 * 1024 * 1024); // 5MB
 
@@ -155,12 +148,10 @@ public class PostService {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
 
-        // 이미 삭제된 게시글인지 확인
         if (post.isDeleted()) {
             throw new RuntimeException("이미 삭제된 게시글입니다.");
         }
 
-        // 본인 게시글인지 확인
         if (!post.getUser().getId().equals(userId)) {
             throw new RuntimeException("본인의 게시글만 삭제할 수 있습니다");
         }
@@ -168,20 +159,18 @@ public class PostService {
         // 논리적 삭제 처리
         post.setDeleted(true);
         post.setDeletedAt(LocalDateTime.now());
-        post.setDeletedBy(userId); // 삭제한 사용자 ID 기록
+        post.setDeletedBy(userId);
 
         postRepository.save(post);
-
-        // 검색 인덱스에서 제거
         searchIndexService.deletePostIndex(postId);
+        redisFeedIntegration.handlePostDeleted(postId, userId);
 
         log.info("게시글 논리적 삭제 완료 - PostId: {}, UserId: {}", postId, userId);
     }
 
-    // 게시글 이미지 업로드 (별도 API용 - 선택사항)
+    // 게시글 이미지 업로드 (별도 API용)
     @Transactional
     public String uploadPostImage(MultipartFile file) {
-        // 파일 검증
         fileService.validateImageFile(file);
         fileService.validateFileSize(file, 10 * 1024 * 1024); // 10MB
 
@@ -195,71 +184,14 @@ public class PostService {
     // 홈 피드 (리포스트 시간 포함)
     @Transactional(readOnly = true)
     public Page<PostResponseDto> getFeedPosts(Long userId, Pageable pageable) {
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
-
-        // 1. 원본 게시글 조회
-        List<FeedItemDto> originalPosts = postRepository.findOriginalPosts(userId);
-
-        // 2. 리포스트 조회
-        List<FeedItemDto> repostedPosts = postRepository.findRepostedPosts(userId);
-
-        // 3. 모든 피드 아이템 합치기
-        List<FeedItemDto> allFeedItems = new ArrayList<>();
-        allFeedItems.addAll(originalPosts);
-        allFeedItems.addAll(repostedPosts);
-
-        // 4. 시간순 정렬 (최신순)
-        allFeedItems.sort((a, b) -> b.getSortTime().compareTo(a.getSortTime()));
-
-        // 5. 페이징 처리
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), allFeedItems.size());
-        List<FeedItemDto> pagedItems = allFeedItems.subList(start, end);
-
-        // 6. 게시글 ID 추출
-        List<Long> postIds = pagedItems.stream()
-                .map(FeedItemDto::getPostId)
-                .toList();
-
-        // 7. 실제 게시글 조회
-        List<PostEntity> posts = postRepository.findPostsByIds(postIds);
-        Map<Long, PostEntity> postMap = posts.stream()
-                .collect(Collectors.toMap(PostEntity::getId, p -> p));
-
-        // 8. DTO 변환
-        List<PostResponseDto> feedPosts = pagedItems.stream()
-                .map(item -> {
-                    PostEntity post = postMap.get(item.getPostId());
-                    if (post != null) {
-                        PostResponseDto dto = convertToResponseDto(post, user);
-
-                        // 리포스트 정보 설정
-                        if ("REPOST".equals(item.getType())) {
-                            dto.setRepost(true);
-                            dto.setRepostedBy(item.getRepostUsername());
-                            dto.setRepostedAt(item.getSortTime().toString());
-                            dto.setOriginalCreatedAt(post.getCreatedAt().toString());
-                        }
-
-                        return dto;
-                    }
-                    return null;
-                })
-                .filter(Objects::nonNull)
-                .toList();
-
-        // 9. Page 객체 생성
-        return new PageImpl<>(feedPosts, pageable, allFeedItems.size());
+        return redisFeedIntegration.getFeedPosts(userId, pageable);
     }
-
 
     // 특정 포스트 상세조회 (삭제된 게시글 제외)
     public PostResponseDto getPostDetail(Long postId, Long currentUserId) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("포스트를 찾을 수 없습니다."));
 
-        // 삭제된 게시글인지 확인
         if (post.isDeleted()) {
             throw new RuntimeException("삭제된 게시글입니다.");
         }
@@ -279,19 +211,16 @@ public class PostService {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("포스트를 찾을 수 없습니다."));
 
-        // 삭제된 게시글인지 확인
         if (post.isDeleted()) {
             throw new RuntimeException("삭제된 게시글에는 좋아요를 할 수 없습니다.");
         }
 
-        // 이미 좋아요 했는지 확인
         boolean alreadyLiked = likeRepository.existsByUserAndPost(user, post);
 
         if (alreadyLiked) {
             LikeEntity like = likeRepository.findByUserAndPost(user, post);
             likeRepository.delete(like);
 
-            // 음수값 방지 로직
             int currentCount = post.getLikeCount();
             int newCount = Math.max(0, currentCount - 1);
             post.setLikeCount(newCount);
@@ -305,7 +234,6 @@ public class PostService {
             like.setPost(post);
             likeRepository.save(like);
 
-            // 좋아요 증가
             post.setLikeCount(post.getLikeCount() + 1);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
@@ -322,20 +250,17 @@ public class PostService {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("포스트를 찾을 수 없습니다."));
 
-        // 삭제된 게시글인지 확인
         if (post.isDeleted()) {
             throw new RuntimeException("삭제된 게시글은 리포스트할 수 없습니다.");
         }
 
-        // 이미 리포스트 했는지 확인
         boolean alreadyReposted = repostRepository.existsByUserAndPost(user, post);
 
         if (alreadyReposted) {
-            // 리포스트 취소
             RepostEntity repost = repostRepository.findByUserAndPost(user, post);
             repostRepository.delete(repost);
+            redisFeedIntegration.handleRepostRemoved(postId, userId);
 
-            // 음수값 방지 로직
             int currentCount = post.getRepostCount();
             int newCount = Math.max(0, currentCount - 1);
             post.setRepostCount(newCount);
@@ -347,46 +272,75 @@ public class PostService {
             RepostEntity repost = new RepostEntity();
             repost.setUser(user);
             repost.setPost(post);
-            repost.setRepostedAt(LocalDateTime.now()); // 리포스트 시간 설정
+            repost.setRepostedAt(LocalDateTime.now());
             repostRepository.save(repost);
 
             post.setRepostCount(post.getRepostCount() + 1);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
+            redisFeedIntegration.handleRepostCreated(postId, userId, LocalDateTime.now());
 
             return new RepostResponseDto(true, post.getRepostCount());
         }
     }
 
-    // PostEntity -> PostResponseDto 변환 (단일 메서드로 통일)
-    private PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser) {
-        PostResponseDto dto = new PostResponseDto();
-        dto.setId(post.getId());
-        dto.setContent(post.getContent());
-        dto.setImgUrl(post.getImgUrl());
-        dto.setAuthorName(post.getUser().getFullName());
-        dto.setAuthorUsername(post.getUser().getUsername());
-        dto.setAuthorProfileImg(post.getUser().getProfileImgUrl());
-        dto.setLikeCount(post.getLikeCount());
-        dto.setRepostCount(post.getRepostCount());
-        dto.setCreatedAt(post.getCreatedAt().toString());
-        dto.setDeleted(post.isDeleted()); // 삭제 상태 추가
+    // DTO 변환 메서드들 (통일된 이름으로 정리)
+    public PostResponseDto convertToResponseDto(PostEntity post, UserEntity currentUser) {
+        return convertToResponseDtos(List.of(post), currentUser).get(0);
+    }
 
-        // 현재 사용자가 좋아요/리포스트 했는지 확인
-        if (currentUser != null) {
-            dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
-            dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
-
-            boolean isOwner = post.getUser().getId().equals(currentUser.getId());
-            dto.setCanEdit(isOwner && !post.isDeleted());
-            dto.setCanDelete(isOwner && !post.isDeleted());
-        } else {
-            dto.setLiked(false);
-            dto.setReposted(false);
-            dto.setCanEdit(false);
-            dto.setCanDelete(false);
+    public List<PostResponseDto> convertToResponseDtos(List<PostEntity> posts, UserEntity currentUser) {
+        if (posts.isEmpty()) {
+            return Collections.emptyList();
         }
-        return dto;
+
+        List<Long> postIds = posts.stream()
+                .map(PostEntity::getId)
+                .collect(Collectors.toList());
+
+        // 한번의 쿼리로 모든 좋아요/리포스트 상태 조회
+        final Set<Long> likedPostIds;
+        final Set<Long> repostedPostIds;
+
+        if (currentUser != null) {
+            likedPostIds = new HashSet<>(likeRepository.findLikedPostIdsByUserAndPostIds(currentUser.getId(), postIds));
+            repostedPostIds = new HashSet<>(repostRepository.findRepostedPostIdsByUserAndPostIds(currentUser.getId(), postIds));
+        } else {
+            likedPostIds = Collections.emptySet();
+            repostedPostIds = Collections.emptySet();
+        }
+
+        final UserEntity finalCurrentUser = currentUser;
+
+        return posts.stream().map(post -> {
+            PostResponseDto dto = new PostResponseDto();
+            dto.setId(post.getId());
+            dto.setContent(post.getContent());
+            dto.setImgUrl(post.getImgUrl());
+            dto.setAuthorName(post.getUser().getFullName());
+            dto.setAuthorUsername(post.getUser().getUsername());
+            dto.setAuthorProfileImg(post.getUser().getProfileImgUrl());
+            dto.setLikeCount(post.getLikeCount());
+            dto.setRepostCount(post.getRepostCount());
+            dto.setCreatedAt(post.getCreatedAt().toString());
+            dto.setDeleted(post.isDeleted());
+
+            if (finalCurrentUser != null) {
+                dto.setLiked(likedPostIds.contains(post.getId()));
+                dto.setReposted(repostedPostIds.contains(post.getId()));
+
+                boolean isOwner = post.getUser().getId().equals(finalCurrentUser.getId());
+                dto.setCanEdit(isOwner && !post.isDeleted());
+                dto.setCanDelete(isOwner && !post.isDeleted());
+            } else {
+                dto.setLiked(false);
+                dto.setReposted(false);
+                dto.setCanEdit(false);
+                dto.setCanDelete(false);
+            }
+
+            return dto;
+        }).collect(Collectors.toList());
     }
 
     // 게시글 완전 삭제 (관리자용)
@@ -395,7 +349,6 @@ public class PostService {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("게시글을 찾을 수 없습니다"));
 
-        // 물리적 파일 삭제
         if (post.getImgUrl() != null && !post.getImgUrl().isEmpty()) {
             try {
                 fileService.deleteFile(post.getImgUrl());
@@ -404,7 +357,6 @@ public class PostService {
             }
         }
 
-        // DB에서 완전 삭제
         postRepository.delete(post);
         searchIndexService.deletePostIndex(postId);
 
@@ -421,7 +373,6 @@ public class PostService {
             throw new RuntimeException("삭제되지 않은 게시글입니다.");
         }
 
-        // 복구 처리
         post.setDeleted(false);
         post.setDeletedAt(null);
         post.setDeletedBy(null);
@@ -432,5 +383,4 @@ public class PostService {
         log.info("게시글 복구 완료 - PostId: {}", postId);
         return convertToResponseDto(restoredPost, post.getUser());
     }
-
 }

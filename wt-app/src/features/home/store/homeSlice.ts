@@ -60,7 +60,7 @@ export const togglePostLike = createAsyncThunk(
       const response = await toggleLike(postId);
       return {
         postId,
-        liked: response.liked,
+        liked: response.isLiked, // ✅ response.liked가 아니라 response.isLiked 사용
         likeCount: response.likeCount,
       };
     } catch (err: any) {
@@ -74,13 +74,17 @@ export const togglePostLike = createAsyncThunk(
 // 리포스트 토글
 export const togglePostRepost = createAsyncThunk(
   "home/toggleRepost",
-  async (postId: number, { rejectWithValue }) => {
+  async (postId: number, { rejectWithValue, getState }) => {
     try {
       const response = await toggleRepost(postId);
+      const state = getState() as any;
+      const currentUsername = state.auth.user?.username || "알 수 없음";
+
       return {
         postId,
-        reposted: response.reposted,
+        isReposted: response.isReposted,
         repostCount: response.repostCount,
+        currentUsername,
       };
     } catch (err: any) {
       return rejectWithValue(
@@ -176,33 +180,80 @@ const homeSlice = createSlice({
       const { postId, liked, likeCount } = action.payload;
       const post = (state as any).posts.find((p: any) => p.id === postId);
       if (post) {
-        post.liked = liked;
+        post.liked = liked; // ✅ isLiked가 아니라 liked 사용
         post.likeCount = likeCount;
       }
     });
 
     // 리포스트 토글
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
-      const { postId, reposted, repostCount } = action.payload;
+      const { postId, isReposted, currentUsername } = action.payload;
 
-      // 모든 포스트 배열에서 해당 게시글 찾아서 상태 업데이트
-      const post = (state as any).posts.find((p: any) => p.id === postId);
-      if (post) {
-        (post as any).reposted = reposted;
-        // 리포스트 상태에 따라 카운트 조정
-        if (reposted) {
-          (post as any).repostCount = Math.max(
-            0,
-            (post as any).repostCount + 1
-          );
-        } else {
-          (post as any).repostCount = Math.max(
-            0,
-            (post as any).repostCount - 1
-          );
-        }
-        // repostedBy는 백엔드에서 관리되므로 프론트엔드에서 수정하지 않음
+      // 홈 피드에서 해당 게시글 찾기
+      const originalPost = (state as any).posts.find(
+        (p: any) => p.id === postId
+      );
+      if (!originalPost) {
+        console.log("homeSlice: 원본 게시글을 찾을 수 없음:", postId);
+        return;
       }
+
+      if (isReposted) {
+        // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
+        const repostedPost = {
+          ...originalPost,
+          id: Date.now(), // 임시 ID (백엔드에서 실제 ID를 받아야 함)
+          reposted: true, // isReposted가 아니라 reposted 사용
+          repostCount: originalPost.repostCount + 1,
+          isRepost: true,
+          repostedBy: currentUsername, // 실제 현재 사용자 username
+          repostedAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(), // 리포스트 시간을 생성 시간으로
+        };
+
+        // 홈 피드 맨 위에 추가
+        (state as any).posts.unshift(repostedPost);
+
+        console.log("homeSlice: 리포스트 게시글 추가됨:", repostedPost.id);
+      } else {
+        // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 복원
+        const repostedPostIndex = (state as any).posts.findIndex(
+          (p: any) =>
+            p.isRepost &&
+            p.repostedBy === currentUsername &&
+            p.content === originalPost.content
+        );
+
+        if (repostedPostIndex !== -1) {
+          // 원본 게시글을 복원할 위치 계산 (리포스트된 게시글이 있던 위치)
+          const restoredPost = {
+            ...originalPost,
+            reposted: false, // 리포스트 상태 해제
+            isRepost: false,
+            repostedBy: null,
+            repostedAt: null,
+          };
+
+          // 리포스트된 게시글을 원본 게시글으로 교체
+          (state as any).posts.splice(repostedPostIndex, 1, restoredPost);
+
+          console.log("homeSlice: 리포스트 게시글 제거되고 원본 게시글 복원됨");
+        }
+      }
+
+      // 원본 게시글의 상태도 업데이트
+      originalPost.reposted = isReposted; // isReposted가 아니라 reposted 사용
+      if (isReposted) {
+        originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
+      } else {
+        originalPost.repostCount = Math.max(0, originalPost.repostCount - 1);
+      }
+
+      console.log(
+        "homeSlice: 원본 게시글 상태 업데이트됨:",
+        originalPost.isReposted,
+        originalPost.repostCount
+      );
     });
   },
 });

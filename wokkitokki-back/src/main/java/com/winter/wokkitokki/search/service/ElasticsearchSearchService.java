@@ -135,6 +135,7 @@ public class ElasticsearchSearchService {
 
             List<PostResponseDto> dtoResults = sortedPosts.stream()
                     .map(doc -> convertToPostDto(doc, currentUserId))
+                    .filter(dto->dto != null)
                     .collect(Collectors.toList());
 
             return new PageImpl<>(dtoResults, pageable, postDocs.getTotalElements());
@@ -288,6 +289,11 @@ public class ElasticsearchSearchService {
         }
 
         private PostResponseDto convertToPostDto(PostDocument doc, Long currentUserId) {
+            PostEntity post = postRepository.findById(Long.parseLong(doc.getId())).orElse(null);
+            // 게시글이 없거나 삭제된 경우 null 반환
+            if (post == null || post.isDeleted()) {
+                return null;
+            }
             PostResponseDto dto = new PostResponseDto();
             dto.setId(Long.parseLong(doc.getId()));
             dto.setContent(doc.getContent());
@@ -299,12 +305,12 @@ public class ElasticsearchSearchService {
             dto.setRepostCount(doc.getRepostCount());
             dto.setCreatedAt(doc.getCreatedAt());
 
+
             // 좋아요/리포스트 상태는 DB에서 실시간 조회
             if (currentUserId != null) {
                 UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
-                PostEntity post = postRepository.findById(Long.parseLong(doc.getId())).orElse(null);
 
-                if (currentUser != null && post != null) {
+                if (currentUser != null) {
                     dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
                     dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
 
@@ -313,6 +319,8 @@ public class ElasticsearchSearchService {
                     dto.setCanDelete(isOwner);
                 }
             } else {
+                dto.setLiked(false);
+                dto.setReposted(false);
                 dto.setCanEdit(false);
                 dto.setCanDelete(false);
             }

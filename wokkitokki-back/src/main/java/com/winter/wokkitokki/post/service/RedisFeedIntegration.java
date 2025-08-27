@@ -66,6 +66,7 @@ public class RedisFeedIntegration {
         if (currentUser != null) {
             likedPostIds = new HashSet<>(likeRepository.findLikedPostIdsByUserAndPostIds(currentUser.getId(), postIds));
             repostedPostIds = new HashSet<>(repostRepository.findRepostedPostIdsByUserAndPostIds(currentUser.getId(), postIds));
+
         } else {
             likedPostIds = Collections.emptySet();
             repostedPostIds = Collections.emptySet();
@@ -98,8 +99,11 @@ public class RedisFeedIntegration {
             }
 
             if (currentUser != null) {
-                dto.setLiked(likedPostIds.contains(post.getId()));
-                dto.setReposted(repostedPostIds.contains(post.getId()));
+                boolean isLiked = likedPostIds.contains(post.getId());
+                boolean isReposted = repostedPostIds.contains(post.getId());
+
+                dto.setLiked(isLiked);
+                dto.setReposted(isReposted);
 
                 boolean isOwner = post.getUser().getId().equals(currentUser.getId());
                 dto.setCanEdit(isOwner && !post.isDeleted());
@@ -113,7 +117,6 @@ public class RedisFeedIntegration {
 
             result.add(dto);
         }
-
         return result;
     }
 

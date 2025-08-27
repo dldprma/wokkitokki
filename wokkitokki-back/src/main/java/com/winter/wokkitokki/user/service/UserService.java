@@ -356,16 +356,18 @@ public class UserService {
         dto.setLikeCount(post.getLikeCount());
         dto.setRepostCount(post.getRepostCount());
         dto.setCreatedAt(post.getCreatedAt().toString());
-        dto.setDeleted(post.isDeleted()); // 삭제 상태 추가
+        dto.setDeleted(post.isDeleted());
 
         // 현재 사용자가 좋아요/리포스트 했는지 확인
         if(currentUser != null){
-            dto.setLiked(likeRepository.existsByUserAndPost(currentUser, post));
-            dto.setReposted(repostRepository.existsByUserAndPost(currentUser, post));
+            boolean isLiked = likeRepository.existsByUserAndPost(currentUser, post);
+            boolean isReposted = repostRepository.existsByUserAndPost(currentUser, post);
+            dto.setLiked(isLiked);
+            dto.setReposted(isReposted);
 
             boolean isOwner = post.getUser().getId().equals(currentUser.getId());
             dto.setCanEdit(isOwner && !post.isDeleted());
-            dto.setCanDelete(isOwner && !post.isDeleted()); // 삭제된 게시글은 재삭제 불가
+            dto.setCanDelete(isOwner && !post.isDeleted());
         }else{
             dto.setLiked(false);
             dto.setReposted(false);

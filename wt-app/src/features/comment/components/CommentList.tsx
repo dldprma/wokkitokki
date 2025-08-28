@@ -11,6 +11,7 @@ interface CommentListProps {
   parentCommentId?: number | null;
   maxComments?: number;
   showComposer?: boolean;
+  showCommentForm?: boolean;
   onCommentUpdate?: () => void;
 }
 
@@ -19,6 +20,7 @@ const CommentList: React.FC<CommentListProps> = ({
   parentCommentId = null,
   maxComments,
   showComposer = true,
+  showCommentForm: externalShowCommentForm = false,
   onCommentUpdate,
 }) => {
   const dispatch = useAppDispatch();
@@ -26,6 +28,13 @@ const CommentList: React.FC<CommentListProps> = ({
     (state) => state.comment
   );
   const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [internalShowCommentForm, setInternalShowCommentForm] = useState(false);
+
+  // 외부에서 전달받은 showCommentForm이 있으면 사용, 없으면 내부 상태 사용
+  const showCommentForm =
+    externalShowCommentForm !== undefined
+      ? externalShowCommentForm
+      : internalShowCommentForm;
 
   useEffect(() => {
     // 댓글 목록 조회
@@ -102,11 +111,15 @@ const CommentList: React.FC<CommentListProps> = ({
   return (
     <div className="comment-list">
       {/* 댓글 작성 폼 */}
-      {showComposer && (
+      {showComposer && showCommentForm && (
         <CommentComposer
           postId={postId}
           parentCommentId={parentCommentId}
-          onSuccess={handleCommentSuccess}
+          onSuccess={() => {
+            handleCommentSuccess();
+            setInternalShowCommentForm(false); // 작성 완료 후 폼 숨김
+          }}
+          onCancel={() => setInternalShowCommentForm(false)}
         />
       )}
 

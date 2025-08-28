@@ -1,7 +1,7 @@
 export interface Comment {
   id: number;
   content: string;
-  authorId: string;
+  authorId: number;
   authorName: string;
   authorUsername: string;
   authorProfileImgUrl?: string;
@@ -10,10 +10,8 @@ export interface Comment {
   likeCount: number;
   repostCount: number;
   replyCount: number;
-  dmCount: number;
   isLiked: boolean;
   isReposted: boolean;
-  isDmSent: boolean;
   createdAt: string;
   updatedAt: string;
   replies?: Comment[];
@@ -22,7 +20,6 @@ export interface Comment {
 
 export interface CreateCommentRequest {
   content: string;
-  postId: number;
   parentCommentId?: number | null;
 }
 
@@ -33,7 +30,7 @@ export interface UpdateCommentRequest {
 export interface CommentResponse {
   id: number;
   content: string;
-  authorId: string;
+  authorId: number;
   authorName: string;
   authorUsername: string;
   authorProfileImgUrl?: string;
@@ -42,10 +39,8 @@ export interface CommentResponse {
   likeCount: number;
   repostCount: number;
   replyCount: number;
-  dmCount: number;
   isLiked: boolean;
   isReposted: boolean;
-  isDmSent: boolean;
   createdAt: string;
   updatedAt: string;
   hasMoreReplies?: boolean;
@@ -61,12 +56,6 @@ export interface CommentRepostResponse {
   message: string;
   isReposted: boolean;
   repostCount: number;
-}
-
-export interface CommentDmResponse {
-  message: string;
-  isDmSent: boolean;
-  dmCount: number;
 }
 
 export interface CommentListResponse {

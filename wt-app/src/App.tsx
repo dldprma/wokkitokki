@@ -15,6 +15,7 @@ import HomePage from "./pages/HomePage";
 import SearchPage from "./pages/SearchPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import PostDetailPage from "./pages/PostDetailPage";
+import CommentDetailPage from "./pages/CommentDetailPage";
 
 // axios에 Redux store 설정
 setStore(store);
@@ -125,6 +126,15 @@ function App() {
           element={
             <ProtectedRoute>
               <PostDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/comment/:commentId"
+          element={
+            <ProtectedRoute>
+              <CommentDetailPage />
             </ProtectedRoute>
           }
         />

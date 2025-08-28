@@ -8,12 +8,12 @@ import type {
 import {
   getCommentsByPost,
   getRepliesByComment,
+  getCommentById,
   createComment,
   updateComment,
   deleteComment,
   toggleCommentLike,
   toggleCommentRepost,
-  toggleCommentDm,
 } from "../api/commentApi";
 
 // 댓글 목록 조회 (게시글별)
@@ -21,6 +21,15 @@ export const fetchCommentsByPost = createAsyncThunk(
   "comment/fetchCommentsByPost",
   async ({ postId, page = 0 }: { postId: number; page?: number }) => {
     const response = await getCommentsByPost(postId, page);
+    return response;
+  }
+);
+
+// 단일 댓글 조회
+export const fetchCommentById = createAsyncThunk(
+  "comment/fetchCommentById",
+  async (commentId: number) => {
+    const response = await getCommentById(commentId);
     return response;
   }
 );
@@ -37,8 +46,8 @@ export const fetchRepliesByComment = createAsyncThunk(
 // 댓글 작성
 export const addComment = createAsyncThunk(
   "comment/addComment",
-  async (data: CreateCommentRequest) => {
-    const response = await createComment(data);
+  async ({ postId, data }: { postId: number; data: CreateCommentRequest }) => {
+    const response = await createComment(postId, data);
     return response;
   }
 );
@@ -81,15 +90,6 @@ export const toggleRepost = createAsyncThunk(
   "comment/toggleRepost",
   async (commentId: number) => {
     const response = await toggleCommentRepost(commentId);
-    return { commentId, ...response };
-  }
-);
-
-// 댓글 DM 토글
-export const toggleDm = createAsyncThunk(
-  "comment/toggleDm",
-  async (commentId: number) => {
-    const response = await toggleCommentDm(commentId);
     return { commentId, ...response };
   }
 );
@@ -295,29 +295,6 @@ const commentSlice = createSlice({
         });
       };
       state.comments = updateRepostInList(state.comments, commentId);
-    });
-
-    // 댓글 DM 토글
-    builder.addCase(toggleDm.fulfilled, (state, action) => {
-      const { commentId, isDmSent, dmCount } = action.payload;
-      const updateDmInList = (
-        comments: Comment[],
-        targetId: number
-      ): Comment[] => {
-        return comments.map((comment) => {
-          if (comment.id === targetId) {
-            return { ...comment, isDmSent, dmCount };
-          }
-          if (comment.replies) {
-            return {
-              ...comment,
-              replies: updateDmInList(comment.replies, targetId),
-            };
-          }
-          return comment;
-        });
-      };
-      state.comments = updateDmInList(state.comments, commentId);
     });
   },
 });

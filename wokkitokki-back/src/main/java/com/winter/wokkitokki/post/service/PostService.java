@@ -34,7 +34,7 @@ public class PostService {
     private final UserRepository userRepository;
     private final SearchIndexService searchIndexService;
     private final FileService fileService;
-    private final RedisFeedIntegration redisFeedIntegration;
+    private final RedisFeedIntegrationV2 redisFeedIntegrationV2;
 
     // 게시글 작성
     @Transactional
@@ -78,7 +78,7 @@ public class PostService {
 
         PostEntity savedPost = postRepository.save(post);
         searchIndexService.indexPost(savedPost);
-        redisFeedIntegration.handlePostCreated(savedPost);
+        redisFeedIntegrationV2.handlePostCreated(savedPost);
         return convertToResponseDto(savedPost, user);
     }
 
@@ -163,7 +163,7 @@ public class PostService {
 
         postRepository.save(post);
         searchIndexService.deletePostIndex(postId);
-        redisFeedIntegration.handlePostDeleted(postId, userId);
+        redisFeedIntegrationV2.handlePostDeleted(postId, userId);
 
         log.info("게시글 논리적 삭제 완료 - PostId: {}, UserId: {}", postId, userId);
     }
@@ -181,10 +181,10 @@ public class PostService {
         }
     }
 
-    // 홈 피드 (리포스트 시간 포함)
+    // 홈 피드 (리포스트 시간 포함) - V2로 업데이트됨
     @Transactional(readOnly = true)
-    public Page<PostResponseDto> getFeedPosts(Long userId, Pageable pageable) {
-        return redisFeedIntegration.getFeedPosts(userId, pageable);
+    public Page<Object> getFeedPosts(Long userId, Pageable pageable) {
+        return redisFeedIntegrationV2.getFeedItems(userId, pageable);
     }
 
     // 특정 포스트 상세조회 (삭제된 게시글 제외)
@@ -265,7 +265,7 @@ public class PostService {
             post.setRepostCount(newCount);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
-            redisFeedIntegration.handleRepostRemoved(postId, userId);
+            redisFeedIntegrationV2.handlePostRepostRemoved(postId, userId);
 //            redisFeedIntegration.invalidateUserFeedCache(userId);
 
             return new RepostResponseDto(false, post.getRepostCount());
@@ -279,7 +279,7 @@ public class PostService {
             post.setRepostCount(post.getRepostCount() + 1);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
-            redisFeedIntegration.handleRepostCreated(postId, userId, LocalDateTime.now());
+            redisFeedIntegrationV2.handlePostRepostCreated(postId, userId, LocalDateTime.now());
 //            redisFeedIntegration.invalidateUserFeedCache(userId);
 
             return new RepostResponseDto(true, post.getRepostCount());

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppSelector } from "../../../store/hooks";
 import ProfileImage from "../../user/components/ProfileImage";
 import { CommentList } from "../../comment";
+import Nav from "../../home/components/Nav";
 import {
   getPostDetail,
   toggleLike,
@@ -30,6 +31,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
   const [editLoading, setEditLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showCommentForm, setShowCommentForm] = useState(false);
 
   useEffect(() => {
     if (!postId) return;
@@ -265,212 +267,219 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto py-8 px-4">
-        {/* 뒤로가기 버튼 */}
-        <button
-          onClick={() => navigate(-1)}
-          className="mb-6 px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
-        >
-          ← 이전 페이지로 돌아가기
-        </button>
+    <div className="flex min-h-screen bg-gray-50">
+      <Nav />
+      <div className="flex-1 ml-64">
+        <div className="max-w-2xl mx-auto py-8 px-4">
+          {/* 뒤로가기 버튼 */}
+          <button
+            onClick={() => navigate(-1)}
+            className="mb-6 px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
+          >
+            ← 이전 페이지로 돌아가기
+          </button>
 
-        {/* 게시글 상세 */}
-        <article className="bg-white rounded-lg shadow-sm p-6">
-          {/* 작성자 정보 */}
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-3">
-              <div
-                className="cursor-pointer hover:opacity-80"
-                onClick={() => handleUserClick(post.authorUsername)}
-              >
-                <ProfileImage
-                  imageUrl={post.authorProfileImg}
-                  username={post.authorUsername}
-                  size="lg"
-                  className="w-12 h-12"
-                />
-              </div>
-              <div
-                className="cursor-pointer hover:opacity-80"
-                onClick={() => handleUserClick(post.authorUsername)}
-              >
-                <div className="font-semibold text-gray-900">
-                  {post.authorName}
+          {/* 게시글 상세 */}
+          <article className="bg-white rounded-lg shadow-sm p-6">
+            {/* 작성자 정보 */}
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-3">
+                <div
+                  className="cursor-pointer hover:opacity-80"
+                  onClick={() => handleUserClick(post.authorUsername)}
+                >
+                  <ProfileImage
+                    imageUrl={post.authorProfileImg}
+                    username={post.authorUsername}
+                    size="lg"
+                    className="w-12 h-12"
+                  />
                 </div>
-                <div className="text-gray-500">@{post.authorUsername}</div>
+                <div
+                  className="cursor-pointer hover:opacity-80"
+                  onClick={() => handleUserClick(post.authorUsername)}
+                >
+                  <div className="font-semibold text-gray-900">
+                    {post.authorName}
+                  </div>
+                  <div className="text-gray-500">@{post.authorUsername}</div>
+                </div>
+              </div>
+
+              {/* 오른쪽: 시간과 점 세 개 메뉴 */}
+              <div className="flex items-center space-x-3">
+                <span className="text-gray-500 text-sm">
+                  {formatTimeAgo(post.createdAt)}
+                </span>
+
+                {/* 내가 쓴 게시글이면 점 세 개 메뉴 표시 */}
+                {user?.username === post.authorUsername && (
+                  <div className="relative menu-container">
+                    <button
+                      onClick={() => setIsMenuOpen(!isMenuOpen)}
+                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="메뉴"
+                    >
+                      ⋯
+                    </button>
+
+                    {/* 드롭다운 메뉴 */}
+                    {isMenuOpen && (
+                      <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                        <button
+                          onClick={() => {
+                            handleEditStart();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 first:rounded-t-lg last:rounded-b-lg last:border-b-0"
+                        >
+                          ✏️ 수정하기
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDelete();
+                            setIsMenuOpen(false);
+                          }}
+                          disabled={deleteLoading}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 border-b border-gray-100 first:rounded-t-lg last:rounded-b-lg last:border-b-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          🗑️ {deleteLoading ? "삭제 중..." : "삭제하기"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* 오른쪽: 시간과 점 세 개 메뉴 */}
-            <div className="flex items-center space-x-3">
-              <span className="text-gray-500 text-sm">
-                {formatTimeAgo(post.createdAt)}
-              </span>
+            {/* 게시글 내용 */}
+            <div className="mb-6">
+              {isEditing ? (
+                <div className="space-y-4">
+                  <textarea
+                    value={editContent}
+                    onChange={(e) => setEditContent(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={4}
+                    placeholder="게시글 내용을 입력하세요..."
+                  />
 
-              {/* 내가 쓴 게시글이면 점 세 개 메뉴 표시 */}
-              {user?.username === post.authorUsername && (
-                <div className="relative menu-container">
-                  <button
-                    onClick={() => setIsMenuOpen(!isMenuOpen)}
-                    className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                    aria-label="메뉴"
-                  >
-                    ⋯
-                  </button>
-
-                  {/* 드롭다운 메뉴 */}
-                  {isMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                      <button
-                        onClick={() => {
-                          handleEditStart();
-                          setIsMenuOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 first:rounded-t-lg last:rounded-b-lg last:border-b-0"
-                      >
-                        ✏️ 수정하기
-                      </button>
-                      <button
-                        onClick={() => {
-                          handleDelete();
-                          setIsMenuOpen(false);
-                        }}
-                        disabled={deleteLoading}
-                        className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 border-b border-gray-100 first:rounded-t-lg last:rounded-b-lg last:border-b-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        🗑️ {deleteLoading ? "삭제 중..." : "삭제하기"}
-                      </button>
+                  {/* 이미지 업로드 영역 */}
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-3">
+                      <label className="cursor-pointer px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleImageSelect}
+                          className="hidden"
+                        />
+                        이미지 선택
+                      </label>
+                      {editImagePreview && (
+                        <button
+                          onClick={handleImageRemove}
+                          className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
+                        >
+                          이미지 제거
+                        </button>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* 게시글 내용 */}
-          <div className="mb-6">
-            {isEditing ? (
-              <div className="space-y-4">
-                <textarea
-                  value={editContent}
-                  onChange={(e) => setEditContent(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  rows={4}
-                  placeholder="게시글 내용을 입력하세요..."
-                />
-
-                {/* 이미지 업로드 영역 */}
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <label className="cursor-pointer px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleImageSelect}
-                        className="hidden"
-                      />
-                      이미지 선택
-                    </label>
+                    {/* 이미지 미리보기 */}
                     {editImagePreview && (
-                      <button
-                        onClick={handleImageRemove}
-                        className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                      >
-                        이미지 제거
-                      </button>
+                      <div className="relative">
+                        <img
+                          src={editImagePreview}
+                          alt="미리보기"
+                          className="w-full max-h-64 object-cover rounded-lg"
+                        />
+                      </div>
                     )}
                   </div>
 
-                  {/* 이미지 미리보기 */}
-                  {editImagePreview && (
-                    <div className="relative">
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleEditSubmit}
+                      disabled={editLoading || !editContent.trim()}
+                      className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {editLoading ? "수정 중..." : "수정 완료"}
+                    </button>
+                    <button
+                      onClick={handleEditCancel}
+                      className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                    >
+                      취소
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <p className="text-gray-900 text-lg leading-relaxed">
+                    {post.content}
+                  </p>
+                  {post.imgUrl && (
+                    <div className="mt-4">
                       <img
-                        src={editImagePreview}
-                        alt="미리보기"
-                        className="w-full max-h-64 object-cover rounded-lg"
+                        src={post.imgUrl}
+                        alt="Post image"
+                        className="w-full max-h-96 object-cover rounded-lg"
                       />
                     </div>
                   )}
-                </div>
+                </>
+              )}
+            </div>
 
-                <div className="flex space-x-3">
-                  <button
-                    onClick={handleEditSubmit}
-                    disabled={editLoading || !editContent.trim()}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {editLoading ? "수정 중..." : "수정 완료"}
-                  </button>
-                  <button
-                    onClick={handleEditCancel}
-                    className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
-                  >
-                    취소
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <>
-                <p className="text-gray-900 text-lg leading-relaxed">
-                  {post.content}
-                </p>
-                {post.imgUrl && (
-                  <div className="mt-4">
-                    <img
-                      src={post.imgUrl}
-                      alt="Post image"
-                      className="w-full max-h-96 object-cover rounded-lg"
-                    />
-                  </div>
-                )}
-              </>
-            )}
+            {/* 상호작용 버튼 */}
+            <div className="flex items-center space-x-6 text-gray-500">
+              <button
+                className="flex items-center space-x-2 hover:text-blue-500"
+                onClick={() => setShowCommentForm(!showCommentForm)}
+              >
+                <span>💬</span>
+                <span>댓글</span>
+              </button>
+              <button
+                className={`flex items-center space-x-2 transition-colors ${
+                  post.reposted ? "text-green-500" : "hover:text-green-500"
+                }`}
+                onClick={handleRepost}
+              >
+                <span>{post.reposted ? "↪️" : "🔄"}</span>
+                <span>{post.repostCount}</span>
+              </button>
+              <button
+                className={`flex items-center space-x-2 transition-colors ${
+                  post.liked ? "text-red-500" : "hover:text-red-500"
+                }`}
+                onClick={handleLike}
+              >
+                <span>{post.liked ? "❤️" : "🤍"}</span>
+                <span>{post.likeCount}</span>
+              </button>
+              <button className="flex items-center space-x-2 hover:text-blue-500">
+                <span>📤</span>
+                <span>공유</span>
+              </button>
+            </div>
+          </article>
+
+          {/* 댓글 섹션 */}
+          <div className="mt-8">
+            <CommentList
+              postId={post.id}
+              showComposer={true}
+              showCommentForm={showCommentForm}
+              onCommentUpdate={() => {
+                // 댓글이 업데이트되면 게시글 정보를 다시 불러옴
+                if (postId) {
+                  getPostDetail(postId).then(setPost).catch(console.error);
+                }
+              }}
+            />
           </div>
-
-          {/* 상호작용 버튼 */}
-          <div className="flex items-center space-x-6 text-gray-500">
-            <button className="flex items-center space-x-2 hover:text-blue-500">
-              <span>💬</span>
-              <span>댓글</span>
-            </button>
-            <button
-              className={`flex items-center space-x-2 transition-colors ${
-                post.reposted ? "text-green-500" : "hover:text-green-500"
-              }`}
-              onClick={handleRepost}
-            >
-              <span>{post.reposted ? "🔄" : "↪️"}</span>
-              <span>{post.repostCount}</span>
-            </button>
-            <button
-              className={`flex items-center space-x-2 transition-colors ${
-                post.liked ? "text-red-500" : "hover:text-red-500"
-              }`}
-              onClick={handleLike}
-            >
-              <span>{post.liked ? "❤️" : "🤍"}</span>
-              <span>{post.likeCount}</span>
-            </button>
-            <button className="flex items-center space-x-2 hover:text-blue-500">
-              <span>📤</span>
-              <span>공유</span>
-            </button>
-          </div>
-        </article>
-
-        {/* 댓글 섹션 */}
-        <div className="mt-8">
-          <CommentList
-            postId={post.id}
-            showComposer={true}
-            onCommentUpdate={() => {
-              // 댓글이 업데이트되면 게시글 정보를 다시 불러옴
-              if (postId) {
-                getPostDetail(postId).then(setPost).catch(console.error);
-              }
-            }}
-          />
         </div>
       </div>
     </div>

@@ -122,10 +122,10 @@ public class RedisFeedIntegration {
         return result;
     }
 
-    public void handleRepostCreated(Long postId, Long userId, LocalDateTime repostedAt){
-        try{
+    public void handleRepostCreated(Long postId, Long userId, LocalDateTime repostedAt) {
+        try {
             redisFeedService.addRepostToFollowerFeeds(postId, userId, repostedAt);
-        }catch (Exception e){
+        } catch (Exception e) {
             log.error("Failed to update Redis feed for repost creation", e);
         }
     }

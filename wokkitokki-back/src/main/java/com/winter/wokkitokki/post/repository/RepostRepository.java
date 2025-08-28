@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.post.repository;
 
+import com.winter.wokkitokki.comment.entity.CommentEntity;
 import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.entity.RepostEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
@@ -30,4 +31,9 @@ public interface RepostRepository extends JpaRepository<RepostEntity, Long> {
             @Param("postId") Long postId,
             @Param("userIds") List<Long> userIds
     );
+
+    Optional<RepostEntity> findByUserAndComment(UserEntity user, CommentEntity comment);
+    boolean existsByUserAndComment(UserEntity user, CommentEntity comment);
+    long countByComment(CommentEntity comment);
+    void deleteByUserAndComment(UserEntity user, CommentEntity comment);
 }

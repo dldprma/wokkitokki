@@ -9,11 +9,30 @@ import java.time.LocalDateTime;
 
 @Getter @Setter
 @NoArgsConstructor
-@AllArgsConstructor
 public class FeedItemDto {
     private Long postId;
-    private LocalDateTime sortTime;  // 게시글 생성 시간 또는 리포스트 시간
-    private String type; // "POST" 또는 "REPOST"
-    private Long repostUserId; // 리포스트한 사용자 ID (리포스트인 경우만)
-    private String repostUsername; // 리포스트한 사용자명 (리포스트인 경우만)
+    private Long commentId;
+    private LocalDateTime sortTime;
+    private String type;
+    private Long repostUserId;
+    private String repostUsername;
+    
+    // Post용 생성자 (기존 호환)
+    public FeedItemDto(Long postId, LocalDateTime sortTime, String type, Long repostUserId, String repostUsername) {
+        this.postId = postId;
+        this.sortTime = sortTime;
+        this.type = type;
+        this.repostUserId = repostUserId;
+        this.repostUsername = repostUsername;
+    }
+    
+    // Comment용 생성자
+    public FeedItemDto(Long commentId, Long postId, LocalDateTime sortTime, String type, Long repostUserId, String repostUsername) {
+        this.commentId = commentId;
+        this.postId = postId;
+        this.sortTime = sortTime;
+        this.type = type;
+        this.repostUserId = repostUserId;
+        this.repostUsername = repostUsername;
+    }
 }

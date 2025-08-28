@@ -267,58 +267,56 @@ const Home: React.FC = () => {
             .map((post: any) => {
               return (
                 <article key={`home-post-${post.id}`} className="post-card">
-                  {/* 리포스트 문구 - 첫 줄 전용 */}
+                  {/* 리포스트 정보 표시 */}
                   {post.repostedBy && (
                     <div className="repost-info text-sm text-gray-500 mb-2">
                       🔄 {post.repostedBy}님이 리포스트했습니다
                     </div>
                   )}
-
-                  <div className="post-content">
+                  <div className="flex items-start space-x-3">
                     <div
-                      className="cursor-pointer hover:opacity-80"
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
                       onClick={() => handleUserClick(post.authorUsername)}
                     >
                       <ProfileImage
                         imageUrl={post.authorProfileImg}
                         username={post.authorUsername}
                         size="md"
-                        className="post-avatar"
+                        className="w-10 h-10 flex-shrink-0"
                       />
                     </div>
-                    <div className="post-main-content">
-                      <div className="post-header">
-                        <div
-                          className="post-author-info cursor-pointer hover:opacity-80"
-                          onClick={() => handleUserClick(post.authorUsername)}
-                        >
-                          <span className="post-author-name">
+                    <div className="flex-1">
+                      <div
+                        className="flex items-center justify-between mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleUserClick(post.authorUsername)}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <span className="font-semibold text-gray-900">
                             {post.authorName}
                           </span>
-                          <span className="post-username">
+                          <span className="text-gray-500">
                             @{post.authorUsername}
                           </span>
                         </div>
-                        <time
-                          className="post-timestamp"
-                          dateTime={post.createdAt}
-                        >
+                        <span className="text-gray-400 text-sm">
                           {formatTimeAgo(post.createdAt)}
-                        </time>
+                        </span>
                       </div>
 
+                      {/* 게시글 내용 */}
                       <div
-                        className="post-text-content cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                        className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
                         onClick={() => handlePostClick(post.id)}
                       >
-                        <p className="post-text">{post.content}</p>
-                        {/* 이미지가 있는 경우 표시 */}
+                        <p className="text-gray-800 mb-3 leading-relaxed">
+                          {post.content}
+                        </p>
                         {post.imgUrl && (
-                          <div className="post-image-container mt-3">
+                          <div className="mb-3">
                             <img
                               src={post.imgUrl}
                               alt="Post image"
-                              className="post-image w-full max-h-96 object-cover rounded-lg"
+                              className="w-full max-h-96 object-cover rounded-lg"
                             />
                           </div>
                         )}
@@ -333,50 +331,48 @@ const Home: React.FC = () => {
                         )}
                       </div>
 
-                      <footer className="post-actions">
-                        <div className="post-interaction-buttons">
-                          <button
-                            className="post-comment-btn"
-                            aria-label="댓글"
-                          >
-                            <span>💬</span>
-                            <span className="post-interaction-count">
-                              {post.commentCount || 0}
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => handleRepost(post.id)}
-                            className={`post-repost-btn ${
-                              post.reposted
-                                ? "post-repost-btn-active"
-                                : "post-repost-btn-inactive"
-                            }`}
-                            aria-label="리포스트"
-                          >
-                            <span>{post.reposted ? "↪️" : "🔄"}</span>
-                            <span className="post-interaction-count">
-                              {post.repostCount}
-                            </span>
-                          </button>
-                          <button
-                            onClick={() => handleLike(post.id)}
-                            className={`post-like-btn ${
-                              post.liked
-                                ? "post-like-btn-active"
-                                : "post-like-btn-inactive"
-                            }`}
-                            aria-label={post.liked ? "좋아요 취소" : "좋아요"}
-                          >
-                            <span>{post.liked ? "❤️" : "🤍"}</span>
-                            <span className="post-interaction-count">
-                              {post.likeCount}
-                            </span>
-                          </button>
-                          <button className="post-share-btn" aria-label="공유">
-                            <span>📤</span>
-                          </button>
-                        </div>
-                      </footer>
+                      {/* 상호작용 버튼들 */}
+                      <div className="flex items-center space-x-6">
+                        <button
+                          className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
+                          aria-label="댓글"
+                        >
+                          <span>💬</span>
+                          <span className="text-sm">
+                            {post.commentCount || 0}
+                          </span>
+                        </button>
+                        <button
+                          onClick={() => handleRepost(post.id)}
+                          className={`flex items-center space-x-2 transition-colors ${
+                            post.reposted
+                              ? "text-green-500"
+                              : "text-gray-500 hover:text-green-500"
+                          }`}
+                          aria-label="리포스트"
+                        >
+                          <span>{post.reposted ? "↪️" : "🔄"}</span>
+                          <span className="text-sm">{post.repostCount}</span>
+                        </button>
+                        <button
+                          onClick={() => handleLike(post.id)}
+                          className={`flex items-center space-x-2 transition-colors ${
+                            post.liked
+                              ? "text-red-500"
+                              : "text-gray-500 hover:text-red-500"
+                          }`}
+                          aria-label={post.liked ? "좋아요 취소" : "좋아요"}
+                        >
+                          <span>{post.liked ? "❤️" : "🤍"}</span>
+                          <span className="text-sm">{post.likeCount}</span>
+                        </button>
+                        <button
+                          className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
+                          aria-label="공유"
+                        >
+                          <span>📤</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </article>

@@ -6,7 +6,6 @@ import type {
   CommentResponse,
   CommentLikeResponse,
   CommentRepostResponse,
-  CommentDmResponse,
   CommentListResponse,
 } from "../type/commentTypes";
 
@@ -19,6 +18,14 @@ export const getCommentsByPost = async (
   const response = await api.get(
     `/api/posts/${postId}/comments?page=${page}&size=${size}`
   );
+  return response.data;
+};
+
+// 단일 댓글 조회
+export const getCommentById = async (
+  commentId: number
+): Promise<CommentResponse> => {
+  const response = await api.get(`/api/comments/${commentId}`);
   return response.data;
 };
 
@@ -36,9 +43,17 @@ export const getRepliesByComment = async (
 
 // 댓글 작성
 export const createComment = async (
+  postId: number,
   data: CreateCommentRequest
 ): Promise<CommentResponse> => {
-  const response = await api.post(`/api/posts/${data.postId}/comments`, {
+  console.log("API 호출 - 댓글 작성:", {
+    url: `/api/posts/${postId}/comments`,
+    data: {
+      content: data.content,
+      parentCommentId: data.parentCommentId,
+    },
+  });
+  const response = await api.post(`/api/posts/${postId}/comments`, {
     content: data.content,
     parentCommentId: data.parentCommentId,
   });
@@ -75,13 +90,5 @@ export const toggleCommentRepost = async (
   commentId: number
 ): Promise<CommentRepostResponse> => {
   const response = await api.post(`/api/comments/${commentId}/repost`);
-  return response.data;
-};
-
-// 댓글 DM 전송 토글
-export const toggleCommentDm = async (
-  commentId: number
-): Promise<CommentDmResponse> => {
-  const response = await api.post(`/api/comments/${commentId}/dm`);
   return response.data;
 };

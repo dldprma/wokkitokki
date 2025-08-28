@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.post.repository;
 
+import com.winter.wokkitokki.comment.entity.CommentEntity;
 import com.winter.wokkitokki.post.entity.LikeEntity;
 import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
@@ -8,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface LikeRepository extends JpaRepository<LikeEntity, Long> {
     // 특정 사용자가 특정 포스트를 좋아요 했는지 확인
@@ -18,4 +20,9 @@ public interface LikeRepository extends JpaRepository<LikeEntity, Long> {
 
     @Query("SELECT l.post.id FROM LikeEntity l WHERE l.user.id = :userId AND l.post.id IN :postIds")
     List<Long> findLikedPostIdsByUserAndPostIds(@Param("userId") Long userId, @Param("postIds") List<Long> postIds);
+
+    Optional<LikeEntity> findByUserAndComment(UserEntity user, CommentEntity comment);
+    boolean existsByUserAndComment(UserEntity user, CommentEntity comment);
+    long countByComment(CommentEntity comment);
+    void deleteByUserAndComment(UserEntity user, CommentEntity comment);
 }

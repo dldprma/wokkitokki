@@ -22,7 +22,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
     int countByUserAndImgUrlIsNotNullAndDeletedFalse(UserEntity user);
 
     // 내가 팔로우한 사람들의 게시글 (원본)
-    @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(p.id, p.createdAt, 'POST', null, null) " +
+    @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(p.id, null, p.createdAt, 'POST', null, null) " +
             "FROM PostEntity p " +
             "WHERE p.deleted = false AND " +
             "(p.user.id IN (SELECT f.following.id FROM FollowEntity f WHERE f.follower.id = :userId) " +
@@ -31,7 +31,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
     List<FeedItemDto> findOriginalPosts(@Param("userId") Long userId);
 
     // 내가 팔로우한 사람들의 리포스트
-    @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(p.id, r.repostedAt, 'REPOST', r.user.id, r.user.username) " +
+    @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(p.id, null, r.repostedAt, 'REPOST', r.user.id, r.user.username) " +
             "FROM PostEntity p " +
             "JOIN RepostEntity r ON r.post.id = p.id " +
             "WHERE p.deleted = false AND " +
@@ -46,7 +46,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
     // 특정 사용자의 원본 게시글만 조회 (팔로우/언팔로우시 사용)
     @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(" +
-            "p.id, p.createdAt, 'POST', null, null) " +
+            "p.id, null, p.createdAt, 'POST', null, null) " +
             "FROM PostEntity p " +
             "WHERE p.user.id = :userId AND p.deleted = false " +
             "ORDER BY p.createdAt DESC")
@@ -54,7 +54,7 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
     // 사용자가 리포스트한 게시글 조회
     @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(" +
-            "r.post.id, r.repostedAt, 'REPOST', r.user.id, r.user.username) " +
+            "r.post.id, null, r.repostedAt, 'REPOST', r.user.id, r.user.username) " +
             "FROM RepostEntity r " +
             "WHERE r.user.id = :userId AND r.post.deleted = false " +
             "ORDER BY r.repostedAt DESC")

@@ -95,7 +95,229 @@
   cursor: not-allowed;
 }
 
+/* ===== 댓글 작성기 이미지 첨부 ===== */
+.comment-composer-image-section {
+  margin-top: 12px;
+}
+
+.comment-composer-image-preview {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 8px;
+}
+
+.comment-composer-preview-img {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  border: 1px solid #e1e8ed;
+}
+
+.comment-composer-image-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.comment-composer-image-remove:hover {
+  background-color: #c0392b;
+}
+
+.comment-composer-image-actions {
+  margin-top: 8px;
+}
+
+.comment-composer-image-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background-color: #f7f9fa;
+  border: 1px solid #e1e8ed;
+  border-radius: 20px;
+  color: #536471;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.comment-composer-image-upload:hover {
+  background-color: #e1e8ed;
+  color: #0f1419;
+}
+
+.comment-composer-image-upload input {
+  display: none;
+}
+
+/* ===== 댓글 상세보기 (CommentDetail) ===== */
+.comment-detail {
+  max-width: 600px;
+  margin: 0 auto;
+  background-color: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.comment-detail-header {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.comment-detail-back-btn {
+  background: none;
+  border: none;
+  color: #1d9bf0;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  transition: color 0.2s;
+}
+
+.comment-detail-back-btn:hover {
+  color: #1a8cd8;
+  text-decoration: underline;
+}
+
+.comment-detail-original-post {
+  margin-bottom: 24px;
+  padding: 20px;
+  border-bottom: 1px solid #e1e8ed;
+  background-color: transparent;
+  border-radius: 16px;
+}
+
+.post-item {
+  background-color: white;
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid #e1e8ed;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.post-header {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.post-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 2px solid #e1e8ed;
+  background-color: #f7f9fa;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.post-author-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.post-author-name {
+  font-weight: 700;
+  font-size: 16px;
+  color: #0f1419;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-author-username {
+  font-size: 14px;
+  color: #536471;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.post-content {
+  font-size: 16px;
+  line-height: 1.6;
+  color: #0f1419;
+  margin-bottom: 16px;
+  padding: 20px;
+  background-color: white;
+  border-radius: 12px;
+  border: 1px solid #e1e8ed;
+  word-wrap: break-word;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  margin-left: 64px;
+}
+
+.post-image {
+  margin-top: 12px;
+  margin-left: 64px;
+}
+
+.comment-detail-selected-comment {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-bottom: 1px solid #e1e8ed;
+}
+
+.comment-detail-replies {
+  padding: 16px;
+}
+
+.comment-replies-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f1419;
+  margin-bottom: 16px;
+}
+
+.comment-no-replies {
+  padding: 20px;
+  text-align: center;
+}
+
 /* ===== 댓글 목록 (CommentList) ===== */
+.comment-list-header {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.comment-write-toggle-btn {
+  background-color: #1d9bf0;
+  color: white;
+  border: none;
+  border-radius: 20px;
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.comment-write-toggle-btn:hover {
+  background-color: #1a8cd8;
+}
+
 .comment-list {
   display: flex;
   flex-direction: column;
@@ -373,26 +595,85 @@
 
 /* 답글 폼 */
 .comment-item-reply-form {
-  margin-top: 12px;
+  margin-top: 16px;
+  margin-left: 56px;
   padding: 16px;
   background-color: #f7f9fa;
   border-radius: 12px;
-  border-left: 3px solid #1d9bf0;
+  border: 1px solid #e1e8ed;
+  position: relative;
 }
 
-/* 대댓글 목록 */
+.comment-item-reply-form::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 20px;
+  width: 16px;
+  height: 2px;
+  background-color: #e1e8ed;
+}
+
+/* ===== Threads 스타일 대댓글 연결선 ===== */
 .comment-item-replies {
-  margin-top: 12px;
-  padding-left: 20px;
-  border-left: 2px solid #e1e8ed;
+  margin-top: 16px;
+  margin-left: 56px;
+  position: relative;
 }
 
+/* 대댓글 영역에 세로 점선 연결 */
+.comment-item-replies::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #e1e8ed 0px,
+    #e1e8ed 8px,
+    transparent 8px,
+    transparent 16px
+  );
+}
+
+/* 각 대댓글 앞에 가로 연결선 */
 .comment-item-replies .comment-item {
-  margin-bottom: 8px;
+  margin-left: 0;
+  padding-left: 16px;
+  position: relative;
 }
 
-.comment-item-replies .comment-item:last-child {
-  margin-bottom: 0;
+.comment-item-replies .comment-item::before {
+  content: "";
+  position: absolute;
+  left: -16px;
+  top: 20px;
+  width: 16px;
+  height: 2px;
+  background-color: #e1e8ed;
+}
+
+/* 대댓글의 대댓글 (3단계 이상) */
+.comment-item-replies .comment-item-replies {
+  margin-left: 40px;
+}
+
+.comment-item-replies .comment-item-replies::before {
+  left: -16px;
+  background: repeating-linear-gradient(
+    to bottom,
+    #e1e8ed 0px,
+    #e1e8ed 6px,
+    transparent 6px,
+    transparent 12px
+  );
+}
+
+.comment-item-replies .comment-item-replies .comment-item::before {
+  left: -16px;
+  width: 16px;
 }
 
 /* ===== 댓글 미리보기 (CommentPreview) ===== */

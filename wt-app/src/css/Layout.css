@@ -1,5 +1,5 @@
 .layout-container {
-  @apply flex h-screen bg-gray-50;
+  @apply flex flex-row h-screen bg-gray-50;
 }
 
 .layout-main {

@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.post.entity;
 
+import com.winter.wokkitokki.comment.entity.CommentEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -27,6 +28,10 @@ public class RepostEntity {
     @JoinColumn(name = "post_id")
     private PostEntity post;
 
+    @ManyToOne
+    @JoinColumn(name = "comment_id")
+    private CommentEntity comment;
+
     @Column(name = "reposted_at")
     private LocalDateTime repostedAt = LocalDateTime.now();
 
@@ -34,4 +39,12 @@ public class RepostEntity {
     protected void onCreate() {
         repostedAt = LocalDateTime.now();
     }
+
+    @PreUpdate
+    private void validateTarget() {
+        if ((post == null && comment == null) || (post != null && comment != null)) {
+            throw new IllegalStateException("Repost must target either a post or a comment, but not both");
+        }
+    }
+
 }

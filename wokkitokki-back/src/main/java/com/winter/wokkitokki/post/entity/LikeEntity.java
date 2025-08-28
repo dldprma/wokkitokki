@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.post.entity;
 
+import com.winter.wokkitokki.comment.entity.CommentEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -25,4 +26,17 @@ public class LikeEntity {
     @ManyToOne
     @JoinColumn(name = "post_id")
     private PostEntity post;
+
+    @ManyToOne
+    @JoinColumn(name = "comment_id")
+    private CommentEntity comment;
+
+    // 제약 조건: post 또는 comment 중 하나만 값을 가져야 함
+    @PrePersist
+    @PreUpdate
+    private void validateTarget() {
+        if ((post == null && comment == null) || (post != null && comment != null)) {
+            throw new IllegalStateException("Like must target either a post or a comment, but not both");
+        }
+    }
 }

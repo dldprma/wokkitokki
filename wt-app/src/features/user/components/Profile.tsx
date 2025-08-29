@@ -48,6 +48,10 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
   const [followersLoading, setFollowersLoading] = useState(false);
   const [followingLoading, setFollowingLoading] = useState(false);
 
+  // Replies 데이터 상태
+  const [profileReplies, setProfileReplies] = useState<any[]>([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+
   // 로컬 팔로우 상태 관리
   const [localIsFollowing, setLocalIsFollowing] = useState<boolean>(false);
   const [localFollowerCount, setLocalFollowerCount] = useState<number>(0);
@@ -84,6 +88,35 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     }
   }, [profileUsername, currentUsername, isAuthenticated, accessToken]);
 
+  // Replies 데이터 로드 함수
+  const loadProfileReplies = async (
+    page: number,
+    size: number,
+    username: string
+  ) => {
+    setRepliesLoading(true);
+    try {
+      const response = await fetch(
+        `/api/users/${username}/commented-posts?page=${page}&size=${size}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        // 백엔드에서 PostWithCommentsDto 배열을 반환하므로 content 사용
+        setProfileReplies(data.content || []);
+      }
+    } catch (error) {
+      console.error("Replies 로드 실패:", error);
+    } finally {
+      setRepliesLoading(false);
+    }
+  };
+
   // 프로필 데이터 로드 함수
   const loadProfileData = async () => {
     if (!profileUsername || !currentUsername) {
@@ -108,6 +141,9 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
       await getProfilePosts(0, 10, profileUsername);
       await getProfilePhotos(0, 12, profileUsername);
       await getProfileReels(0, 10, profileUsername);
+
+      // Replies 데이터 가져오기
+      await loadProfileReplies(0, 10, profileUsername);
     } catch (error) {
       console.error("프로필 데이터 로드 실패:", error);
     }
@@ -437,6 +473,12 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
         <div className="mt-6">
           {activeTab === "posts" ? (
             <ProfilePosts username={profileUsername} activeTab={activeTab} />
+          ) : activeTab === "replies" ? (
+            <ProfilePosts
+              username={profileUsername}
+              activeTab={activeTab}
+              profileReplies={profileReplies}
+            />
           ) : activeTab === "photos" ? (
             <div className="grid grid-cols-3 gap-4">
               {profilePhotos.map((photo) => (
@@ -504,9 +546,11 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             </div>
           ) : (
             <div className="text-center text-gray-500 py-8">
-              {activeTab === "posts" && "아직 게시글이 없습니다"}
-              {activeTab === "photos" && "아직 사진이 없습니다"}
-              {activeTab === "reels" && "아직 릴스가 없습니다"}
+              {(activeTab as any) === "posts" && "아직 게시글이 없습니다"}
+              {(activeTab as any) === "photos" && "아직 사진이 없습니다"}
+              {(activeTab as any) === "reels" && "아직 릴스가 없습니다"}
+              {(activeTab as any) === "replies" &&
+                "아직 댓글을 단 게시글이 없습니다"}
             </div>
           )}
         </div>

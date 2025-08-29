@@ -94,6 +94,33 @@ export const togglePostRepost = createAsyncThunk(
   }
 );
 
+// 상세조회에서 리포스트 시 사용할 액션
+export const togglePostRepostFromDetail = createAsyncThunk(
+  "home/toggleRepostFromDetail",
+  async (
+    { postId, postData }: { postId: number; postData: any },
+    { rejectWithValue, getState }
+  ) => {
+    try {
+      const response = await toggleRepost(postId);
+      const state = getState() as any;
+      const currentUsername = state.auth.user?.username || "알 수 없음";
+
+      return {
+        postId,
+        isReposted: response.isReposted,
+        repostCount: response.repostCount,
+        currentUsername,
+        postData, // 게시글 정보 포함
+      };
+    } catch (err: any) {
+      return rejectWithValue(
+        err.response?.data?.message || "리포스트 처리에 실패했습니다."
+      );
+    }
+  }
+);
+
 const homeSlice = createSlice({
   name: "home",
   initialState,
@@ -129,6 +156,39 @@ const homeSlice = createSlice({
       if (post && post.commentCount > 0) {
         post.commentCount = post.commentCount - 1;
       }
+    },
+    // 댓글 리포스트 추가
+    addCommentRepost: (
+      state,
+      action: PayloadAction<{ comment: any; username: string }>
+    ) => {
+      const { comment, username } = action.payload;
+      // 댓글을 홈 피드 맨 위에 추가
+      (state as any).posts.unshift({
+        ...comment,
+        id: `comment-${comment.id}`, // 댓글임을 구분하기 위한 ID
+        isComment: true,
+        reposted: true,
+        repostedBy: username,
+        repostedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      });
+    },
+    // 댓글 리포스트 제거
+    removeCommentRepost: (
+      state,
+      action: PayloadAction<{ commentId: number; username: string }>
+    ) => {
+      const { commentId, username } = action.payload;
+      // 해당 사용자가 리포스트한 댓글을 찾아서 제거
+      (state as any).posts = (state as any).posts.filter(
+        (post: any) =>
+          !(
+            post.isComment &&
+            post.id === `comment-${commentId}` &&
+            post.repostedBy === username
+          )
+      );
     },
   },
   extraReducers: (builder) => {
@@ -205,112 +265,160 @@ const homeSlice = createSlice({
     });
 
     // 리포스트 토글
-    builder.addCase(togglePostRepost.fulfilled, (state, action) => {
-      const { postId, isReposted, currentUsername } = action.payload;
+    builder
+      .addCase(togglePostRepost.fulfilled, (state, action) => {
+        const { postId, isReposted, currentUsername } = action.payload;
 
-      // 홈 피드에서 해당 게시글 찾기
-      const originalPost = (state as any).posts.find(
-        (p: any) => p.id === postId
-      );
-      if (!originalPost) {
-        return;
-      }
-
-      if (isReposted) {
-        // 원본 게시글의 원래 위치 저장 (리포스트 취소 시 복원용)
-        const originalPostIndex = (state as any).posts.findIndex(
+        // 홈 피드에서 해당 게시글 찾기
+        let originalPost = (state as any).posts.find(
           (p: any) => p.id === postId
         );
 
-        // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
-        const repostedPost = {
-          ...originalPost,
-          id: postId, // 임시 ID 대신 원본 ID 사용 (400 에러 해결)
-          reposted: true,
-          repostCount: originalPost.repostCount, // 카운트는 원래대로 유지
-          isRepost: true,
-          repostedBy: currentUsername,
-          repostedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          // 원래 위치 정보 저장
-          originalIndex: originalPostIndex,
-        };
-
-        // 홈 피드 맨 위에 추가
-        (state as any).posts.unshift(repostedPost);
-
-        // 원본 게시글을 피드에서 제거 (중복 방지)
-        if (originalPostIndex !== -1) {
-          (state as any).posts.splice(originalPostIndex + 1, 1); // +1은 unshift로 인한 인덱스 변화 고려
-        }
-
-        // 백엔드에서 받은 repostCount로 업데이트
-        repostedPost.repostCount = action.payload.repostCount;
-      } else {
-        // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 복원
-        const repostedPostIndex = (state as any).posts.findIndex(
-          (p: any) =>
-            p.isRepost &&
-            p.repostedBy === currentUsername &&
-            p.content === originalPost.content
-        );
-
-        if (repostedPostIndex !== -1) {
-          // 리포스트된 게시글에서 원래 위치 정보 가져오기
-          const repostedPost = (state as any).posts[repostedPostIndex];
-          const originalIndex = repostedPost.originalIndex || 0;
-
-          // 불변성을 보장하기 위해 새로운 배열 생성
-          const newPosts = [...(state as any).posts];
-
-          // 리포스트된 게시글을 피드에서 완전히 제거
-          newPosts.splice(repostedPostIndex, 1);
-
-          // 원본 게시글을 원래 위치에 삽입
-          const restoredPost = {
-            ...originalPost,
-            reposted: false, // 리포스트 상태 해제
-            isRepost: false,
-            repostedBy: null,
-            repostedAt: null,
+        // 홈 피드에 원본 게시글이 없는 경우, 상세조회에서 리포스트한 것으로 간주
+        if (!originalPost) {
+          // 상세조회에서 리포스트한 경우, 홈 피드에 원본 게시글을 추가
+          originalPost = {
+            id: postId,
+            content: "게시글 내용을 불러올 수 없습니다", // 임시 내용
+            authorName: "알 수 없음",
+            authorUsername: "unknown",
+            authorProfileImg: null,
+            imgUrl: null,
+            likeCount: 0,
+            repostCount: 0,
+            commentCount: 0,
+            liked: false,
+            reposted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           };
 
-          // 원래 위치에 삽입 (원본 게시글이 있던 정확한 위치)
-          newPosts.splice(originalIndex, 0, restoredPost);
-
-          // 완전히 새로운 상태 객체 생성
-          (state as any).posts = newPosts;
+          // 홈 피드 맨 위에 원본 게시글 추가
+          (state as any).posts.unshift(originalPost);
         }
 
-        // 백엔드에서 받은 repostCount로 업데이트 (리포스트 취소 시)
-        if (action.payload.repostCount !== undefined) {
-          // 원본 게시글의 repostCount도 업데이트
-          originalPost.repostCount = action.payload.repostCount;
-        }
-      }
+        if (isReposted) {
+          // 원본 게시글의 원래 위치 저장 (리포스트 취소 시 복원용)
+          const originalPostIndex = (state as any).posts.findIndex(
+            (p: any) => p.id === postId
+          );
 
-      // 리포스트 취소 시: 실제 피드에 있는 게시글의 상태를 직접 업데이트
-      if (!isReposted) {
-        // 리포스트 취소 시: 피드에 있는 게시글의 모든 리포스트 관련 상태를 완전히 초기화
-        const feedPost = (state as any).posts.find(
-          (p: any) =>
-            p.id === postId ||
-            (p.content === originalPost.content && !p.isRepost)
-        );
-        if (feedPost) {
-          // 모든 리포스트 관련 상태를 완전히 초기화
-          feedPost.reposted = false;
-          feedPost.isRepost = false;
-          feedPost.repostedBy = null;
-          feedPost.repostedAt = null;
-          feedPost.repostCount = Math.max(0, feedPost.repostCount - 1);
+          // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
+          const repostedPost = {
+            ...originalPost,
+            id: postId, // 임시 ID 대신 원본 ID 사용 (400 에러 해결)
+            reposted: true,
+            repostCount: originalPost.repostCount, // 카운트는 원래대로 유지
+            isRepost: true,
+            repostedBy: currentUsername,
+            repostedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+            // 원래 위치 정보 저장
+            originalIndex: originalPostIndex,
+          };
+
+          // 홈 피드 맨 위에 추가
+          (state as any).posts.unshift(repostedPost);
+
+          // 원본 게시글을 피드에서 제거 (중복 방지)
+          if (originalPostIndex !== -1) {
+            (state as any).posts.splice(originalPostIndex + 1, 1); // +1은 unshift로 인한 인덱스 변화 고려
+          }
+
+          // 백엔드에서 받은 repostCount로 업데이트
+          repostedPost.repostCount = action.payload.repostCount;
+        } else {
+          // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 복원
+          const repostedPostIndex = (state as any).posts.findIndex(
+            (p: any) =>
+              p.isRepost &&
+              p.repostedBy === currentUsername &&
+              p.content === originalPost.content
+          );
+
+          if (repostedPostIndex !== -1) {
+            // 리포스트된 게시글에서 원래 위치 정보 가져오기
+            const repostedPost = (state as any).posts[repostedPostIndex];
+            const originalIndex = repostedPost.originalIndex || 0;
+
+            // 불변성을 보장하기 위해 새로운 배열 생성
+            const newPosts = [...(state as any).posts];
+
+            // 리포스트된 게시글을 피드에서 완전히 제거
+            newPosts.splice(repostedPostIndex, 1);
+
+            // 원본 게시글을 원래 위치에 삽입
+            const restoredPost = {
+              ...originalPost,
+              reposted: false, // 리포스트 상태 해제
+              isRepost: false,
+              repostedBy: null,
+              repostedAt: null,
+            };
+
+            // 원래 위치에 삽입 (원본 게시글이 있던 정확한 위치)
+            newPosts.splice(originalIndex, 0, restoredPost);
+
+            // 완전히 새로운 상태 객체 생성
+            (state as any).posts = newPosts;
+          }
+
+          // 백엔드에서 받은 repostCount로 업데이트 (리포스트 취소 시)
+          if (action.payload.repostCount !== undefined) {
+            // 원본 게시글의 repostCount도 업데이트
+            originalPost.repostCount = action.payload.repostCount;
+          }
         }
-      } else {
-        // 리포스트 추가 시: 원본 게시글 상태 업데이트
-        originalPost.reposted = true;
-        originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
-      }
-    });
+
+        // 리포스트 취소 시: 실제 피드에 있는 게시글의 상태를 직접 업데이트
+        if (!isReposted) {
+          // 리포스트 취소 시: 피드에 있는 게시글의 모든 리포스트 관련 상태를 완전히 초기화
+          const feedPost = (state as any).posts.find(
+            (p: any) =>
+              p.id === postId ||
+              (p.content === originalPost.content && !p.isRepost)
+          );
+          if (feedPost) {
+            // 모든 리포스트 관련 상태를 완전히 초기화
+            feedPost.reposted = false;
+            feedPost.isRepost = false;
+            feedPost.repostedBy = null;
+            feedPost.repostedAt = null;
+            feedPost.repostCount = Math.max(0, feedPost.repostCount - 1);
+          }
+        } else {
+          // 리포스트 추가 시: 원본 게시글 상태 업데이트
+          originalPost.reposted = true;
+          originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
+        }
+      })
+
+      // 상세조회에서 리포스트 토글
+      .addCase(togglePostRepostFromDetail.fulfilled, (state, action) => {
+        const { postId, isReposted, currentUsername, postData } =
+          action.payload;
+
+        if (isReposted) {
+          // 리포스트 추가 시: 게시글을 홈 피드 맨 위에 추가
+          const repostedPost = {
+            ...postData,
+            reposted: true,
+            isRepost: true,
+            repostedBy: currentUsername,
+            repostedAt: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          };
+
+          // 홈 피드 맨 위에 추가
+          (state as any).posts.unshift(repostedPost);
+        } else {
+          // 리포스트 취소 시: 해당 게시글을 홈 피드에서 제거
+          (state as any).posts = (state as any).posts.filter(
+            (post: any) =>
+              !(post.id === postId && post.repostedBy === currentUsername)
+          );
+        }
+      });
   },
 });
 
@@ -321,5 +429,7 @@ export const {
   resetHome,
   incrementCommentCount,
   decrementCommentCount,
+  addCommentRepost,
+  removeCommentRepost,
 } = homeSlice.actions;
 export default homeSlice.reducer;

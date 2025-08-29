@@ -590,7 +590,12 @@
 }
 
 .comment-item-action-btn.dm.active {
-  color: #794bc4;
+  color: #1d9bf0;
+}
+
+.comment-item-action-btn.dm:hover {
+  color: #1d9bf0;
+  background-color: #f7f9fa;
 }
 
 /* 답글 폼 */

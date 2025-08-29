@@ -32,6 +32,13 @@ public interface RepostRepository extends JpaRepository<RepostEntity, Long> {
             @Param("userIds") List<Long> userIds
     );
 
+    @Query("SELECT MAX(r.repostedAt) FROM RepostEntity r " +
+        "WHERE r.comment.id = :commentId AND r.user.id IN :userIds")
+    Optional<LocalDateTime> findMostRecentRepostTimeByCommentIdAndUserIdIn(
+        @Param("commentId") Long commentId,
+        @Param("userIds") List<Long> userIds
+    );
+
     Optional<RepostEntity> findByUserAndComment(UserEntity user, CommentEntity comment);
     boolean existsByUserAndComment(UserEntity user, CommentEntity comment);
     long countByComment(CommentEntity comment);

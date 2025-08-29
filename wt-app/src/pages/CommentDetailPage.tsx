@@ -6,6 +6,8 @@ import Nav from "../features/home/components/Nav";
 const CommentDetailPage: React.FC = () => {
   const { commentId } = useParams<{ commentId: string }>();
 
+  console.log("CommentDetailPage 로드됨, commentId:", commentId);
+
   if (!commentId) {
     return <div>댓글 ID가 없습니다.</div>;
   }

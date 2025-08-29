@@ -2,6 +2,8 @@ import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import {
   incrementCommentCount,
   decrementCommentCount,
+  addCommentRepost,
+  removeCommentRepost,
 } from "../../home/store/homeSlice";
 import type {
   Comment,
@@ -109,8 +111,12 @@ export const removeComment = createAsyncThunk(
 // 댓글 좋아요 토글
 export const toggleLike = createAsyncThunk(
   "comment/toggleLike",
-  async (commentId: number) => {
+  async (commentId: number, thunkAPI) => {
     const response = await toggleCommentLike(commentId);
+
+    // 홈 피드의 댓글 좋아요 상태도 업데이트
+    // 이 부분은 나중에 구현
+
     return { commentId, ...response };
   }
 );
@@ -118,8 +124,12 @@ export const toggleLike = createAsyncThunk(
 // 댓글 리포스트 토글
 export const toggleRepost = createAsyncThunk(
   "comment/toggleRepost",
-  async (commentId: number) => {
+  async (commentId: number, thunkAPI) => {
     const response = await toggleCommentRepost(commentId);
+
+    // 홈 피드의 댓글 리포스트 상태도 업데이트
+    // 이 부분은 나중에 구현
+
     return { commentId, ...response };
   }
 );
@@ -156,13 +166,13 @@ const commentSlice = createSlice({
         state.loading = false;
         if (action.payload.number === 0) {
           // 첫 페이지면 기존 댓글 교체
-          state.comments = action.payload.content;
+          state.comments = action.payload.content || [];
         } else {
           // 추가 페이지면 기존 댓글에 추가
-          state.comments.push(...action.payload.content);
+          state.comments.push(...(action.payload.content || []));
         }
-        state.hasMore = action.payload.hasNext;
-        state.page = action.payload.number;
+        state.hasMore = action.payload.hasNext || false;
+        state.page = action.payload.number || 0;
       })
       .addCase(fetchCommentsByPost.rejected, (state, action) => {
         state.loading = false;
@@ -325,6 +335,17 @@ const commentSlice = createSlice({
         });
       };
       state.comments = updateRepostInList(state.comments, commentId);
+
+      // 홈 피드에도 댓글 리포스트 상태 반영
+      if (isReposted) {
+        // 리포스트 추가 시 홈 피드에 댓글 추가
+        const comment = state.comments.find((c) => c.id === commentId);
+        if (comment) {
+          // 현재 사용자 정보를 가져와서 홈 피드에 추가
+          // thunkAPI를 통해 사용자 정보를 전달받아야 함
+          // 이 부분은 나중에 구현
+        }
+      }
     });
   },
 });

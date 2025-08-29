@@ -3,7 +3,6 @@ package com.winter.wokkitokki.common.util;
 import com.winter.wokkitokki.auth.service.JwtBlacklistService;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -36,29 +35,29 @@ public class JwtUtils {
 
     public String generateAccessToken(UserDetails userDetails){
         return Jwts.builder()
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + accessTokenExpiration *1000))
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + accessTokenExpiration *1000))
+                .signWith(getSigningKey())
                 .compact();
     }
 
     public String generateRefreshToken (UserDetails userDetails){
         return Jwts.builder()
-                .setSubject(userDetails.getUsername())
-                .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + refreshTokenExpiration *1000))
-                .setId(UUID.randomUUID().toString())
-                .signWith(getSigningKey(), SignatureAlgorithm.HS256)
+                .subject(userDetails.getUsername())
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + refreshTokenExpiration *1000))
+                .id(UUID.randomUUID().toString())
+                .signWith(getSigningKey())
                 .compact();
     }
 
     public String extractUsername(String token){
         return Jwts.parser()
-                .setSigningKey(getSigningKey())
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody()
+                .parseSignedClaims(token)
+                .getPayload()
                 .getSubject();
     }
 
@@ -71,9 +70,9 @@ public class JwtUtils {
     public boolean validateToken(String token){
         try {
             Jwts.parser()
-                    .setSigningKey(getSigningKey())
+                    .verifyWith(getSigningKey())
                     .build()
-                    .parseClaimsJws(token);
+                    .parseSignedClaims(token);
             return !isTokenExpired(token);
         } catch (Exception e) {
             return false;
@@ -82,10 +81,10 @@ public class JwtUtils {
 
     public boolean isTokenExpired(String token){
         Date expiration = Jwts.parser()
-                .setSigningKey(getSigningKey())
+                .verifyWith(getSigningKey())
                 .build()
-                .parseClaimsJws(token)
-                .getBody()
+                .parseSignedClaims(token)
+                .getPayload()
                 .getExpiration();
         return expiration.before(new Date());
     }
@@ -129,10 +128,10 @@ public class JwtUtils {
     public long getExpirationFromToken(String token) {
         try {
             Claims claims = Jwts.parser()
-                    .setSigningKey(getSigningKey()) // secret -> getSigningKey() 수정
+                    .verifyWith(getSigningKey())
                     .build()
-                    .parseClaimsJws(token)
-                    .getBody();
+                    .parseSignedClaims(token)
+                    .getPayload();
             return claims.getExpiration().getTime() / 1000; // 초 단위로 변환
         } catch (Exception e) {
             log.error("토큰 만료시간 추출 실패", e);

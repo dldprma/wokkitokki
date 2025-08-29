@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector } from "../../../store/hooks";
+import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import ProfileImage from "../../user/components/ProfileImage";
 import { CommentList } from "../../comment";
 import Nav from "../../home/components/Nav";
+import { getPostDetail, updatePost, deletePost } from "../api/postApi";
 import {
-  getPostDetail,
-  toggleLike,
-  toggleRepost,
-  updatePost,
-  deletePost,
-} from "../api/postApi";
+  togglePostLike,
+  togglePostRepostFromDetail,
+} from "../../home/store/homeSlice";
 import type { Post } from "../type/postTypes";
 
 // PostResponse 타입을 사용하므로 별도 인터페이스 불필요
@@ -21,6 +19,7 @@ interface PostDetailProps {
 
 const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
@@ -75,13 +74,14 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     if (!post) return;
 
     try {
-      const result = await toggleLike(post.id);
+      const result = await dispatch(togglePostLike(post.id)).unwrap();
 
+      // 로컬 상태도 업데이트
       setPost((prev) =>
         prev
           ? {
               ...prev,
-              liked: result.isLiked, // isLiked 필드 사용
+              liked: result.liked,
               likeCount: result.likeCount,
             }
           : null
@@ -95,13 +95,19 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     if (!post) return;
 
     try {
-      const result = await toggleRepost(post.id);
+      const result = await dispatch(
+        togglePostRepostFromDetail({
+          postId: post.id,
+          postData: post,
+        })
+      ).unwrap();
 
+      // 로컬 상태도 업데이트
       setPost((prev) =>
         prev
           ? {
               ...prev,
-              reposted: result.isReposted, // isReposted 필드 사용
+              reposted: result.isReposted,
               repostCount: result.repostCount,
             }
           : null

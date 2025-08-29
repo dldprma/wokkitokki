@@ -1,8 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../../store/hooks";
-import { fetchCommentById, fetchRepliesByComment } from "../store/commentSlice";
+
 import { getPostDetail } from "../../post/api/postApi";
+import { getCommentDetail } from "../api/commentApi";
+import {
+  togglePostLike,
+  togglePostRepostFromDetail,
+} from "../../home/store/homeSlice";
 import CommentItem from "./CommentItem";
 import type { Comment } from "../type/commentTypes";
 import type { Post } from "../../post/type/postTypes";
@@ -21,44 +26,39 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
   const [loading, setLoading] = useState(true);
 
   // 댓글과 원글 정보 조회
+  const fetchCommentDetail = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // 1. 댓글 상세 조회 (commentApi 사용)
+      const commentDetailData = await getCommentDetail(commentId);
+      console.log("댓글 상세 조회 결과:", commentDetailData);
+
+      // CommentDetailResponseDto 구조에 맞게 처리
+      const commentResponse = commentDetailData.comment;
+      const repliesData = commentDetailData.replies || [];
+
+      // 2. 원글 정보 조회
+      const post = await getPostDetail(commentResponse.postId.toString());
+      console.log("원글 정보:", post);
+      console.log("작성자 프로필 이미지 URL:", post.authorProfileImg);
+      setOriginalPost(post);
+
+      // 3. 선택된 댓글 정보 설정
+      setComment(commentResponse);
+
+      // 4. 대댓글 목록 설정 (이미 API 응답에 포함됨)
+      setReplies(repliesData);
+    } catch (error) {
+      console.error("댓글 상세 정보 조회 실패:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [commentId]);
+
   useEffect(() => {
-    const fetchCommentDetail = async () => {
-      try {
-        setLoading(true);
-
-        // 1. 단일 댓글 정보 조회
-        const commentResponse = await dispatch(
-          fetchCommentById(commentId)
-        ).unwrap();
-
-        // 2. 원글 정보 조회
-        const post = await getPostDetail(commentResponse.postId);
-        console.log("원글 정보:", post);
-        console.log("작성자 프로필 이미지 URL:", post.authorProfileImg);
-        setOriginalPost(post);
-
-        // 3. 선택된 댓글 정보 설정
-        setComment(commentResponse);
-
-        // 4. 대댓글 목록 조회
-        try {
-          const repliesResponse = await dispatch(
-            fetchRepliesByComment({ commentId, page: 0 })
-          ).unwrap();
-          setReplies(repliesResponse.content);
-        } catch (repliesError) {
-          console.log("대댓글이 없거나 조회 실패:", repliesError);
-          setReplies([]); // 대댓글이 없으면 빈 배열
-        }
-      } catch (error) {
-        console.error("댓글 상세 정보 조회 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchCommentDetail();
-  }, [commentId, dispatch]);
+  }, [fetchCommentDetail]);
 
   const handleBackToPost = () => {
     if (originalPost) {
@@ -69,7 +69,57 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
   const handleReplySuccess = () => {
     // 대댓글 작성 성공 시 대댓글 목록 새로고침
     if (comment) {
-      dispatch(fetchRepliesByComment({ commentId: comment.id, page: 0 }));
+      // 댓글 상세 조회 API를 다시 호출하여 최신 상태 반영
+      fetchCommentDetail();
+    }
+  };
+
+  // 원본 게시글 좋아요 토글
+  const handlePostLike = async () => {
+    if (!originalPost) return;
+
+    try {
+      const result = await dispatch(togglePostLike(originalPost.id)).unwrap();
+
+      // 로컬 상태 업데이트
+      setOriginalPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              liked: result.liked,
+              likeCount: result.likeCount,
+            }
+          : null
+      );
+    } catch (error) {
+      console.error("원본 게시글 좋아요 실패:", error);
+    }
+  };
+
+  // 원본 게시글 리포스트 토글
+  const handlePostRepost = async () => {
+    if (!originalPost) return;
+
+    try {
+      const result = await dispatch(
+        togglePostRepostFromDetail({
+          postId: originalPost.id,
+          postData: originalPost,
+        })
+      ).unwrap();
+
+      // 로컬 상태 업데이트
+      setOriginalPost((prev) =>
+        prev
+          ? {
+              ...prev,
+              reposted: result.isReposted,
+              repostCount: result.repostCount,
+            }
+          : null
+      );
+    } catch (error) {
+      console.error("원본 게시글 리포스트 실패:", error);
     }
   };
 
@@ -107,15 +157,18 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
 
       {/* 원글 (게시글) */}
       <div className="comment-detail-original-post">
-        <div className="post-item">
-          <div className="post-header">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          원본 게시글
+        </h3>
+        <div className="post-item bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="post-header flex items-center space-x-3 mb-3">
             <img
               src={
                 originalPost.authorProfileImg ||
                 "https://via.placeholder.com/48x48/e1e8ed/536471?text=👤"
               }
               alt={originalPost.authorName}
-              className="post-avatar cursor-pointer hover:opacity-80"
+              className="w-12 h-12 rounded-full cursor-pointer hover:opacity-80"
               onClick={() => navigate(`/${originalPost.authorUsername}`)}
               onError={(e) => {
                 e.currentTarget.src =
@@ -124,22 +177,24 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
             />
             <div className="post-author-info">
               <span
-                className="post-author-name cursor-pointer hover:underline"
+                className="post-author-name font-semibold text-gray-900 cursor-pointer hover:underline block"
                 onClick={() => navigate(`/${originalPost.authorUsername}`)}
               >
                 {originalPost.authorName}
               </span>
               <span
-                className="post-author-username cursor-pointer hover:underline"
+                className="post-author-username text-gray-500 cursor-pointer hover:underline block"
                 onClick={() => navigate(`/${originalPost.authorUsername}`)}
               >
                 @{originalPost.authorUsername}
               </span>
             </div>
           </div>
-          <div className="post-content">{originalPost.content}</div>
+          <div className="post-content text-gray-800 mb-3">
+            {originalPost.content}
+          </div>
           {originalPost.imgUrl && (
-            <div className="post-image">
+            <div className="post-image mb-3">
               <img
                 src={originalPost.imgUrl}
                 alt="Post image"
@@ -147,35 +202,87 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
               />
             </div>
           )}
+          <div className="comment-item-actions">
+            {/* 댓글 */}
+            <span className="comment-item-action-btn text-gray-500">
+              💬 {originalPost.commentCount || 0}
+            </span>
+
+            {/* 리포스트 */}
+            <button
+              onClick={handlePostRepost}
+              className={`comment-item-action-btn repost ${
+                originalPost.reposted ? "active" : ""
+              }`}
+              aria-label="리포스트"
+            >
+              {originalPost.reposted ? "↪️" : "🔄"}{" "}
+              {originalPost.repostCount > 0 && originalPost.repostCount}
+            </button>
+
+            {/* 좋아요 */}
+            <button
+              onClick={handlePostLike}
+              className={`comment-item-action-btn like ${
+                originalPost.liked ? "active" : ""
+              }`}
+              aria-label="좋아요"
+            >
+              {originalPost.liked ? "❤️" : "🤍"}{" "}
+              {originalPost.likeCount > 0 && originalPost.likeCount}
+            </button>
+
+            {/* DM */}
+            <button
+              onClick={() => navigate(`/dm/${originalPost.authorUsername}`)}
+              className="comment-item-action-btn dm"
+              aria-label="DM 보내기"
+            >
+              📩
+            </button>
+          </div>
         </div>
       </div>
 
       {/* 선택된 댓글 */}
       <div className="comment-detail-selected-comment">
-        <CommentItem
-          comment={comment}
-          postId={comment.postId}
-          onReplySuccess={handleReplySuccess}
-          onEditSuccess={handleReplySuccess}
-        />
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          선택된 댓글
+        </h3>
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <CommentItem
+            comment={comment}
+            postId={comment.postId}
+            onReplySuccess={handleReplySuccess}
+            onEditSuccess={handleReplySuccess}
+          />
+        </div>
       </div>
 
       {/* 대댓글 목록 */}
       <div className="comment-detail-replies">
-        <h3 className="comment-replies-title">답글</h3>
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          답글 ({replies.length}개)
+        </h3>
         {replies.length > 0 ? (
-          replies.map((reply) => (
-            <CommentItem
-              key={reply.id}
-              comment={reply}
-              postId={comment.postId}
-              onReplySuccess={handleReplySuccess}
-              onEditSuccess={handleReplySuccess}
-            />
-          ))
+          <div className="space-y-4">
+            {replies.map((reply) => (
+              <div
+                key={reply.id}
+                className="bg-white rounded-lg border border-gray-200 p-4"
+              >
+                <CommentItem
+                  comment={reply}
+                  postId={comment.postId}
+                  onReplySuccess={handleReplySuccess}
+                  onEditSuccess={handleReplySuccess}
+                />
+              </div>
+            ))}
+          </div>
         ) : (
-          <div className="comment-no-replies">
-            <p className="text-gray-500 text-center py-8">
+          <div className="comment-no-replies bg-gray-50 rounded-lg p-8 text-center">
+            <p className="text-gray-500 mb-4">
               아직 답글이 없습니다. 첫 번째 답글을 작성해보세요!
             </p>
             <div className="text-center">

@@ -7,6 +7,7 @@ import type {
   CommentLikeResponse,
   CommentRepostResponse,
   CommentListResponse,
+  CommentDetailResponseDto,
 } from "../type/commentTypes";
 
 // 댓글 목록 조회 (게시글별)
@@ -25,6 +26,14 @@ export const getCommentsByPost = async (
 export const getCommentById = async (
   commentId: number
 ): Promise<CommentResponse> => {
+  const response = await api.get(`/api/comments/${commentId}`);
+  return response.data;
+};
+
+// 댓글 상세 조회 (대댓글 포함)
+export const getCommentDetail = async (
+  commentId: number
+): Promise<CommentDetailResponseDto> => {
   const response = await api.get(`/api/comments/${commentId}`);
   return response.data;
 };

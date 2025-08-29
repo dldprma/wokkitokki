@@ -34,7 +34,7 @@ public class PostService {
     private final UserRepository userRepository;
     private final SearchIndexService searchIndexService;
     private final FileService fileService;
-    private final RedisFeedIntegrationV2 redisFeedIntegrationV2;
+    private final RedisFeedIntegration redisFeedIntegration;
 
     // 게시글 작성
     @Transactional
@@ -78,7 +78,7 @@ public class PostService {
 
         PostEntity savedPost = postRepository.save(post);
         searchIndexService.indexPost(savedPost);
-        redisFeedIntegrationV2.handlePostCreated(savedPost);
+        redisFeedIntegration.handlePostCreated(savedPost);
         return convertToResponseDto(savedPost, user);
     }
 
@@ -163,7 +163,7 @@ public class PostService {
 
         postRepository.save(post);
         searchIndexService.deletePostIndex(postId);
-        redisFeedIntegrationV2.handlePostDeleted(postId, userId);
+        redisFeedIntegration.handlePostDeleted(postId, userId);
 
         log.info("게시글 논리적 삭제 완료 - PostId: {}, UserId: {}", postId, userId);
     }
@@ -184,7 +184,7 @@ public class PostService {
     // 홈 피드 (리포스트 시간 포함) - V2로 업데이트됨
     @Transactional(readOnly = true)
     public Page<Object> getFeedPosts(Long userId, Pageable pageable) {
-        return redisFeedIntegrationV2.getFeedItems(userId, pageable);
+        return redisFeedIntegration.getFeedItems(userId, pageable);
     }
 
     // 특정 포스트 상세조회 (삭제된 게시글 제외)
@@ -215,11 +215,11 @@ public class PostService {
             throw new RuntimeException("삭제된 게시글에는 좋아요를 할 수 없습니다.");
         }
 
-        boolean alreadyLiked = likeRepository.existsByUserAndPost(user, post);
+        // 더 효율적으로 한 번의 쿼리로 존재 여부와 엔티티 조회
+        LikeEntity existingLike = likeRepository.findByUserAndPost(user, post);
 
-        if (alreadyLiked) {
-            LikeEntity like = likeRepository.findByUserAndPost(user, post);
-            likeRepository.delete(like);
+        if (existingLike != null) {
+            likeRepository.delete(existingLike);
 
             int currentCount = post.getLikeCount();
             int newCount = Math.max(0, currentCount - 1);
@@ -254,18 +254,18 @@ public class PostService {
             throw new RuntimeException("삭제된 게시글은 리포스트할 수 없습니다.");
         }
 
-        boolean alreadyReposted = repostRepository.existsByUserAndPost(user, post);
+        // 더 효율적으로 한 번의 쿼리로 존재 여부와 엔티티 조회
+        RepostEntity existingRepost = repostRepository.findByUserAndPost(user, post);
 
-        if (alreadyReposted) {
-            RepostEntity repost = repostRepository.findByUserAndPost(user, post);
-            repostRepository.delete(repost);
+        if (existingRepost != null) {
+            repostRepository.delete(existingRepost);
 
             int currentCount = post.getRepostCount();
             int newCount = Math.max(0, currentCount - 1);
             post.setRepostCount(newCount);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
-            redisFeedIntegrationV2.handlePostRepostRemoved(postId, userId);
+            redisFeedIntegration.handlePostRepostRemoved(postId, userId);
 //            redisFeedIntegration.invalidateUserFeedCache(userId);
 
             return new RepostResponseDto(false, post.getRepostCount());
@@ -279,7 +279,7 @@ public class PostService {
             post.setRepostCount(post.getRepostCount() + 1);
             postRepository.save(post);
             searchIndexService.updatePostStats(postId);
-            redisFeedIntegrationV2.handlePostRepostCreated(postId, userId, LocalDateTime.now());
+            redisFeedIntegration.handlePostRepostCreated(postId, userId, LocalDateTime.now());
 //            redisFeedIntegration.invalidateUserFeedCache(userId);
 
             return new RepostResponseDto(true, post.getRepostCount());

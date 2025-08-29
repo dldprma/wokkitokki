@@ -9,8 +9,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -21,27 +23,27 @@ public class CommentController {
 
     // 게시글별 댓글 목록 조회
     @GetMapping("/posts/{postId}/comments")
-    public ResponseEntity<List<CommentResponseDto>> getCommentsByPost(
+    public ResponseEntity<Page<CommentResponseDto>> getCommentsByPost(
             @PathVariable Long postId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication auth) {
 
         Long currentUserId = auth != null ? userService.getUserIdByUsername(auth.getName()) : null;
-        List<CommentResponseDto> response = commentService.getCommentsByPost(postId, page, size, currentUserId);
+        Page<CommentResponseDto> response = commentService.getCommentsByPost(postId, page, size, currentUserId);
         return ResponseEntity.ok(response);
     }
 
     // 댓글별 대댓글 목록 조회
     @GetMapping("/comments/{commentId}/replies")
-    public ResponseEntity<List<CommentResponseDto>> getRepliesByComment(
+    public ResponseEntity<Page<CommentResponseDto>> getRepliesByComment(
             @PathVariable Long commentId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             Authentication auth) {
 
         Long currentUserId = auth != null ? userService.getUserIdByUsername(auth.getName()) : null;
-        List<CommentResponseDto> response = commentService.getRepliesByComment(commentId, page, size, currentUserId);
+        Page<CommentResponseDto> response = commentService.getRepliesByComment(commentId, page, size, currentUserId);
         return ResponseEntity.ok(response);
     }
 
@@ -82,13 +84,13 @@ public class CommentController {
 
     // 댓글 삭제
     @DeleteMapping("/comments/{commentId}")
-    public ResponseEntity<String> deleteComment(
+    public ResponseEntity<Map<String, String>> deleteComment(
             @PathVariable Long commentId,
             Authentication auth) {
 
         Long currentUserId = userService.getUserIdByUsername(auth.getName());
         commentService.deleteComment(commentId, currentUserId);
-        return ResponseEntity.ok("댓글이 삭제되었습니다.");
+        return ResponseEntity.ok(Map.of("message", "댓글이 삭제되었습니다."));
     }
 
     // 댓글 좋아요 토글
@@ -110,6 +112,17 @@ public class CommentController {
 
         Long currentUserId = userService.getUserIdByUsername(auth.getName());
         CommentRepostResponseDto response = commentService.toggleRepost(commentId, currentUserId);
+        return ResponseEntity.ok(response);
+    }
+
+    // 댓글 상세조회 (대댓글 포함)
+    @GetMapping("/comments/{commentId}")
+    public ResponseEntity<CommentDetailResponseDto> getCommentDetail(
+            @PathVariable Long commentId,
+            Authentication auth) {
+
+        Long currentUserId = auth != null ? userService.getUserIdByUsername(auth.getName()) : null;
+        CommentDetailResponseDto response = commentService.getCommentDetail(commentId, currentUserId);
         return ResponseEntity.ok(response);
     }
 }

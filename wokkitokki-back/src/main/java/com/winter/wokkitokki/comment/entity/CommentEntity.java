@@ -77,13 +77,28 @@ public class CommentEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
-    // 편의 메서드들
+    // 캐싱된 카운트 필드들 (성능 최적화) - nullable로 처리
+    @Column(name = "like_count")
+    private Integer likeCount;
+
+    @Column(name = "repost_count") 
+    private Integer repostCount;
+
+    // 편의 메서드들 - NULL 값 안전 처리
     public int getLikeCount() {
-        return likes != null ? likes.size() : 0;
+        return likeCount != null ? likeCount : 0;
     }
 
     public int getRepostCount() {
-        return reposts != null ? reposts.size() : 0;
+        return repostCount != null ? repostCount : 0;
+    }
+
+    public void setLikeCount(int likeCount) {
+        this.likeCount = Math.max(0, likeCount);
+    }
+
+    public void setRepostCount(int repostCount) {
+        this.repostCount = Math.max(0, repostCount);
     }
 
     public int getReplyCount() {

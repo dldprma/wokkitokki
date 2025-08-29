@@ -14,6 +14,7 @@ public class UserProfileResponseDto {
     private String profileImgUrl;
     private String bio;
     private Long postCount;
+    private Long commentCount;
     private int imagePostCount;
     private int followersCount;
     private int followingCount;

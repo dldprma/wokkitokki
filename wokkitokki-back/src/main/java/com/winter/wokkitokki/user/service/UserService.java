@@ -13,7 +13,7 @@ import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
-import com.winter.wokkitokki.post.service.RedisFeedIntegrationV2;
+import com.winter.wokkitokki.post.service.RedisFeedIntegration;
 import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
@@ -49,7 +49,7 @@ public class UserService {
     private final RepostRepository repostRepository;
     private final CommentRepository commentRepository;
     private final SearchIndexService searchIndexService;
-    private final RedisFeedIntegrationV2 redisFeedIntegrationV2;
+    private final RedisFeedIntegration redisFeedIntegration;
 
     // username → ID 변환 메서드
     public Long getUserIdByUsername(String username) {
@@ -63,10 +63,9 @@ public class UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // 작성글갯수
+        // 작성글갯수, 댓글갯수 각각 조회
         Long originalPostCount = postRepository.countUserOriginalPosts(userId);
-//        Long repostCount = postRepository.countUserReposts(userId);
-//        Long totalPostCount = originalPostCount + repostCount;
+        Long commentCount = commentRepository.countByAuthorId(userId);
 
         // 직접 작성한 이미지 게시글 개수 (리포스트 제외)
         int imgCount = postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user);
@@ -90,6 +89,7 @@ public class UserService {
         profile.setProfileImgUrl(user.getProfileImgUrl());
         profile.setBio(user.getBio());
         profile.setPostCount(originalPostCount);
+        profile.setCommentCount(commentCount);
         profile.setImagePostCount(imgCount);
         profile.setFollowersCount(followersCnt);
         profile.setFollowingCount(followingCnt);
@@ -354,8 +354,8 @@ public class UserService {
             searchIndexService.updateUserStats(followingId);
 
             // Redis 피드 업데이트 추가 - V2 사용
-            redisFeedIntegrationV2.invalidateUserFeedCache(followerId);
-            redisFeedIntegrationV2.invalidateUserFeedCache(followingId);
+            redisFeedIntegration.invalidateUserFeedCache(followerId);
+            redisFeedIntegration.invalidateUserFeedCache(followingId);
 
             return false;
         } else {
@@ -369,8 +369,8 @@ public class UserService {
             searchIndexService.updateUserStats(followingId);
 
             // Redis 피드 업데이트 추가 - V2 사용  
-            redisFeedIntegrationV2.invalidateUserFeedCache(followerId);
-            redisFeedIntegrationV2.invalidateUserFeedCache(followingId);
+            redisFeedIntegration.invalidateUserFeedCache(followerId);
+            redisFeedIntegration.invalidateUserFeedCache(followingId);
 
             return true;
         }
@@ -466,10 +466,12 @@ public class UserService {
         dto.setProfileImgUrl(user.getProfileImgUrl());
         dto.setBio(user.getBio());
 
-        // 작성글 + 리포스트 총 활동 개수
+        // 작성글, 댓글, 리포스트 각각 조회
         Long originalPostCount = postRepository.countUserOriginalPosts(user.getId());
+        Long commentCount = commentRepository.countByAuthorId(user.getId());
         Long repostCount = postRepository.countUserReposts(user.getId());
-        dto.setPostCount(originalPostCount + repostCount);
+        dto.setPostCount(originalPostCount + repostCount); // 게시글 + 리포스트
+        dto.setCommentCount(commentCount);
 
         // 직접 작성한 이미지 게시글만
         dto.setImagePostCount(postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user));
@@ -487,33 +489,39 @@ public class UserService {
 
     // CommentEntity -> CommentResponseDto 변환
     private CommentResponseDto convertCommentToResponseDto(CommentEntity comment, UserEntity currentUser) {
-        CommentResponseDto dto = new CommentResponseDto();
-        dto.setId(comment.getId());
-        dto.setContent(comment.getContent());
-        dto.setImageUrl(comment.getImageUrl());
-        dto.setAuthorId(comment.getAuthor().getId());
-        dto.setAuthorName(comment.getAuthor().getFullName());
-        dto.setAuthorUsername(comment.getAuthor().getUsername());
-        dto.setAuthorProfileImg(comment.getAuthor().getProfileImgUrl());
-        dto.setCreatedAt(comment.getCreatedAt().toString());
-        dto.setUpdatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null);
-        dto.setLikeCount(comment.getLikeCount());
-        dto.setReplyCount(comment.getReplyCount());
-        
-        if (comment.getParentComment() != null) {
-            dto.setParentCommentId(comment.getParentComment().getId());
-        }
-        
+        boolean isLiked = false;
+        boolean isReposted = false;
+        boolean canEdit = false;
+        boolean canDelete = false;
+
         if (currentUser != null) {
+            isLiked = likeRepository.existsByUserAndComment(currentUser, comment);
+            isReposted = repostRepository.existsByUserAndComment(currentUser, comment);
             boolean isOwner = comment.getAuthor().getId().equals(currentUser.getId());
-            dto.setCanEdit(isOwner);
-            dto.setCanDelete(isOwner);
-        } else {
-            dto.setCanEdit(false);
-            dto.setCanDelete(false);
+            canEdit = isOwner;
+            canDelete = isOwner;
         }
-        
-        return dto;
+
+        return CommentResponseDto.builder()
+                .id(comment.getId())
+                .content(comment.getContent())
+                .imageUrl(comment.getImageUrl())
+                .authorId(comment.getAuthor().getId())
+                .authorName(comment.getAuthor().getFullName())
+                .authorUsername(comment.getAuthor().getUsername())
+                .authorProfileImg(comment.getAuthor().getProfileImgUrl())
+                .postId(comment.getPost().getId())
+                .parentCommentId(comment.getParentComment() != null ? comment.getParentComment().getId() : null)
+                .likeCount(comment.getLikeCount())
+                .repostCount(comment.getRepostCount())
+                .replyCount(comment.getReplyCount())
+                .isLiked(isLiked)
+                .isReposted(isReposted)
+                .canEdit(canEdit)
+                .canDelete(canDelete)
+                .createdAt(comment.getCreatedAt().toString())
+                .updatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null)
+                .build();
     }
 
     // 기존 프로필 이미지 파일 삭제하는 private 메서드

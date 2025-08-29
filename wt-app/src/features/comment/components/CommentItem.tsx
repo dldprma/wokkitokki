@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch } from "../../../store/hooks";
 import { toggleLike, toggleRepost, removeComment } from "../store/commentSlice";
@@ -27,20 +27,57 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
+  // 댓글 상태를 로컬로 관리 (UI 즉시 반영용)
+  const [localIsLiked, setLocalIsLiked] = useState(comment.isLiked || false);
+  const [localLikeCount, setLocalLikeCount] = useState(comment.likeCount || 0);
+  const [localIsReposted, setLocalIsReposted] = useState(
+    comment.isReposted || false
+  );
+  const [localRepostCount, setLocalRepostCount] = useState(
+    comment.repostCount || 0
+  );
+
   const isMyComment = user?.id === comment.authorId.toString();
+
+  // 댓글 상태가 변경될 때마다 로컬 상태 동기화
+  useEffect(() => {
+    setLocalIsLiked(comment.isLiked || false);
+    setLocalLikeCount(comment.likeCount || 0);
+    setLocalIsReposted(comment.isReposted || false);
+    setLocalRepostCount(comment.repostCount || 0);
+  }, [
+    comment.isLiked,
+    comment.likeCount,
+    comment.isReposted,
+    comment.repostCount,
+  ]);
 
   const handleUserClick = (username: string) => {
     navigate(`/${username}`);
   };
 
   const handleCommentClick = () => {
-    navigate(`/comment/${comment.id}`);
+    console.log("댓글 클릭됨:", comment.id);
+    console.log("현재 URL:", window.location.href);
+    console.log("이동할 URL:", `/comment/${comment.id}`);
+
+    // 페이지 이동 테스트
+    try {
+      navigate(`/comment/${comment.id}`);
+      console.log("네비게이션 성공");
+    } catch (error) {
+      console.error("네비게이션 실패:", error);
+    }
   };
 
   const handleLike = async () => {
     if (!user) return;
     try {
-      await dispatch(toggleLike(comment.id)).unwrap();
+      const result = await dispatch(toggleLike(comment.id)).unwrap();
+
+      // 로컬 상태 즉시 업데이트 (UI 반응성 향상)
+      setLocalIsLiked(result.isLiked);
+      setLocalLikeCount(result.likeCount);
     } catch (error) {
       console.error("댓글 좋아요 실패:", error);
     }
@@ -49,7 +86,11 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const handleRepost = async () => {
     if (!user) return;
     try {
-      await dispatch(toggleRepost(comment.id)).unwrap();
+      const result = await dispatch(toggleRepost(comment.id)).unwrap();
+
+      // 로컬 상태 즉시 업데이트 (UI 반응성 향상)
+      setLocalIsReposted(result.isReposted);
+      setLocalRepostCount(result.repostCount);
     } catch (error) {
       console.error("댓글 리포스트 실패:", error);
     }
@@ -181,23 +222,32 @@ const CommentItem: React.FC<CommentItemProps> = ({
         <button
           onClick={handleRepost}
           className={`comment-item-action-btn repost ${
-            comment.isReposted ? "active" : ""
+            localIsReposted ? "active" : ""
           }`}
           aria-label="리포스트"
         >
-          {comment.isReposted ? "↪️" : "🔄"}{" "}
-          {comment.repostCount > 0 && formatCount(comment.repostCount)}
+          {localIsReposted ? "↪️" : "🔄"}{" "}
+          {localRepostCount > 0 && formatCount(localRepostCount)}
         </button>
 
         <button
           onClick={handleLike}
           className={`comment-item-action-btn like ${
-            comment.isLiked ? "active" : ""
+            localIsLiked ? "active" : ""
           }`}
           aria-label="좋아요"
         >
-          {comment.isLiked ? "❤️" : "🤍"}{" "}
-          {comment.likeCount > 0 && formatCount(comment.likeCount)}
+          {localIsLiked ? "❤️" : "🤍"}{" "}
+          {localLikeCount > 0 && formatCount(localLikeCount)}
+        </button>
+
+        {/* DM 버튼 */}
+        <button
+          onClick={() => navigate(`/dm/${comment.authorUsername}`)}
+          className="comment-item-action-btn dm"
+          aria-label="DM 보내기"
+        >
+          📩
         </button>
       </div>
 

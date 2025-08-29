@@ -69,6 +69,14 @@ export interface CommentListResponse {
   hasNext: boolean;
 }
 
+export interface CommentDetailResponseDto {
+  comment: CommentResponse;
+  replies: CommentResponse[];
+  hasReplies: boolean;
+  replyCount: number;
+  message?: string;
+}
+
 export interface CommentState {
   comments: Comment[];
   loading: boolean;

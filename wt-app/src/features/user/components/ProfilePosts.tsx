@@ -10,11 +10,13 @@ type TabType = "photos" | "posts" | "reels" | "replies";
 interface ProfilePostsProps {
   username?: string;
   activeTab?: string;
+  profileReplies?: any[];
 }
 
 const ProfilePosts: React.FC<ProfilePostsProps> = ({
   username: propUsername,
   activeTab: propActiveTab,
+  profileReplies: propProfileReplies,
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("posts");
@@ -45,10 +47,17 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     toggleRepost,
   } = usePost();
 
-  // Replies 데이터 상태
+  // Replies 데이터 상태 - props로 받은 데이터 우선 사용
   const [profileReplies, setProfileReplies] = useState<any[]>([]);
   const [repliesLoading, setRepliesLoading] = useState(false);
   const [repliesHasMore, setRepliesHasMore] = useState(false);
+
+  // props로 받은 profileReplies가 있으면 사용
+  useEffect(() => {
+    if (propProfileReplies && propProfileReplies.length > 0) {
+      setProfileReplies(propProfileReplies);
+    }
+  }, [propProfileReplies]);
 
   // 중복된 post.id 제거
   const uniquePosts = profilePosts.filter(
@@ -134,6 +143,16 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
       console.error("Replies 로드 실패:", error);
     } finally {
       setRepliesLoading(false);
+    }
+  };
+
+  // 댓글 개수 실시간 업데이트를 위한 함수
+  const updateRepliesCount = (increment: boolean = true) => {
+    // 현재 replies 탭이 활성화되어 있으면 댓글 개수 업데이트
+    if (activeTab === "replies") {
+      // 실제로는 백엔드에서 댓글 개수를 다시 조회해야 하지만,
+      // 여기서는 로컬 상태만 업데이트
+      // 이 부분은 나중에 더 정확한 구현 필요
     }
   };
 
@@ -248,7 +267,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                       aria-label="댓글"
                     >
                       <span>💬</span>
-                      <span className="text-sm">0</span>
+                      <span className="text-sm">{post.commentCount || 0}</span>
                     </button>
                     <button
                       onClick={() => handleRepostToggle(post.id)}
@@ -407,9 +426,9 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                           </div>
                         )}
                         <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span>♥ {comment.likeCount}</span>
-                          <span>💬 {comment.replyCount}</span>
-                          <span>🔄 {comment.repostCount}</span>
+                          <span>♥ {comment.likeCount || 0}</span>
+                          <span>💬 {comment.replyCount || 0}</span>
+                          <span>🔄 {comment.repostCount || 0}</span>
                         </div>
                       </div>
                     </div>
@@ -584,7 +603,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                 ? "📷"
                 : activeTab === "posts"
                 ? "📝"
-                : "📹"}
+                : "💬"}
             </div>
             <h3 className="text-xl font-semibold text-gray-900 mb-2">
               아직 {getTabTitle()}이 없습니다

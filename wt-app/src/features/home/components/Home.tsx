@@ -260,27 +260,115 @@ const Home: React.FC = () => {
       <section className="posts-section">
         <div className="posts-container">
           {feedPosts
-            .filter(
-              (post: any, index: number, arr: any[]) =>
-                arr.findIndex((p: any) => p.id === post.id) === index
-            )
-            .map((post: any) => {
+            .filter((item: any, index: number, arr: any[]) => {
+              // 게시글과 댓글을 구분하여 중복 제거
+              if (item.postId) {
+                // 댓글인 경우
+                return arr.findIndex((i: any) => i.id === item.id) === index;
+              } else {
+                // 게시글인 경우
+                return arr.findIndex((i: any) => i.id === item.id) === index;
+              }
+            })
+            .map((item: any) => {
+              // 댓글인 경우
+              if (item.postId) {
+                return (
+                  <article
+                    key={`home-comment-${item.id}`}
+                    className="comment-card"
+                  >
+                    <div className="comment-preview-connector">
+                      <div className="comment-preview-connector-line"></div>
+                    </div>
+                    <div className="comment-preview-item">
+                      <div className="comment-preview-item-connector">
+                        <div className="comment-preview-item-line"></div>
+                      </div>
+                      <div className="comment-preview-content-wrapper">
+                        <div className="comment-preview-header">
+                          <div className="comment-preview-author-info">
+                            <img
+                              src={
+                                item.authorProfileImg || "/default-avatar.png"
+                              }
+                              alt={item.authorName}
+                              className="comment-preview-avatar"
+                              onClick={() =>
+                                handleUserClick(item.authorUsername)
+                              }
+                            />
+                            <div className="comment-preview-author-details">
+                              <span className="comment-preview-author-name">
+                                {item.authorName}
+                              </span>
+                              <span className="comment-preview-author-username">
+                                @{item.authorUsername}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="comment-preview-text">
+                          <span className="comment-preview-content">
+                            {item.content}
+                          </span>
+                        </div>
+
+                        {item.imageUrl && (
+                          <div className="comment-preview-image">
+                            <img
+                              src={item.imageUrl}
+                              alt="댓글 이미지"
+                              className="comment-preview-image-content"
+                            />
+                          </div>
+                        )}
+
+                        <div className="comment-preview-actions">
+                          {item.replyCount > 0 && (
+                            <span className="comment-preview-action">
+                              💬 {item.replyCount}
+                            </span>
+                          )}
+                          {item.likeCount > 0 && (
+                            <span className="comment-preview-action">
+                              ♥ {item.likeCount}
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="comment-preview-more">
+                          <button
+                            onClick={() => handlePostClick(item.postId)}
+                            className="text-blue-500 text-sm hover:underline"
+                          >
+                            원본 게시글 보기
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                );
+              }
+
+              // 게시글인 경우
               return (
-                <article key={`home-post-${post.id}`} className="post-card">
+                <article key={`home-post-${item.id}`} className="post-card">
                   {/* 리포스트 정보 표시 */}
-                  {post.repostedBy && (
+                  {item.repostedBy && (
                     <div className="repost-info text-sm text-gray-500 mb-2">
-                      🔄 {post.repostedBy}님이 리포스트했습니다
+                      🔄 {item.repostedBy}님이 리포스트했습니다
                     </div>
                   )}
                   <div className="flex items-start space-x-3">
                     <div
                       className="cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={() => handleUserClick(post.authorUsername)}
+                      onClick={() => handleUserClick(item.authorUsername)}
                     >
                       <ProfileImage
-                        imageUrl={post.authorProfileImg}
-                        username={post.authorUsername}
+                        imageUrl={item.authorProfileImg}
+                        username={item.authorUsername}
                         size="md"
                         className="w-10 h-10 flex-shrink-0"
                       />
@@ -288,33 +376,33 @@ const Home: React.FC = () => {
                     <div className="flex-1">
                       <div
                         className="flex items-center justify-between mb-2 cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => handleUserClick(post.authorUsername)}
+                        onClick={() => handleUserClick(item.authorUsername)}
                       >
                         <div className="flex items-center space-x-2">
                           <span className="font-semibold text-gray-900">
-                            {post.authorName}
+                            {item.authorName}
                           </span>
                           <span className="text-gray-500">
-                            @{post.authorUsername}
+                            @{item.authorUsername}
                           </span>
                         </div>
                         <span className="text-gray-400 text-sm">
-                          {formatTimeAgo(post.createdAt)}
+                          {formatTimeAgo(item.createdAt)}
                         </span>
                       </div>
 
                       {/* 게시글 내용 */}
                       <div
                         className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
-                        onClick={() => handlePostClick(post.id)}
+                        onClick={() => handlePostClick(item.id)}
                       >
                         <p className="text-gray-800 mb-3 leading-relaxed">
-                          {post.content}
+                          {item.content}
                         </p>
-                        {post.imgUrl && (
+                        {item.imgUrl && (
                           <div className="mb-3">
                             <img
-                              src={post.imgUrl}
+                              src={item.imgUrl}
                               alt="Post image"
                               className="w-full max-h-96 object-cover rounded-lg"
                             />
@@ -322,10 +410,10 @@ const Home: React.FC = () => {
                         )}
 
                         {/* 댓글 미리보기 */}
-                        {post.comments && post.comments.length > 0 && (
+                        {item.comments && item.comments.length > 0 && (
                           <CommentPreview
-                            comments={post.comments}
-                            postId={post.id}
+                            comments={item.comments}
+                            postId={item.id}
                             maxComments={2}
                           />
                         )}
@@ -339,32 +427,32 @@ const Home: React.FC = () => {
                         >
                           <span>💬</span>
                           <span className="text-sm">
-                            {post.commentCount || 0}
+                            {item.commentCount || 0}
                           </span>
                         </button>
                         <button
-                          onClick={() => handleRepost(post.id)}
+                          onClick={() => handleRepost(item.id)}
                           className={`flex items-center space-x-2 transition-colors ${
-                            post.reposted
+                            item.reposted
                               ? "text-green-500"
                               : "text-gray-500 hover:text-green-500"
                           }`}
                           aria-label="리포스트"
                         >
-                          <span>{post.reposted ? "↪️" : "🔄"}</span>
-                          <span className="text-sm">{post.repostCount}</span>
+                          <span>{item.reposted ? "↪️" : "🔄"}</span>
+                          <span className="text-sm">{item.repostCount}</span>
                         </button>
                         <button
-                          onClick={() => handleLike(post.id)}
+                          onClick={() => handleLike(item.id)}
                           className={`flex items-center space-x-2 transition-colors ${
-                            post.liked
+                            item.liked
                               ? "text-red-500"
                               : "text-gray-500 hover:text-red-500"
                           }`}
-                          aria-label={post.liked ? "좋아요 취소" : "좋아요"}
+                          aria-label={item.liked ? "좋아요 취소" : "좋아요"}
                         >
-                          <span>{post.liked ? "❤️" : "🤍"}</span>
-                          <span className="text-sm">{post.likeCount}</span>
+                          <span>{item.liked ? "❤️" : "🤍"}</span>
+                          <span className="text-sm">{item.likeCount}</span>
                         </button>
                         <button
                           className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"

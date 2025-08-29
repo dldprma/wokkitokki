@@ -324,6 +324,7 @@ public class PostService {
             dto.setAuthorProfileImg(post.getUser().getProfileImgUrl());
             dto.setLikeCount(post.getLikeCount());
             dto.setRepostCount(post.getRepostCount());
+            dto.setCommentCount(post.getCommentCount());
             dto.setCreatedAt(post.getCreatedAt().toString());
             dto.setDeleted(post.isDeleted());
 

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useAppDispatch } from "../../../store/hooks";
-import { addComment, editComment } from "../store/commentSlice";
+import {
+  addComment,
+  editComment,
+  fetchCommentsByPost,
+} from "../store/commentSlice";
 import { useAuth } from "../../auth/hooks/useAuth";
 import type {
   Comment,
@@ -38,6 +42,11 @@ const CommentComposer: React.FC<CommentComposerProps> = ({
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
 
+  // 댓글 목록을 다시 가져오기 위한 함수
+  const refreshComments = () => {
+    dispatch(fetchCommentsByPost({ postId, page: 0 }));
+  };
+
   const isEditing = !!commentToEdit;
   const isReply = !!parentCommentId;
 
@@ -70,18 +79,35 @@ const CommentComposer: React.FC<CommentComposerProps> = ({
         await dispatch(
           editComment({ commentId: commentToEdit.id, data: updateData })
         ).unwrap();
+
+        // 댓글 수정 후 목록 새로고침
+        refreshComments();
       } else {
         // 새 댓글 작성
         const createData: CreateCommentRequest = {
           content: content.trim(),
           parentCommentId,
         };
-        console.log("댓글 작성 요청:", { postId, data: createData });
-        await dispatch(addComment({ postId, data: createData })).unwrap();
+
+        // 이미지가 있는 경우와 없는 경우 모두 동일하게 처리
+        // commentApi에서 FormData/JSON을 자동으로 구분하여 처리
+        await dispatch(
+          addComment({
+            postId,
+            data: createData,
+            image: selectedImage || undefined,
+          })
+        ).unwrap();
       }
 
       setContent("");
       setCharCount(0);
+      setSelectedImage(null);
+      setImagePreview(null);
+
+      // 댓글 목록 새로고침
+      refreshComments();
+
       onSuccess?.();
     } catch (error: any) {
       console.error("댓글 처리 실패:", error);

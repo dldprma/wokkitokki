@@ -5,11 +5,15 @@ import com.winter.wokkitokki.common.util.JwtUtils;
 import com.winter.wokkitokki.post.dto.FeedItemDto;
 import com.winter.wokkitokki.post.dto.PostImageResponseDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
+import com.winter.wokkitokki.post.dto.PostWithCommentsDto;
+import com.winter.wokkitokki.comment.dto.CommentResponseDto;
+import com.winter.wokkitokki.comment.entity.CommentEntity;
+import com.winter.wokkitokki.comment.repository.CommentRepository;
 import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
-import com.winter.wokkitokki.post.service.RedisFeedIntegration;
+import com.winter.wokkitokki.post.service.RedisFeedIntegrationV2;
 import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
@@ -28,6 +32,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,8 +47,9 @@ public class UserService {
     private final FollowRepository followRepository;
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
+    private final CommentRepository commentRepository;
     private final SearchIndexService searchIndexService;
-    private final RedisFeedIntegration redisFeedIntegration;
+    private final RedisFeedIntegrationV2 redisFeedIntegrationV2;
 
     // username → ID 변환 메서드
     public Long getUserIdByUsername(String username) {
@@ -57,8 +63,10 @@ public class UserService {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
 
-        // 작성글 갯수만
+        // 작성글갯수
         Long originalPostCount = postRepository.countUserOriginalPosts(userId);
+//        Long repostCount = postRepository.countUserReposts(userId);
+//        Long totalPostCount = originalPostCount + repostCount;
 
         // 직접 작성한 이미지 게시글 개수 (리포스트 제외)
         int imgCount = postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user);
@@ -164,6 +172,64 @@ public class UserService {
         // 직접 작성한 이미지 게시글만 (리포스트한 이미지는 제외)
         Page<PostEntity> imagePosts = postRepository.findByUserAndImgUrlIsNotNullAndDeletedFalseOrderByCreatedAtDesc(user, pageable);
         return imagePosts.map(this::convertToImageResponseDto);
+    }
+
+    // 특정 사용자가 댓글 단 게시글들 조회 (Threads 방식)
+    public Page<PostWithCommentsDto> getUserCommentedPosts(Long userId, Long currentUserId, Pageable pageable) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+
+        // 1. 해당 사용자가 댓글 단 게시글들을 댓글 시간순으로 조회
+        List<CommentEntity> userComments = commentRepository.findByAuthorIdOrderByCreatedAtDesc(userId);
+        
+        // 2. 게시글별 최신 댓글로 그룹화
+        Map<Long, List<CommentEntity>> commentsByPost = userComments.stream()
+                .collect(Collectors.groupingBy(c -> c.getPost().getId()));
+        
+        // 3. 게시글별로 가장 최신 댓글 시간으로 정렬
+        List<Map.Entry<Long, List<CommentEntity>>> sortedEntries = commentsByPost.entrySet()
+                .stream()
+                .sorted((a, b) -> {
+                    LocalDateTime timeA = a.getValue().get(0).getCreatedAt();
+                    LocalDateTime timeB = b.getValue().get(0).getCreatedAt(); 
+                    return timeB.compareTo(timeA);
+                })
+                .collect(Collectors.toList());
+
+        // 4. 페이징 처리
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), sortedEntries.size());
+        List<Map.Entry<Long, List<CommentEntity>>> pagedEntries = sortedEntries.subList(start, end);
+
+        // 5. PostWithCommentsDto로 변환
+        List<PostWithCommentsDto> results = new ArrayList<>();
+        
+        UserEntity currentUser = currentUserId != null ? userRepository.findById(currentUserId).orElse(null) : null;
+        
+        for (Map.Entry<Long, List<CommentEntity>> entry : pagedEntries) {
+            Long postId = entry.getKey();
+            List<CommentEntity> comments = entry.getValue();
+            
+            PostEntity post = postRepository.findById(postId).orElse(null);
+            if (post != null && !post.isDeleted()) {
+                PostResponseDto postDto = convertToResponseDto(post, currentUser);
+                
+                // 해당 사용자의 댓글들만 변환
+                List<CommentResponseDto> userCommentsDto = comments.stream()
+                        .map(comment -> convertCommentToResponseDto(comment, currentUser))
+                        .collect(Collectors.toList());
+
+                PostWithCommentsDto postWithComments = PostWithCommentsDto.builder()
+                        .post(postDto)
+                        .relevantComments(userCommentsDto)
+                        .activitySummary(user.getUsername() + "님이 댓글을 남겼습니다")
+                        .build();
+                        
+                results.add(postWithComments);
+            }
+        }
+
+        return new PageImpl<>(results, pageable, sortedEntries.size());
     }
 
     // 프로필 수정
@@ -287,8 +353,9 @@ public class UserService {
             searchIndexService.updateUserStats(followerId);
             searchIndexService.updateUserStats(followingId);
 
-            // Redis 피드 업데이트 추가
-            redisFeedIntegration.handleUserUnfollowed(followerId, followingId);
+            // Redis 피드 업데이트 추가 - V2 사용
+            redisFeedIntegrationV2.invalidateUserFeedCache(followerId);
+            redisFeedIntegrationV2.invalidateUserFeedCache(followingId);
 
             return false;
         } else {
@@ -301,8 +368,9 @@ public class UserService {
             searchIndexService.updateUserStats(followerId);
             searchIndexService.updateUserStats(followingId);
 
-            // Redis 피드 업데이트 추가
-            redisFeedIntegration.handleUserFollowed(followerId, followingId);
+            // Redis 피드 업데이트 추가 - V2 사용  
+            redisFeedIntegrationV2.invalidateUserFeedCache(followerId);
+            redisFeedIntegrationV2.invalidateUserFeedCache(followingId);
 
             return true;
         }
@@ -353,6 +421,7 @@ public class UserService {
         dto.setAuthorProfileImg(post.getUser().getProfileImgUrl());
         dto.setLikeCount(post.getLikeCount());
         dto.setRepostCount(post.getRepostCount());
+        dto.setCommentCount(post.getCommentCount());
         dto.setCreatedAt(post.getCreatedAt().toString());
         dto.setDeleted(post.isDeleted());
 
@@ -414,6 +483,37 @@ public class UserService {
     private boolean isFollowing(UserEntity currentUser, UserEntity targetUser) {
         return currentUser != null &&
                 followRepository.existsByFollowerAndFollowing(currentUser, targetUser);
+    }
+
+    // CommentEntity -> CommentResponseDto 변환
+    private CommentResponseDto convertCommentToResponseDto(CommentEntity comment, UserEntity currentUser) {
+        CommentResponseDto dto = new CommentResponseDto();
+        dto.setId(comment.getId());
+        dto.setContent(comment.getContent());
+        dto.setImageUrl(comment.getImageUrl());
+        dto.setAuthorId(comment.getAuthor().getId());
+        dto.setAuthorName(comment.getAuthor().getFullName());
+        dto.setAuthorUsername(comment.getAuthor().getUsername());
+        dto.setAuthorProfileImg(comment.getAuthor().getProfileImgUrl());
+        dto.setCreatedAt(comment.getCreatedAt().toString());
+        dto.setUpdatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null);
+        dto.setLikeCount(comment.getLikeCount());
+        dto.setReplyCount(comment.getReplyCount());
+        
+        if (comment.getParentComment() != null) {
+            dto.setParentCommentId(comment.getParentComment().getId());
+        }
+        
+        if (currentUser != null) {
+            boolean isOwner = comment.getAuthor().getId().equals(currentUser.getId());
+            dto.setCanEdit(isOwner);
+            dto.setCanDelete(isOwner);
+        } else {
+            dto.setCanEdit(false);
+            dto.setCanDelete(false);
+        }
+        
+        return dto;
     }
 
     // 기존 프로필 이미지 파일 삭제하는 private 메서드

@@ -119,6 +119,10 @@ public class CommentService {
 
         CommentEntity savedComment = commentRepository.save(commentBuilder.build());
         
+        // 게시글 댓글 수 증가
+        post.setCommentCount(post.getCommentCount() + 1);
+        postRepository.save(post);
+        
         // ElasticSearch 인덱싱
         searchIndexService.indexComment(savedComment);
         
@@ -193,6 +197,11 @@ public class CommentService {
             throw new RuntimeException("댓글을 삭제할 권한이 없습니다.");
         }
 
+        // 게시글 댓글 수 감소
+        PostEntity post = comment.getPost();
+        post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
+        postRepository.save(post);
+        
         commentRepository.delete(comment);
         
         // ElasticSearch 인덱스 삭제

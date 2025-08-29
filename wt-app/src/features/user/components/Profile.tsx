@@ -37,9 +37,9 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
   // 모달 상태
   const [showFollowersModal, setShowFollowersModal] = useState(false);
   const [showFollowingModal, setShowFollowingModal] = useState(false);
-  const [activeTab, setActiveTab] = useState<"posts" | "photos" | "reels">(
-    "posts"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "posts" | "photos" | "reels" | "replies"
+  >("posts");
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
 
   // 팔로워/팔로잉 데이터 상태
@@ -391,11 +391,21 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("posts")}
           >
-            게시글 (
+            Posts (
             {profilePosts.length > 0
               ? profilePosts.length
               : profileUser?.postCount || 0}
             )
+          </button>
+          <button
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === "replies"
+                ? "bg-blue-500 text-white"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+            }`}
+            onClick={() => setActiveTab("replies")}
+          >
+            Replies
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
@@ -405,7 +415,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("photos")}
           >
-            사진 (
+            Images (
             {profilePhotos.length > 0
               ? profilePhotos.length
               : profileUser?.imagePostCount || 0}
@@ -419,14 +429,14 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("reels")}
           >
-            릴스 ({profileReels.length > 0 ? profileReels.length : 0})
+            reels ({profileReels.length > 0 ? profileReels.length : 0})
           </button>
         </div>
 
         {/* 프로필 포스트 */}
         <div className="mt-6">
           {activeTab === "posts" ? (
-            <ProfilePosts username={profileUsername} />
+            <ProfilePosts username={profileUsername} activeTab={activeTab} />
           ) : activeTab === "photos" ? (
             <div className="grid grid-cols-3 gap-4">
               {profilePhotos.map((photo) => (

@@ -44,20 +44,39 @@ export const getRepliesByComment = async (
 // 댓글 작성
 export const createComment = async (
   postId: number,
-  data: CreateCommentRequest
+  data: CreateCommentRequest,
+  image?: File
 ): Promise<CommentResponse> => {
-  console.log("API 호출 - 댓글 작성:", {
-    url: `/api/posts/${postId}/comments`,
-    data: {
-      content: data.content,
-      parentCommentId: data.parentCommentId,
-    },
-  });
-  const response = await api.post(`/api/posts/${postId}/comments`, {
-    content: data.content,
-    parentCommentId: data.parentCommentId,
-  });
-  return response.data;
+  if (image) {
+    // 이미지가 있는 경우 FormData로 전송
+    const formData = new FormData();
+    formData.append("content", data.content);
+    if (data.parentCommentId) {
+      formData.append("parentCommentId", data.parentCommentId.toString());
+    }
+    formData.append("image", image);
+
+    const response = await api.post(`/api/posts/${postId}/comments`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  } else {
+    // 이미지가 없는 경우에도 FormData로 전송 (백엔드 @RequestPart와 맞추기)
+    const formData = new FormData();
+    formData.append("content", data.content);
+    if (data.parentCommentId) {
+      formData.append("parentCommentId", data.parentCommentId.toString());
+    }
+
+    const response = await api.post(`/api/posts/${postId}/comments`, formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+    return response.data;
+  }
 };
 
 // 댓글 수정

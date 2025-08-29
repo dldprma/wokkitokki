@@ -67,69 +67,37 @@ const CommentList: React.FC<CommentListProps> = ({
     ? comments.slice(0, maxComments)
     : comments;
 
-  if (loading && page === 0) {
-    return (
-      <div className="comment-list">
-        <div className="comment-list-loading">
-          <div className="comment-skeleton">
-            <div className="comment-skeleton-avatar"></div>
-            <div className="comment-skeleton-content">
-              <div className="comment-skeleton-line"></div>
-              <div className="comment-skeleton-line"></div>
-            </div>
-          </div>
-          <div className="comment-skeleton">
-            <div className="comment-skeleton-avatar"></div>
-            <div className="comment-skeleton-content">
-              <div className="comment-skeleton-line"></div>
-              <div className="comment-skeleton-line"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="comment-list">
-        <div className="comment-list-error">
-          <p className="text-red-500">
-            댓글을 불러오는데 실패했습니다: {error}
-          </p>
-          <button
-            onClick={() => dispatch(fetchCommentsByPost({ postId, page: 0 }))}
-            className="comment-list-retry-btn"
-          >
-            다시 시도
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // 댓글이 없거나 에러가 있는 경우 - 댓글 작성 폼은 여전히 표시
+  const shouldShowEmptyMessage = error || comments.length === 0;
 
   return (
     <div className="comment-list">
       {/* 댓글 작성 폼 */}
       {showComposer && showCommentForm && (
-        <CommentComposer
-          postId={postId}
-          parentCommentId={parentCommentId}
-          onSuccess={() => {
-            handleCommentSuccess();
-            setInternalShowCommentForm(false); // 작성 완료 후 폼 숨김
-          }}
-          onCancel={() => setInternalShowCommentForm(false)}
-        />
+        <div className="mb-6">
+          <CommentComposer
+            postId={postId}
+            parentCommentId={parentCommentId}
+            onSuccess={() => {
+              handleCommentSuccess();
+              setInternalShowCommentForm(false); // 작성 완료 후 폼 숨김
+            }}
+            onCancel={() => setInternalShowCommentForm(false)}
+          />
+        </div>
       )}
 
       {/* 댓글 목록 */}
       <div className="comment-list-items">
-        {displayedComments.length === 0 ? (
+        {shouldShowEmptyMessage ? (
           <div className="comment-list-empty">
-            <p className="text-gray-500">
-              아직 댓글이 없습니다. 첫 번째 댓글을 작성해보세요!
-            </p>
+            <div className="text-center py-8">
+              <div className="text-gray-400 text-4xl mb-3">💬</div>
+              <p className="text-gray-500 text-lg mb-2">아직 댓글이 없습니다</p>
+              <p className="text-gray-400 text-sm">
+                첫 번째 댓글을 작성해보세요!
+              </p>
+            </div>
           </div>
         ) : (
           displayedComments.map((comment) => (

@@ -4,7 +4,8 @@ export interface Comment {
   authorId: number;
   authorName: string;
   authorUsername: string;
-  authorProfileImgUrl?: string;
+  authorProfileImg?: string; // 백엔드와 일치
+  imageUrl?: string; // 댓글 이미지 URL
   postId: number;
   parentCommentId?: number | null;
   likeCount: number;
@@ -33,7 +34,8 @@ export interface CommentResponse {
   authorId: number;
   authorName: string;
   authorUsername: string;
-  authorProfileImgUrl?: string;
+  authorProfileImg?: string; // 백엔드와 일치
+  imageUrl?: string; // 댓글 이미지 URL
   postId: number;
   parentCommentId?: number | null;
   likeCount: number;

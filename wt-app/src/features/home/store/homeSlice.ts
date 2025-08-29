@@ -112,6 +112,24 @@ const homeSlice = createSlice({
       state.page = 0;
       state.hasMore = true;
     },
+    // 댓글 작성 후 카운트 증가
+    incrementCommentCount: (state, action: PayloadAction<number>) => {
+      const post = (state as any).posts.find(
+        (p: any) => p.id === action.payload
+      );
+      if (post) {
+        post.commentCount = (post.commentCount || 0) + 1;
+      }
+    },
+    // 댓글 삭제 후 카운트 감소
+    decrementCommentCount: (state, action: PayloadAction<number>) => {
+      const post = (state as any).posts.find(
+        (p: any) => p.id === action.payload
+      );
+      if (post && post.commentCount > 0) {
+        post.commentCount = post.commentCount - 1;
+      }
+    },
   },
   extraReducers: (builder) => {
     // 피드 게시글 조회
@@ -120,7 +138,7 @@ const homeSlice = createSlice({
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchFeedPosts.fulfilled, (state, action) => {
+      .addCase(fetchFeedPosts.fulfilled, (state, action: any) => {
         state.loading = false;
         const normalized = action.payload.content.map(
           (p: any) =>
@@ -128,6 +146,7 @@ const homeSlice = createSlice({
               ...p,
               likeCount: Math.max(0, Number(p.likeCount ?? 0)),
               repostCount: Math.max(0, Number(p.repostCount ?? 0)),
+              commentCount: Math.max(0, Number(p.commentCount ?? 0)),
               // 백엔드에서 받는 필드명 사용
               liked: Boolean(p.liked ?? false),
               reposted: Boolean(p.reposted ?? false),
@@ -295,6 +314,12 @@ const homeSlice = createSlice({
   },
 });
 
-export const { setLoading, setError, clearError, resetHome } =
-  homeSlice.actions;
+export const {
+  setLoading,
+  setError,
+  clearError,
+  resetHome,
+  incrementCommentCount,
+  decrementCommentCount,
+} = homeSlice.actions;
 export default homeSlice.reducer;

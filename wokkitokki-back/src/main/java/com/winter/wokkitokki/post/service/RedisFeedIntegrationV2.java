@@ -136,6 +136,7 @@ public class RedisFeedIntegrationV2 {
                 .authorProfileImg(post.getUser().getProfileImgUrl())
                 .likeCount(post.getLikeCount())
                 .repostCount(post.getRepostCount())
+                .commentCount(post.getCommentCount())
                 .createdAt(post.getCreatedAt().toString())
                 .deleted(post.isDeleted())
                 .build();
@@ -277,12 +278,20 @@ public class RedisFeedIntegrationV2 {
     
     public void handleCommentCreated(CommentEntity comment) {
         try {
-            redisFeedServiceV2.addCommentToFollowerFeeds(
-                    comment.getId(),
-                    comment.getAuthor().getId(),
-                    comment.getCreatedAt()
+            // 댓글이 달린 원본 게시글을 댓글 시간으로 피드에 다시 푸시
+            // 단, 댓글 작성자나 팔로워들의 피드에만 나타남
+            PostEntity originalPost = comment.getPost();
+            Long commentAuthorId = comment.getAuthor().getId();
+            
+            // 원본 게시글을 댓글 시간으로 피드 상단에 올림 (댓글 정보와 함께)
+            redisFeedServiceV2.addPostWithCommentToFollowerFeeds(
+                    originalPost.getId(),
+                    commentAuthorId,
+                    comment.getCreatedAt(),
+                    comment.getId()  // 관련 댓글 ID
             );
-            log.debug("Redis feed updated for new comment: {}", comment.getId());
+            
+            log.debug("Redis feed updated for post {} with new comment: {}", originalPost.getId(), comment.getId());
         } catch (Exception e) {
             log.error("Failed to update Redis feed for comment creation: {}", comment.getId(), e);
         }

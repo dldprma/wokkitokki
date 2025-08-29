@@ -4,6 +4,7 @@ import com.winter.wokkitokki.comment.dto.*;
 import com.winter.wokkitokki.comment.service.CommentService;
 import com.winter.wokkitokki.user.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.Authentication;
@@ -44,15 +45,24 @@ public class CommentController {
         return ResponseEntity.ok(response);
     }
 
-    // 댓글 작성 (이미지 포함)
+    // 댓글 작성 (이미지 포함/미포함)
     @PostMapping("/posts/{postId}/comments")
     public ResponseEntity<CommentResponseDto> createComment(
             @PathVariable Long postId,
-            @RequestPart("comment") CommentCreateRequestDto request,
-            @RequestPart(value = "image", required = false) MultipartFile imageFile,
-            Authentication auth) {
+            Authentication auth,
+            @RequestPart(value = "content", required = false) String content,
+            @RequestPart(value = "parentCommentId", required = false) String parentCommentId,
+            @RequestPart(value = "image", required = false) MultipartFile imageFile) {
 
         Long currentUserId = userService.getUserIdByUsername(auth.getName());
+        
+        // DTO 생성
+        CommentCreateRequestDto request = new CommentCreateRequestDto();
+        request.setContent(content);
+        if (parentCommentId != null && !parentCommentId.isEmpty()) {
+            request.setParentCommentId(Long.parseLong(parentCommentId));
+        }
+        
         CommentResponseDto response = commentService.createComment(postId, request, imageFile, currentUserId);
         return ResponseEntity.ok(response);
     }

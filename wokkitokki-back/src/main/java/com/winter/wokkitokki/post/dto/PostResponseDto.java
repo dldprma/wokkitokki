@@ -14,6 +14,7 @@ public class PostResponseDto {
     private String authorProfileImg;
     private int likeCount;
     private int repostCount;
+    private int commentCount;
     private boolean isLiked;
     private boolean isReposted;
     private String createdAt;
@@ -23,7 +24,9 @@ public class PostResponseDto {
 
     private boolean deleted;
 
+    @Builder.Default
     private boolean isRepost = false;
+    
     private String repostedBy;
     private String repostedAt;
     private String originalCreatedAt;

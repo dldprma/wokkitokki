@@ -75,4 +75,12 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     // 특정 ID들로 댓글들 조회
     @Query("SELECT c FROM CommentEntity c WHERE c.id IN :commentIds")
     List<CommentEntity> findCommentsByIds(@Param("commentIds") List<Long> commentIds);
+    
+    // 특정 사용자가 작성한 댓글들 조회 (최신순)
+    @Query("SELECT c FROM CommentEntity c " +
+           "LEFT JOIN FETCH c.author " +
+           "LEFT JOIN FETCH c.post " +
+           "WHERE c.author.id = :authorId " +
+           "ORDER BY c.createdAt DESC")
+    List<CommentEntity> findByAuthorIdOrderByCreatedAtDesc(@Param("authorId") Long authorId);
 }

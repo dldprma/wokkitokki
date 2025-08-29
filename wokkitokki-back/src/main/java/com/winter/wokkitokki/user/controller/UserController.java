@@ -2,6 +2,7 @@ package com.winter.wokkitokki.user.controller;
 
 import com.winter.wokkitokki.post.dto.PostImageResponseDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
+import com.winter.wokkitokki.post.dto.PostWithCommentsDto;
 import com.winter.wokkitokki.user.dto.UserProfileResponseDto;
 import com.winter.wokkitokki.user.dto.UserUpdateRequestDto;
 import com.winter.wokkitokki.user.service.UserService;
@@ -198,6 +199,29 @@ public class UserController {
             return ResponseEntity.ok(Map.of("message", "프로필 사진이 삭제되었습니다."));
         } catch (Exception e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    // 특정 사용자가 댓글 단 게시글들 조회 (Threads 방식)
+    @GetMapping("/{username}/commented-posts")
+    public ResponseEntity<Page<PostWithCommentsDto>> getUserCommentedPosts(
+            @PathVariable String username,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            Authentication auth){
+        try{
+            Pageable pageable = PageRequest.of(page, size);
+            Long userId = userService.getUserIdByUsername(username);
+            Long currentUserId = null;
+
+            if (auth != null) {
+                currentUserId = userService.getUserIdByUsername(auth.getName());
+            }
+
+            Page<PostWithCommentsDto> commentedPosts = userService.getUserCommentedPosts(userId, currentUserId, pageable);
+            return ResponseEntity.ok(commentedPosts);
+        }catch(Exception e){
+            return ResponseEntity.badRequest().build();
         }
     }
 }

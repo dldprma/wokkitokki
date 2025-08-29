@@ -679,38 +679,117 @@
 /* ===== 댓글 미리보기 (CommentPreview) ===== */
 .comment-preview {
   margin-top: 12px;
-  padding: 12px;
-  background-color: #f7f9fa;
-  border-radius: 12px;
-  border-left: 3px solid #1d9bf0;
+  padding: 12px 0;
+  border-top: 1px solid #e1e8ed;
+  position: relative;
+}
+
+/* 연결선 스타일 */
+.comment-preview-connector {
+  position: absolute;
+  left: 20px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+}
+
+.comment-preview-connector-line {
+  width: 100%;
+  height: 100%;
+  background-color: #e1e8ed;
 }
 
 .comment-preview-item {
-  margin-bottom: 8px;
+  position: relative;
+  margin-bottom: 16px;
+  padding-left: 48px;
 }
 
 .comment-preview-item:last-child {
   margin-bottom: 0;
 }
 
-.comment-preview-header {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 6px;
+.comment-preview-item-connector {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
 }
 
-.comment-preview-author {
+.comment-preview-item-line {
+  width: 100%;
+  height: 100%;
+  background-color: #e1e8ed;
+}
+
+.comment-preview-content-wrapper {
+  background-color: #f7f9fa;
+  border-radius: 16px;
+  padding: 12px;
+  border: 1px solid #e1e8ed;
+}
+
+.comment-preview-header {
+  margin-bottom: 8px;
+}
+
+.comment-preview-author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.comment-preview-author-info:hover {
+  opacity: 0.8;
+}
+
+.comment-preview-avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  cursor: pointer;
+}
+
+.comment-preview-author-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.comment-preview-author-name {
+  font-size: 14px;
   font-weight: 600;
   color: #0f1419;
-  font-size: 13px;
-  flex-shrink: 0;
+}
+
+.comment-preview-author-username {
+  font-size: 12px;
+  color: #536471;
+}
+
+.comment-preview-text {
+  margin-bottom: 8px;
 }
 
 .comment-preview-content {
-  color: #536471;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.4;
+  color: #0f1419;
   word-wrap: break-word;
+}
+
+.comment-preview-image {
+  margin-bottom: 8px;
+}
+
+.comment-preview-image-content {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 12px;
+  object-fit: cover;
 }
 
 .comment-preview-actions {

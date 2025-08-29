@@ -435,4 +435,26 @@ public class RedisFeedServiceV2 {
     private List<Long> getFollowerIds(Long userId) {
         return followRepository.findFollowerIdsByFollowingId(userId);
     }
+
+    /**
+     * 댓글이 달린 게시글을 댓글 시간으로 피드에 다시 푸시
+     * Twitter/Threads 방식: 댓글 달리면 원본 게시글이 상단으로 올라옴
+     */
+    @Async
+    public void addPostWithCommentToFollowerFeeds(Long postId, Long commentAuthorId, 
+                                                LocalDateTime commentTime, Long commentId) {
+        List<Long> followerIds = getFollowerIds(commentAuthorId);
+        followerIds.add(commentAuthorId); // 댓글 작성자 자신의 피드에도 추가
+        
+        double score = calculateScore(commentTime);
+        // POST_WITH_COMMENT 타입으로 저장 (게시글 + 관련 댓글 정보)
+        String redisKey = FeedItemKey.forPostWithComment(postId, commentId, commentAuthorId).toRedisKey();
+
+        for (Long followerId : followerIds) {
+            String cacheKey = FEED_KEY_PREFIX + followerId;
+            redisTemplate.opsForZSet().add(cacheKey, redisKey, score);
+            redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
+            redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
+        }
+    }
 }

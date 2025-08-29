@@ -26,10 +26,10 @@ public class FeedItemDto {
         this.repostUsername = repostUsername;
     }
     
-    // Comment용 생성자
-    public FeedItemDto(Long commentId, Long postId, LocalDateTime sortTime, String type, Long repostUserId, String repostUsername) {
-        this.commentId = commentId;
+    // Post용 생성자 (새로운 형태 - Repository에서 사용)
+    public FeedItemDto(Long postId, Long commentId, LocalDateTime sortTime, String type, Long repostUserId, String repostUsername) {
         this.postId = postId;
+        this.commentId = commentId;
         this.sortTime = sortTime;
         this.type = type;
         this.repostUserId = repostUserId;

@@ -30,6 +30,9 @@ public class PostEntity {
 
     private int likeCount = 0;
     private int repostCount = 0;
+    
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int commentCount = 0;
 
     @Column
     private LocalDateTime updatedAt;

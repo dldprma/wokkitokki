@@ -76,11 +76,12 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
 
     try {
       const result = await toggleLike(post.id);
+
       setPost((prev) =>
         prev
           ? {
               ...prev,
-              liked: result.liked,
+              liked: result.isLiked, // isLiked 필드 사용
               likeCount: result.likeCount,
             }
           : null
@@ -95,11 +96,12 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
 
     try {
       const result = await toggleRepost(post.id);
+
       setPost((prev) =>
         prev
           ? {
               ...prev,
-              reposted: result.reposted,
+              reposted: result.isReposted, // isReposted 필드 사용
               repostCount: result.repostCount,
             }
           : null
@@ -270,7 +272,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     <div className="flex min-h-screen bg-gray-50">
       <Nav />
       <div className="flex-1 ml-64">
-        <div className="max-w-2xl mx-auto py-8 px-4">
+        <div className="max-w-2xl py-8 px-6">
           {/* 뒤로가기 버튼 */}
           <button
             onClick={() => navigate(-1)}
@@ -435,7 +437,7 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
             {/* 상호작용 버튼 */}
             <div className="flex items-center space-x-6 text-gray-500">
               <button
-                className="flex items-center space-x-2 hover:text-blue-500"
+                className="flex items-center space-x-2 transition-colors hover:text-blue-500"
                 onClick={() => setShowCommentForm(!showCommentForm)}
               >
                 <span>💬</span>
@@ -468,6 +470,11 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
 
           {/* 댓글 섹션 */}
           <div className="mt-8">
+            <div className="mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                댓글 {post.commentCount > 0 ? `(${post.commentCount})` : ""}
+              </h3>
+            </div>
             <CommentList
               postId={post.id}
               showComposer={true}

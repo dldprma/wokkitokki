@@ -87,7 +87,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       <div className="comment-item-header">
         <div className="comment-item-author">
           <img
-            src={comment.authorProfileImgUrl || "/default-avatar.png"}
+            src={comment.authorProfileImg || "/default-avatar.png"}
             alt={comment.authorName}
             className="comment-item-avatar cursor-pointer hover:opacity-80"
             onClick={() => handleUserClick(comment.authorUsername)}

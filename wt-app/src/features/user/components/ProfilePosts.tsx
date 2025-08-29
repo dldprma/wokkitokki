@@ -5,18 +5,27 @@ import { usePost } from "../../post/hooks/usePost";
 import type { Post } from "../../post/type/postTypes";
 import ProfileImage from "./ProfileImage";
 
-type TabType = "photos" | "posts" | "reels";
+type TabType = "photos" | "posts" | "reels" | "replies";
 
 interface ProfilePostsProps {
   username?: string;
+  activeTab?: string;
 }
 
 const ProfilePosts: React.FC<ProfilePostsProps> = ({
   username: propUsername,
+  activeTab: propActiveTab,
 }) => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [currentPage, setCurrentPage] = useState(0);
+
+  // prop으로 전달된 activeTab이 있으면 사용
+  useEffect(() => {
+    if (propActiveTab && propActiveTab !== activeTab) {
+      setActiveTab(propActiveTab as TabType);
+    }
+  }, [propActiveTab, activeTab]);
 
   const {
     profilePosts,
@@ -35,6 +44,11 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     toggleLike,
     toggleRepost,
   } = usePost();
+
+  // Replies 데이터 상태
+  const [profileReplies, setProfileReplies] = useState<any[]>([]);
+  const [repliesLoading, setRepliesLoading] = useState(false);
+  const [repliesHasMore, setRepliesHasMore] = useState(false);
 
   // 중복된 post.id 제거
   const uniquePosts = profilePosts.filter(
@@ -79,6 +93,9 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
           case "reels":
             await getProfileReels(page, 10, username);
             break;
+          case "replies":
+            await loadProfileReplies(page, 10, username);
+            break;
         }
       } catch (error) {
         console.error("탭 데이터 로드 실패:", error);
@@ -86,6 +103,39 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     },
     [username, getProfilePhotos, getProfilePosts, getProfileReels]
   );
+
+  // Replies 데이터 로드
+  const loadProfileReplies = async (
+    page: number,
+    size: number,
+    username: string
+  ) => {
+    setRepliesLoading(true);
+    try {
+      const response = await fetch(
+        `/api/users/${username}/commented-posts?page=${page}&size=${size}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("accessToken")}`,
+          },
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (page === 0) {
+          setProfileReplies(data.content);
+        } else {
+          setProfileReplies((prev) => [...prev, ...data.content]);
+        }
+        setRepliesHasMore(data.hasNext);
+      }
+    } catch (error) {
+      console.error("Replies 로드 실패:", error);
+    } finally {
+      setRepliesLoading(false);
+    }
+  };
 
   const loadMore = async () => {
     const nextPage = currentPage + 1;
@@ -241,6 +291,138 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     );
   };
 
+  // Replies 렌더링
+  const renderReplies = () => {
+    if (profileReplies.length === 0) {
+      return (
+        <div className="text-center text-gray-500 py-8">
+          아직 댓글을 단 게시글이 없습니다
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {profileReplies.map((item: any) => {
+          // PostWithCommentsDto 구조에 맞춰 렌더링
+          const post = item.post;
+          const comments = item.relevantComments;
+
+          return (
+            <div
+              key={`profile-reply-${item.id}`}
+              className="bg-white rounded-lg shadow-sm p-4 border hover:shadow-md transition-shadow"
+            >
+              {/* 원본 게시글 */}
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                <div className="flex items-start space-x-3">
+                  <div
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => handleUserClick(post.authorUsername)}
+                  >
+                    <ProfileImage
+                      imageUrl={post.authorProfileImg}
+                      username={post.authorUsername}
+                      size="md"
+                      className="w-8 h-8 flex-shrink-0"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <div
+                      className="flex items-center justify-between mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => handleUserClick(post.authorUsername)}
+                    >
+                      <div className="flex items-center space-x-2">
+                        <span className="font-semibold text-gray-900">
+                          {post.authorName}
+                        </span>
+                        <span className="text-gray-500">
+                          @{post.authorUsername}
+                        </span>
+                      </div>
+                      <span className="text-gray-400 text-sm">
+                        {new Date(post.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div
+                      className="cursor-pointer hover:bg-gray-100 p-2 rounded-lg transition-colors"
+                      onClick={() => handlePostClick(post.id)}
+                    >
+                      <p className="text-gray-800 mb-3 leading-relaxed">
+                        {post.content}
+                      </p>
+                      {post.imgUrl && (
+                        <div className="mb-3">
+                          <img
+                            src={post.imgUrl}
+                            alt="Post image"
+                            className="w-full max-h-48 object-cover rounded-lg"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 내가 단 댓글 */}
+              {comments.map((comment: any) => (
+                <div
+                  key={`reply-${comment.id}`}
+                  className="ml-8 border-l-2 border-blue-200 pl-4"
+                >
+                  <div className="flex items-start space-x-3">
+                    <div
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => handleUserClick(comment.authorUsername)}
+                    >
+                      <ProfileImage
+                        imageUrl={comment.authorProfileImg}
+                        username={comment.authorUsername}
+                        size="md"
+                        className="w-8 h-8 flex-shrink-0"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <span className="font-semibold text-gray-900">
+                          {comment.authorName}
+                        </span>
+                        <span className="text-gray-500">
+                          @{comment.authorUsername}
+                        </span>
+                        <span className="text-gray-400 text-sm">
+                          {new Date(comment.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <div className="bg-blue-50 p-3 rounded-lg">
+                        <p className="text-gray-800 mb-2">{comment.content}</p>
+                        {comment.imageUrl && (
+                          <div className="mb-2">
+                            <img
+                              src={comment.imageUrl}
+                              alt="댓글 이미지"
+                              className="w-full max-h-32 object-cover rounded-lg"
+                            />
+                          </div>
+                        )}
+                        <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <span>♥ {comment.likeCount}</span>
+                          <span>💬 {comment.replyCount}</span>
+                          <span>🔄 {comment.repostCount}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   // 릴스 그리드 렌더링
   const renderReelsGrid = () => {
     return (
@@ -276,6 +458,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         return renderPostsList();
       case "reels":
         return renderReelsGrid();
+      case "replies":
+        return renderReplies();
       default:
         return null;
     }
@@ -289,6 +473,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         return profileLoading;
       case "reels":
         return reelsLoading;
+      case "replies":
+        return repliesLoading;
       default:
         return false;
     }
@@ -302,6 +488,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         return profileHasMore;
       case "reels":
         return reelsHasMore;
+      case "replies":
+        return repliesHasMore;
       default:
         return false;
     }
@@ -316,6 +504,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         return uniquePosts.length;
       case "reels":
         return profileReels.length;
+      case "replies":
+        return profileReplies.length;
       default:
         return 0;
     }
@@ -330,6 +520,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         return "게시글";
       case "reels":
         return "릴스";
+      case "replies":
+        return "댓글";
       default:
         return "게시글";
     }
@@ -343,6 +535,8 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
         return "첫 번째 게시글을 작성해보세요!";
       case "reels":
         return "첫 번째 동영상을 업로드해보세요!";
+      case "replies":
+        return "첫 번째 댓글을 작성해보세요!";
       default:
         return "첫 번째 게시글을 작성해보세요!";
     }

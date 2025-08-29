@@ -1,4 +1,8 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import {
+  incrementCommentCount,
+  decrementCommentCount,
+} from "../../home/store/homeSlice";
 import type {
   Comment,
   CreateCommentRequest,
@@ -46,8 +50,23 @@ export const fetchRepliesByComment = createAsyncThunk(
 // 댓글 작성
 export const addComment = createAsyncThunk(
   "comment/addComment",
-  async ({ postId, data }: { postId: number; data: CreateCommentRequest }) => {
-    const response = await createComment(postId, data);
+  async (
+    {
+      postId,
+      data,
+      image,
+    }: {
+      postId: number;
+      data: CreateCommentRequest;
+      image?: File;
+    },
+    thunkAPI
+  ) => {
+    const response = await createComment(postId, data, image);
+
+    // 홈 피드의 댓글 카운트 증가
+    thunkAPI.dispatch(incrementCommentCount(postId));
+
     return response;
   }
 );
@@ -70,8 +89,19 @@ export const editComment = createAsyncThunk(
 // 댓글 삭제
 export const removeComment = createAsyncThunk(
   "comment/removeComment",
-  async (commentId: number) => {
+  async (commentId: number, thunkAPI) => {
+    // 삭제 전에 댓글 정보를 가져와서 postId 확인
+    const comment = (thunkAPI.getState() as any).comment.comments.find(
+      (c: Comment) => c.id === commentId
+    );
+
     await deleteComment(commentId);
+
+    // 홈 피드의 댓글 카운트 감소
+    if (comment) {
+      thunkAPI.dispatch(decrementCommentCount(comment.postId));
+    }
+
     return commentId;
   }
 );

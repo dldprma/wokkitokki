@@ -698,12 +698,6 @@
   width: 2px;
 }
 
-.comment-preview-connector-line {
-  width: 100%;
-  height: 100%;
-  background-color: #e1e8ed;
-}
-
 .comment-preview-item {
   position: relative;
   margin-bottom: 16px;

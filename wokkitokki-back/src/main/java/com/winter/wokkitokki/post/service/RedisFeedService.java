@@ -88,14 +88,18 @@ public class RedisFeedService {
             FeedItemKey key = FeedItemKey.forOriginalPost(item.getPostId()); // postId로 표시
             String keyStr = key.toRedisKey() + ":comment:" + item.getCommentId(); // 고유키 생성
             
-            // 댓글 시간으로 정렬되도록 하지만 타입은 POST_WITH_COMMENT로 설정
+            // 대댓글인지 일반 댓글인지에 따라 처리
+            String feedType = "REPLY".equals(item.getType()) ? "POST_WITH_REPLY" : "POST_WITH_COMMENT";
+            
+            // 댓글 시간으로 정렬되도록 하지만 타입은 POST_WITH_COMMENT 또는 POST_WITH_REPLY로 설정
             FeedItemDto commentFeedItem = new FeedItemDto(
                 item.getPostId(), // 게시글 ID
                 item.getCommentId(), // 댓글 ID  
                 item.getSortTime(), // 댓글 시간
-                "POST_WITH_COMMENT", // 특별 타입
-                null, // repostUserId
-                null  // repostUsername
+                feedType, // 특별 타입
+                item.getParentCommentId(), // 대댓글인 경우 상위 댓글 ID
+                item.getRepostUsername(),  // 댓글 작성자 이름
+                true  // 댓글 여부
             );
             feedItemMap.put(keyStr, commentFeedItem);
         }
@@ -130,7 +134,7 @@ public class RedisFeedService {
                 if (post != null) {
                     result.put(post, item);
                 }
-            } else if ("POST_WITH_COMMENT".equals(item.getType())) {
+            } else if ("POST_WITH_COMMENT".equals(item.getType()) || "POST_WITH_REPLY".equals(item.getType())) {
                 // 댓글이 달린 게시글 + 해당 댓글을 그룹화해서 리턴
                 PostEntity post = postRepository.findById(item.getPostId()).orElse(null);
                 if (post != null) {

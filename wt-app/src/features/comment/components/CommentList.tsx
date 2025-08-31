@@ -101,13 +101,20 @@ const CommentList: React.FC<CommentListProps> = ({
           </div>
         ) : (
           displayedComments.map((comment) => (
-            <CommentItem
-              key={comment.id}
-              comment={comment}
-              postId={postId}
-              onReplySuccess={handleCommentSuccess}
-              onEditSuccess={handleCommentSuccess}
-            />
+            <div key={comment.id}>
+              {/* 리포스트 정보 표시 */}
+              {comment.repostedBy && (
+                <div className="repost-info text-sm text-gray-500 mb-2">
+                  🔄 {comment.repostedBy}님이 리포스트했습니다
+                </div>
+              )}
+              <CommentItem
+                comment={comment}
+                postId={postId}
+                onReplySuccess={handleCommentSuccess}
+                onEditSuccess={handleCommentSuccess}
+              />
+            </div>
           ))
         )}
       </div>

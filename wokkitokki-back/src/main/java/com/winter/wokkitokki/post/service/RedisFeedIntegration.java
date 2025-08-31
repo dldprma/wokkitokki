@@ -102,7 +102,7 @@ public class RedisFeedIntegration {
             if (entity instanceof PostEntity) {
                 PostEntity post = (PostEntity) entity;
                 
-                if ("POST_WITH_COMMENT".equals(feedItem.getType())) {
+                if ("POST_WITH_COMMENT".equals(feedItem.getType()) || "POST_WITH_REPLY".equals(feedItem.getType())) {
                     // 게시글 + 관련 댓글 그룹화
                     PostWithCommentsDto groupDto = convertToPostWithCommentsDto(post, feedItem, currentUser, 
                             likedPostIds, repostedPostIds);
@@ -208,6 +208,18 @@ public class RedisFeedIntegration {
         if (feedItem.getCommentId() != null) {
             CommentEntity comment = commentRepository.findById(feedItem.getCommentId()).orElse(null);
             if (comment != null) {
+                
+                // 대댓글인 경우 상위 댓글도 먼저 추가
+                if ("POST_WITH_REPLY".equals(feedItem.getType()) && feedItem.getParentCommentId() != null) {
+                    CommentEntity parentComment = commentRepository.findById(feedItem.getParentCommentId()).orElse(null);
+                    if (parentComment != null) {
+                        CommentResponseDto parentCommentDto = convertCommentToResponseDto(
+                            parentComment, feedItem, currentUser, Collections.emptySet(), Collections.emptySet());
+                        relevantComments.add(parentCommentDto);
+                    }
+                }
+                
+                // 현재 댓글(대댓글) 추가
                 CommentResponseDto commentDto = convertCommentToResponseDto(
                     comment, feedItem, currentUser, Collections.emptySet(), Collections.emptySet());
                 relevantComments.add(commentDto);
@@ -217,11 +229,19 @@ public class RedisFeedIntegration {
         // 활동 요약 생성
         String activitySummary = "";
         if (!relevantComments.isEmpty()) {
-            CommentResponseDto comment = relevantComments.get(0);
-            if (currentUser != null && comment.getAuthorId().equals(currentUser.getId())) {
-                activitySummary = "내가 댓글을 남겼습니다";
+            CommentResponseDto targetComment = relevantComments.get(relevantComments.size() - 1); // 마지막 댓글(실제 활동한 댓글)
+            if (currentUser != null && targetComment.getAuthorId().equals(currentUser.getId())) {
+                if ("POST_WITH_REPLY".equals(feedItem.getType())) {
+                    activitySummary = "내가 대댓글을 남겼습니다";
+                } else {
+                    activitySummary = "내가 댓글을 남겼습니다";
+                }
             } else {
-                activitySummary = comment.getAuthorName() + "님이 댓글을 남겼습니다";
+                if ("POST_WITH_REPLY".equals(feedItem.getType())) {
+                    activitySummary = targetComment.getAuthorName() + "님이 대댓글을 남겼습니다";
+                } else {
+                    activitySummary = targetComment.getAuthorName() + "님이 댓글을 남겼습니다";
+                }
             }
         }
         

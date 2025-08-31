@@ -40,10 +40,18 @@ public class UserEntity implements UserDetails {
 
     @Column
     private LocalDateTime createdAt;
+    
+    // 탈퇴 관련 필드들 (Soft Delete)
+    @Column(name = "is_deleted")
+    @Builder.Default
+    private Boolean deleted = false;
+    
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities(){
-        return Collections.emptyList();
+        return Collections.singletonList(() -> "ROLE_USER");
     }
     @Override
     public boolean isAccountNonExpired(){

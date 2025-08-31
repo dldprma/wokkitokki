@@ -18,4 +18,8 @@ public interface UserSearchRepository extends ElasticsearchRepository<UserDocume
     List<UserDocument> findByUsernameOrFullNameStartingWith(String keyword);
 
     List<UserDocument> findByUsernameIgnoreCase(String username);
+    
+    // 와일드카드 검색 (부분 문자열 매칭)
+    @Query("{\"bool\": {\"should\": [{\"wildcard\": {\"username\": {\"value\": \"*?0*\"}}}, {\"wildcard\": {\"fullName\": {\"value\": \"*?0*\"}}}]}}")
+    List<UserDocument> findByUsernameOrFullNameContaining(String keyword);
 }

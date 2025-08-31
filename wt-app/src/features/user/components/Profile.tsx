@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { setUser } from "../store/userSlice";
+import { logoutUser } from "../../auth/store/authSlice";
 import * as userApi from "../api/userApi";
 import ProfilePosts from "./ProfilePosts";
 import ProfileImage from "./ProfileImage";
@@ -41,6 +42,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     "posts" | "photos" | "reels" | "replies"
   >("posts");
   const [showEditProfileModal, setShowEditProfileModal] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // 팔로워/팔로잉 데이터 상태
   const [followers, setFollowers] = useState<UserProfile[]>([]);
@@ -63,6 +65,21 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     }
   }, [accessToken]);
 
+  // 메뉴 외부 클릭 시 메뉴 닫기
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest(".menu-container")) {
+        setIsMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   // 포스트 관련 기능은 usePost에서 직접 가져오기
   const {
     profilePosts,
@@ -80,6 +97,33 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
 
   // 사용자 관련 기능은 useUser에서 가져오기
   const { removeProfileImage } = useUser();
+
+  // 회원탈퇴 처리
+  const handleDeleteAccount = async () => {
+    if (
+      !window.confirm(
+        "정말로 회원을 탈퇴하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+      )
+    ) {
+      return;
+    }
+
+    try {
+      // 회원탈퇴 API 호출
+      await userApi.deleteUser();
+
+      // 로그아웃 처리
+      await dispatch(logoutUser());
+
+      // 홈페이지로 이동
+      navigate("/");
+
+      alert("회원탈퇴가 완료되었습니다.");
+    } catch (error) {
+      console.error("회원탈퇴 실패:", error);
+      alert("회원탈퇴 중 오류가 발생했습니다. 다시 시도해주세요.");
+    }
+  };
 
   // profileUsername이 변경될 때마다 프로필 데이터 로드
   useEffect(() => {
@@ -350,14 +394,41 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
                   {profileUser?.fullName || "사용자"}
                 </h1>
 
-                {/* 현재 사용자일 때만 프로필 수정 버튼 표시 */}
+                {/* 현재 사용자일 때만 메뉴 버튼 표시 */}
                 {profileUser && profileUser?.username === currentUsername && (
-                  <button
-                    onClick={() => setShowEditProfileModal(true)}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 text-sm rounded-md transition-colors"
-                  >
-                    프로필 수정하기
-                  </button>
+                  <div className="relative menu-container">
+                    <button
+                      onClick={() => setIsMenuOpen(!isMenuOpen)}
+                      className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+                      aria-label="메뉴"
+                    >
+                      ⋯
+                    </button>
+
+                    {/* 드롭다운 메뉴 */}
+                    {isMenuOpen && (
+                      <div className="absolute right-0 top-full mt-1 w-32 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                        <button
+                          onClick={() => {
+                            setShowEditProfileModal(true);
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 first:rounded-t-lg"
+                        >
+                          ✏️ 프로필 수정
+                        </button>
+                        <button
+                          onClick={() => {
+                            handleDeleteAccount();
+                            setIsMenuOpen(false);
+                          }}
+                          className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 last:rounded-b-lg"
+                        >
+                          🗑️ 회원탈퇴
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {/* 다른 사용자일 때만 팔로우 버튼 표시 */}

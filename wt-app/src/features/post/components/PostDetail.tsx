@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import ProfileImage from "../../user/components/ProfileImage";
 import { CommentList } from "../../comment";
@@ -19,6 +19,7 @@ interface PostDetailProps {
 
 const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const [post, setPost] = useState<Post | null>(null);
@@ -68,6 +69,20 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
 
   const handleUserClick = (username: string) => {
     navigate(`/${username}`);
+  };
+
+  // 스마트 뒤로가기: 어디서 왔는지에 따라 적절한 곳으로 이동
+  const handleGoBack = () => {
+    // location.state에서 이전 페이지 정보 확인
+    const from = location.state?.from;
+
+    if (from) {
+      // 명시적으로 전달된 이전 페이지가 있으면 그곳으로 이동
+      navigate(from);
+    } else {
+      // 기본적으로 홈으로 이동
+      navigate("/");
+    }
   };
 
   const handleLike = async () => {
@@ -278,10 +293,10 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     <div className="flex min-h-screen bg-gray-50">
       <Nav />
       <div className="flex-1 ml-64">
-        <div className="max-w-2xl py-8 px-6">
+        <div className="max-w-2xl py-8 px-6 ml-8">
           {/* 뒤로가기 버튼 */}
           <button
-            onClick={() => navigate(-1)}
+            onClick={handleGoBack}
             className="mb-6 px-4 py-2 text-gray-600 hover:text-gray-800 flex items-center"
           >
             ← 이전 페이지로 돌아가기

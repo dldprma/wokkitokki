@@ -22,6 +22,8 @@ public class CommentResponseDto {
     private boolean isReposted;
     private boolean canEdit;
     private boolean canDelete;
+    private String repostedBy;
+    private String repostedAt;
     private String createdAt;
     private String updatedAt;
 }

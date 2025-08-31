@@ -524,6 +524,26 @@ public class UserService {
                 .build();
     }
 
+    // 회원 탈퇴 (Soft Delete)
+    @Transactional
+    public void withdrawUser(Long userId) {
+        UserEntity user = userRepository.findByIdAndDeletedFalse(userId)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다."));
+        
+        // Soft Delete 처리
+        user.setDeleted(true);
+        user.setDeletedAt(LocalDateTime.now());
+        userRepository.save(user);
+        
+        // Elasticsearch에서 사용자 인덱스 삭제
+        searchIndexService.deleteUserIndex(userId);
+        
+        // TODO: Redis 피드에서 사용자 관련 데이터 정리 메서드 구현 필요
+        // redisFeedIntegration.handleUserDeleted(userId);
+        
+        log.info("사용자 탈퇴 처리 완료: userId={}", userId);
+    }
+
     // 기존 프로필 이미지 파일 삭제하는 private 메서드
     private void deleteExistingProfileImage(String imageUrl) {
         try {

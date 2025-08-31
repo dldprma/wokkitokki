@@ -258,6 +258,11 @@
   @apply py-12;
 }
 
+/* hr 태그 숨기기 */
+hr {
+  display: none;
+}
+
 .no-posts-container {
   @apply text-center;
 }

@@ -94,7 +94,33 @@ public class ElasticsearchSearchService {
                 // 메서드가 없으면 기존 방식 사용
             }
 
-            // 2단계: 기존 방식으로 검색 (fallback)
+            // 2단계: prefix 검색 (부분 문자열 매칭)
+            try {
+                List<UserDocument> prefixUsers = userSearchRepository.findByUsernameOrFullNameStartingWith(keyword);
+                // 중복 제거하면서 추가
+                for (UserDocument user : prefixUsers) {
+                    if (!allResults.stream().anyMatch(existing -> existing.getId().equals(user.getId()))) {
+                        allResults.add(user);
+                    }
+                }
+            } catch (Exception e) {
+                // prefix 검색 실패 시 무시
+            }
+
+            // 3단계: 와일드카드 검색 (부분 문자열 매칭)
+            try {
+                List<UserDocument> wildcardUsers = userSearchRepository.findByUsernameOrFullNameContaining(keyword);
+                // 중복 제거하면서 추가
+                for (UserDocument user : wildcardUsers) {
+                    if (!allResults.stream().anyMatch(existing -> existing.getId().equals(user.getId()))) {
+                        allResults.add(user);
+                    }
+                }
+            } catch (Exception e) {
+                // 와일드카드 검색 실패 시 무시
+            }
+
+            // 4단계: 기존 방식으로 검색 (최종 fallback)
             if (allResults.isEmpty()) {
                 Page<UserDocument> userDocs = userSearchRepository.findByUsernameOrFullName(keyword, pageable);
                 allResults.addAll(userDocs.getContent());
@@ -111,6 +137,7 @@ public class ElasticsearchSearchService {
             List<UserDocument> pagedResults = allResults.subList(start, end);
             List<UserProfileResponseDto> dtoResults = pagedResults.stream()
                     .map(doc -> convertToUserProfileDto(doc, currentUserId))
+                    .filter(dto -> dto != null) // 탈퇴한 회원 필터링
                     .collect(Collectors.toList());
 
             return new PageImpl<>(dtoResults, pageable, allResults.size());
@@ -118,8 +145,17 @@ public class ElasticsearchSearchService {
 
         // 우선순위가 적용된 포스트 검색
         public Page<PostResponseDto> searchPostsWithPriority(String keyword, Long currentUserId, Pageable pageable) {
-            // 기존 방식으로 검색하되, 좋아요 많은 순으로 정렬
+            // 1단계: match 쿼리로 검색 (기존 방식)
             Page<PostDocument> postDocs = postSearchRepository.findByContentContainingOrderByCreatedAtDesc(keyword, pageable);
+            
+            // 2단계: 결과가 없으면 와일드카드 검색 시도
+            if (postDocs.isEmpty()) {
+                try {
+                    postDocs = postSearchRepository.findByContentWildcard(keyword, pageable);
+                } catch (Exception e) {
+                    // 와일드카드 검색 실패 시 기존 결과 사용
+                }
+            }
 
             // 결과를 좋아요 순으로 재정렬
             List<PostDocument> sortedPosts = postDocs.getContent().stream()
@@ -265,6 +301,12 @@ public class ElasticsearchSearchService {
         }
 
         private UserProfileResponseDto convertToUserProfileDto(UserDocument doc, Long currentUserId){
+            // DB에서 해당 사용자가 존재하고 탈퇴하지 않았는지 확인
+            UserEntity user = userRepository.findById(Long.parseLong(doc.getId())).orElse(null);
+            if (user == null || (user.getDeleted() != null && user.getDeleted())) {
+                return null; // 탈퇴한 회원이거나 존재하지 않는 경우 null 반환
+            }
+            
             UserProfileResponseDto dto = new UserProfileResponseDto();
             dto.setId(Long.parseLong(doc.getId()));
             dto.setUsername(doc.getUsername());
@@ -278,9 +320,8 @@ public class ElasticsearchSearchService {
             // 팔로우 상태는 DB에서 실시간 조회
             if (currentUserId != null && !currentUserId.equals(Long.parseLong(doc.getId()))) {
                 UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
-                UserEntity targetUser = userRepository.findById(Long.parseLong(doc.getId())).orElse(null);
-                if (currentUser != null && targetUser != null) {
-                    boolean isFollowing = followRepository.existsByFollowerAndFollowing(currentUser, targetUser);
+                if (currentUser != null && !(currentUser.getDeleted() != null && currentUser.getDeleted())) {
+                    boolean isFollowing = followRepository.existsByFollowerAndFollowing(currentUser, user);
                     dto.setFollowing(isFollowing);
                 }
             }

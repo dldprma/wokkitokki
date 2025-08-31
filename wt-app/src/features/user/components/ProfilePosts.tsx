@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAppSelector } from "../../../store/hooks";
+import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { usePost } from "../../post/hooks/usePost";
 import type { Post } from "../../post/type/postTypes";
 import ProfileImage from "./ProfileImage";
@@ -19,6 +19,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   profileReplies: propProfileReplies,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [currentPage, setCurrentPage] = useState(0);
 
@@ -71,12 +72,17 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
 
   // 게시글 상세보기로 이동
   const handlePostClick = (postId: number) => {
-    navigate(`/post/${postId}`);
+    navigate(`/post/${postId}`, { state: { from: `/${username}` } });
   };
 
   // 사용자 프로필로 이동
   const handleUserClick = (username: string) => {
     navigate(`/${username}`);
+  };
+
+  // 댓글 상세보기로 이동
+  const handleCommentClick = (commentId: number) => {
+    navigate(`/comment/${commentId}`);
   };
 
   // 탭 변경 시에만 데이터 로드 (무한 루프 방지)
@@ -414,7 +420,10 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                           {new Date(comment.createdAt).toLocaleDateString()}
                         </span>
                       </div>
-                      <div className="bg-blue-50 p-3 rounded-lg">
+                      <div
+                        className="bg-blue-50 p-3 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors"
+                        onClick={() => handleCommentClick(comment.id)}
+                      >
                         <p className="text-gray-800 mb-2">{comment.content}</p>
                         {comment.imageUrl && (
                           <div className="mb-2">
@@ -425,11 +434,6 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                             />
                           </div>
                         )}
-                        <div className="flex items-center space-x-4 text-sm text-gray-500">
-                          <span>♥ {comment.likeCount || 0}</span>
-                          <span>💬 {comment.replyCount || 0}</span>
-                          <span>🔄 {comment.repostCount || 0}</span>
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -578,12 +582,6 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
     } catch (error) {
       console.error("ProfilePosts: 리포스트 토글 실패", error);
     }
-  };
-
-  // 댓글 클릭 처리
-  const handleCommentClick = (postId: number) => {
-    // 게시글 상세보기로 이동 (댓글 탭으로)
-    navigate(`/post/${postId}`);
   };
 
   // DM 보내기 처리

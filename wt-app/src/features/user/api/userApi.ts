@@ -95,6 +95,14 @@ export const getFollowing = async (
   return response.data;
 };
 
+// 회원탈퇴 API
+export const deleteUser = async (): Promise<{ message: string }> => {
+  const response = await api.delete("/api/users/account", {
+    withCredentials: true,
+  });
+  return response.data;
+};
+
 // 포스트 관련 API는 통합된 postApi에서 import
 export {
   getProfilePosts,

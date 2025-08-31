@@ -34,12 +34,21 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/users/*").permitAll()  // 사용자 정보 조회는 공개
-                        .requestMatchers("/api/users/*/follow").authenticated()  // 팔로우 액션은 인증 필요
-                        .requestMatchers("/api/users/*/followers").permitAll()  // 팔로워 목록은 공개
-                        .requestMatchers("/api/users/*/following").permitAll()  // 팔로잉 목록은 공개
-                        .anyRequest().authenticated()  // 나머지는 JWT 토큰 필요
+                        .requestMatchers("/api/auth/**").permitAll()  // 인증 관련은 완전 공개
+                        // 조회 전용 API들은 공개 (JWT 있으면 추가 정보 제공)
+                        .requestMatchers("/api/users/*").permitAll() 
+                        .requestMatchers("/api/users/*/posts").permitAll()
+                        .requestMatchers("/api/users/*/images").permitAll()
+                        .requestMatchers("/api/users/*/followers").permitAll()
+                        .requestMatchers("/api/users/*/following").permitAll()
+                        .requestMatchers("/api/users/*/commented-posts").permitAll()
+                        .requestMatchers("/api/posts").permitAll()
+                        .requestMatchers("/api/posts/*").permitAll()
+                        .requestMatchers("/api/posts/*/comments").permitAll()
+                        .requestMatchers("/api/comments/*").permitAll()
+                        .requestMatchers("/api/comments/*/replies").permitAll()
+                        // 액션이 필요한 API들은 인증 필수
+                        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)

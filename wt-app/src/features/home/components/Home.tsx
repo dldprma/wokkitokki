@@ -48,7 +48,7 @@ const Home: React.FC = () => {
 
   // 게시글 상세보기로 이동
   const handlePostClick = (postId: number) => {
-    navigate(`/post/${postId}`);
+    navigate(`/post/${postId}`, { state: { from: "/" } });
   };
 
   useEffect(() => {

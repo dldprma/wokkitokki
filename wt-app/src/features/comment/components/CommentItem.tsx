@@ -28,10 +28,10 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // 댓글 상태를 로컬로 관리 (UI 즉시 반영용)
-  const [localIsLiked, setLocalIsLiked] = useState(comment.isLiked || false);
+  const [localIsLiked, setLocalIsLiked] = useState(comment.liked || false);
   const [localLikeCount, setLocalLikeCount] = useState(comment.likeCount || 0);
   const [localIsReposted, setLocalIsReposted] = useState(
-    comment.isReposted || false
+    comment.reposted || false
   );
   const [localRepostCount, setLocalRepostCount] = useState(
     comment.repostCount || 0
@@ -41,33 +41,18 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   // 댓글 상태가 변경될 때마다 로컬 상태 동기화
   useEffect(() => {
-    setLocalIsLiked(comment.isLiked || false);
+    setLocalIsLiked(comment.liked || false);
     setLocalLikeCount(comment.likeCount || 0);
-    setLocalIsReposted(comment.isReposted || false);
+    setLocalIsReposted(comment.reposted || false);
     setLocalRepostCount(comment.repostCount || 0);
-  }, [
-    comment.isLiked,
-    comment.likeCount,
-    comment.isReposted,
-    comment.repostCount,
-  ]);
+  }, [comment.liked, comment.likeCount, comment.reposted, comment.repostCount]);
 
   const handleUserClick = (username: string) => {
     navigate(`/${username}`);
   };
 
   const handleCommentClick = () => {
-    console.log("댓글 클릭됨:", comment.id);
-    console.log("현재 URL:", window.location.href);
-    console.log("이동할 URL:", `/comment/${comment.id}`);
-
-    // 페이지 이동 테스트
-    try {
-      navigate(`/comment/${comment.id}`);
-      console.log("네비게이션 성공");
-    } catch (error) {
-      console.error("네비게이션 실패:", error);
-    }
+    navigate(`/comment/${comment.id}`);
   };
 
   const handleLike = async () => {
@@ -76,7 +61,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       const result = await dispatch(toggleLike(comment.id)).unwrap();
 
       // 로컬 상태 즉시 업데이트 (UI 반응성 향상)
-      setLocalIsLiked(result.isLiked);
+      setLocalIsLiked(result.liked);
       setLocalLikeCount(result.likeCount);
     } catch (error) {
       console.error("댓글 좋아요 실패:", error);
@@ -89,7 +74,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
       const result = await dispatch(toggleRepost(comment.id)).unwrap();
 
       // 로컬 상태 즉시 업데이트 (UI 반응성 향상)
-      setLocalIsReposted(result.isReposted);
+      setLocalIsReposted(result.reposted);
       setLocalRepostCount(result.repostCount);
     } catch (error) {
       console.error("댓글 리포스트 실패:", error);
@@ -124,6 +109,12 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
   return (
     <div className="comment-item">
+      {/* 리포스트 정보 표시 */}
+      {comment.repostedBy && (
+        <div className="repost-info text-sm text-gray-500 mb-2">
+          🔄 {comment.repostedBy}님이 리포스트했습니다
+        </div>
+      )}
       {/* 댓글 헤더 */}
       <div className="comment-item-header">
         <div className="comment-item-author">
@@ -206,6 +197,20 @@ const CommentItem: React.FC<CommentItemProps> = ({
           onClick={handleCommentClick}
         >
           {comment.content}
+
+          {/* 댓글 이미지 표시 */}
+          {comment.imageUrl && (
+            <div className="mt-3">
+              <img
+                src={comment.imageUrl}
+                alt="댓글 이미지"
+                className="max-w-full max-h-64 rounded-lg object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
+              />
+            </div>
+          )}
         </div>
       )}
 

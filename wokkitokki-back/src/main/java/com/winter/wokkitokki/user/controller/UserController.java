@@ -224,4 +224,16 @@ public class UserController {
             return ResponseEntity.badRequest().build();
         }
     }
+
+    // 회원 탈퇴
+    @DeleteMapping("/withdraw")
+    public ResponseEntity<Map<String, String>> withdrawUser(Authentication auth) {
+        try {
+            Long userId = userService.getUserIdByUsername(auth.getName());
+            userService.withdrawUser(userId);
+            return ResponseEntity.ok(Map.of("message", "회원 탈퇴가 완료되었습니다."));
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+    }
 }

@@ -11,8 +11,10 @@ export interface Comment {
   likeCount: number;
   repostCount: number;
   replyCount: number;
-  isLiked: boolean;
-  isReposted: boolean;
+  liked: boolean;
+  reposted: boolean;
+  repostedBy?: string | null;
+  repostedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   replies?: Comment[];
@@ -41,8 +43,10 @@ export interface CommentResponse {
   likeCount: number;
   repostCount: number;
   replyCount: number;
-  isLiked: boolean;
-  isReposted: boolean;
+  liked: boolean;
+  reposted: boolean;
+  repostedBy?: string | null;
+  repostedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   hasMoreReplies?: boolean;
@@ -50,13 +54,13 @@ export interface CommentResponse {
 
 export interface CommentLikeResponse {
   message: string;
-  isLiked: boolean;
+  liked: boolean;
   likeCount: number;
 }
 
 export interface CommentRepostResponse {
   message: string;
-  isReposted: boolean;
+  reposted: boolean;
   repostCount: number;
 }
 

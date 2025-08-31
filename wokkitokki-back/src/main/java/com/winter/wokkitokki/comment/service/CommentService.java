@@ -92,7 +92,32 @@ public class CommentService {
                 .post(post);
 
         if (hasImage) {
-            // Image validation and upload logic...
+            try {
+                // 이미지 파일 검증
+                String originalFilename = imageFile.getOriginalFilename();
+                if (originalFilename == null) {
+                    throw new RuntimeException("파일 이름이 유효하지 않습니다.");
+                }
+
+                String fileExtension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+                if (!List.of(".jpg", ".jpeg", ".png", ".gif", ".webp").contains(fileExtension)) {
+                    throw new RuntimeException("지원되지 않는 이미지 형식입니다. (jpg, jpeg, png, gif, webp만 가능)");
+                }
+
+                // 파일 크기 검증 (5MB 제한)
+                if (imageFile.getSize() > 5 * 1024 * 1024) {
+                    throw new RuntimeException("이미지 크기는 5MB를 초과할 수 없습니다.");
+                }
+
+                // 이미지 업로드
+                String imageUrl = fileService.uploadFile(imageFile, "comments");
+                commentBuilder.imageUrl(imageUrl);
+                
+                log.info("댓글 이미지 업로드 완료: {}", imageUrl);
+            } catch (Exception e) {
+                log.error("댓글 이미지 업로드 실패", e);
+                throw new RuntimeException("이미지 업로드에 실패했습니다: " + e.getMessage());
+            }
         }
 
         if (request.getParentCommentId() != null) {
@@ -123,8 +148,73 @@ public class CommentService {
             throw new RuntimeException("댓글을 수정할 권한이 없습니다.");
         }
 
-        // Update logic...
-        comment.setContent(request.getContent());
+        // 내용 업데이트
+        boolean hasContent = request.getContent() != null && !request.getContent().trim().isEmpty();
+        boolean hasImage = imageFile != null && !imageFile.isEmpty();
+        
+        if (!hasContent && !hasImage && comment.getImageUrl() == null) {
+            throw new RuntimeException("댓글 내용 또는 이미지를 입력해주세요.");
+        }
+
+        if (request.getContent() != null && request.getContent().length() > 500) {
+            throw new RuntimeException("댓글은 500자 이내로 작성해주세요.");
+        }
+
+        // 내용 업데이트
+        if (hasContent) {
+            comment.setContent(request.getContent().trim());
+        }
+
+        // 이미지 처리
+        if (hasImage) {
+            try {
+                // 이미지 파일 검증
+                String originalFilename = imageFile.getOriginalFilename();
+                if (originalFilename == null) {
+                    throw new RuntimeException("파일 이름이 유효하지 않습니다.");
+                }
+
+                String fileExtension = originalFilename.substring(originalFilename.lastIndexOf(".")).toLowerCase();
+                if (!List.of(".jpg", ".jpeg", ".png", ".gif", ".webp").contains(fileExtension)) {
+                    throw new RuntimeException("지원되지 않는 이미지 형식입니다. (jpg, jpeg, png, gif, webp만 가능)");
+                }
+
+                // 파일 크기 검증 (5MB 제한)
+                if (imageFile.getSize() > 5 * 1024 * 1024) {
+                    throw new RuntimeException("이미지 크기는 5MB를 초과할 수 없습니다.");
+                }
+
+                // 기존 이미지 삭제 (있는 경우)
+                if (comment.getImageUrl() != null) {
+                    try {
+                        fileService.deleteFile(comment.getImageUrl());
+                    } catch (Exception e) {
+                        log.warn("기존 댓글 이미지 삭제 실패: {}", e.getMessage());
+                    }
+                }
+
+                // 새 이미지 업로드
+                String imageUrl = fileService.uploadFile(imageFile, "comments");
+                comment.setImageUrl(imageUrl);
+                
+                log.info("댓글 이미지 업데이트 완료: {}", imageUrl);
+            } catch (Exception e) {
+                log.error("댓글 이미지 업데이트 실패", e);
+                throw new RuntimeException("이미지 업로드에 실패했습니다: " + e.getMessage());
+            }
+        }
+
+        // 이미지 삭제 요청 처리 (removeImage가 true인 경우)
+        if (Boolean.TRUE.equals(request.getRemoveImage()) && comment.getImageUrl() != null) {
+            try {
+                fileService.deleteFile(comment.getImageUrl());
+                comment.setImageUrl(null);
+                log.info("댓글 이미지 삭제 완료");
+            } catch (Exception e) {
+                log.warn("댓글 이미지 삭제 실패: {}", e.getMessage());
+                comment.setImageUrl(null); // 삭제 실패해도 URL은 제거
+            }
+        }
 
         CommentEntity updatedComment = commentRepository.save(comment);
         searchIndexService.indexComment(updatedComment);
@@ -139,6 +229,16 @@ public class CommentService {
 
         if (!comment.getAuthor().getId().equals(currentUserId)) {
             throw new RuntimeException("댓글을 삭제할 권한이 없습니다.");
+        }
+
+        // 댓글에 첨부된 이미지 삭제
+        if (comment.getImageUrl() != null) {
+            try {
+                fileService.deleteFile(comment.getImageUrl());
+                log.info("댓글 삭제 시 이미지 삭제 완료: {}", comment.getImageUrl());
+            } catch (Exception e) {
+                log.warn("댓글 삭제 시 이미지 삭제 실패: {}", e.getMessage());
+            }
         }
 
         PostEntity post = comment.getPost();
@@ -265,6 +365,20 @@ public class CommentService {
             }
         }
 
+        // 리포스트 정보 확인
+        String repostedBy = null;
+        String repostedAt = null;
+        if (isReposted && currentUserId != null) {
+            UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
+            if (currentUser != null) {
+                Optional<RepostEntity> repostOpt = repostRepository.findByUserAndComment(currentUser, comment);
+                if (repostOpt.isPresent()) {
+                    repostedBy = currentUser.getUsername();
+                    repostedAt = repostOpt.get().getRepostedAt().toString();
+                }
+            }
+        }
+
         return CommentResponseDto.builder()
                 .id(comment.getId())
                 .content(comment.getContent())
@@ -282,6 +396,8 @@ public class CommentService {
                 .isReposted(isReposted)
                 .canEdit(canEdit)
                 .canDelete(canDelete)
+                .repostedBy(repostedBy)
+                .repostedAt(repostedAt)
                 .createdAt(comment.getCreatedAt().toString())
                 .updatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null)
                 .build();

@@ -43,7 +43,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/users/*/following").permitAll()
                         .requestMatchers("/api/users/*/commented-posts").permitAll()
                         .requestMatchers("/api/posts").permitAll()
-                        .requestMatchers("/api/posts/*").permitAll()
+                        .requestMatchers("/api/posts/**").permitAll()
                         .requestMatchers("/api/posts/*/comments").permitAll()
                         .requestMatchers("/api/comments/*").permitAll()
                         .requestMatchers("/api/comments/*/replies").permitAll()

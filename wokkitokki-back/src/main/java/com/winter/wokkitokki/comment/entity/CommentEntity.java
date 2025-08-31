@@ -77,6 +77,17 @@ public class CommentEntity {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    // 논리적 삭제 필드들
+    @Column(name = "is_deleted")
+    @Builder.Default
+    private Boolean deleted = false;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
+
+    @Column(name = "deleted_by")
+    private Long deletedBy;
+
     // 캐싱된 카운트 필드들 (성능 최적화) - nullable로 처리
     @Column(name = "like_count")
     private Integer likeCount;
@@ -115,5 +126,22 @@ public class CommentEntity {
     public boolean isRepostedBy(UserEntity user) {
         if (reposts == null || user == null) return false;
         return reposts.stream().anyMatch(repost -> repost.getUser().equals(user));
+    }
+
+    // 논리적 삭제 편의 메서드들
+    public boolean isDeleted() {
+        return deleted != null && deleted;
+    }
+
+    public void markAsDeleted(Long deletedByUserId) {
+        this.deleted = true;
+        this.deletedAt = LocalDateTime.now();
+        this.deletedBy = deletedByUserId;
+    }
+
+    public void restore() {
+        this.deleted = false;
+        this.deletedAt = null;
+        this.deletedBy = null;
     }
 }

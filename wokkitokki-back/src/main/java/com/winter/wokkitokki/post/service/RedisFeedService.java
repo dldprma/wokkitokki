@@ -46,11 +46,9 @@ public class RedisFeedService {
                         pageable.getOffset(), pageable.getPageSize());
 
         if (cachedKeys != null && !cachedKeys.isEmpty()) {
-            log.info("Cache Hit - UserId: {}, Size: {}", userId, cachedKeys.size());
             return buildFeedItemsFromCache(cachedKeys);
         }
 
-        log.info("Cache Miss - UserId: {}", userId);
         Map<Object, FeedItemDto> dbItems = getFeedItemsFromDB(userId, pageable);
         cacheFeedToRedis(userId, dbItems);
         return dbItems;
@@ -81,27 +79,42 @@ public class RedisFeedService {
         }
 
         // 3. 관련 댓글들 (내가 작성하거나 팔로우한 사람이 작성한 댓글)
-        // -> 이런 경우 원본 게시글을 댓글 시간으로 피드에 다시 표시
         List<FeedItemDto> relevantComments = commentRepository.findRelevantComments(userId);
         for (FeedItemDto item : relevantComments) {
             // 댓글이 달린 게시글을 댓글 시간으로 피드에 표시
-            FeedItemKey key = FeedItemKey.forOriginalPost(item.getPostId()); // postId로 표시
-            String keyStr = key.toRedisKey() + ":comment:" + item.getCommentId(); // 고유키 생성
+            FeedItemKey key = FeedItemKey.forPostWithComment(item.getPostId(), item.getCommentId(), item.getRepostUserId());
+            String keyStr = key.toRedisKey();
             
-            // 대댓글인지 일반 댓글인지에 따라 처리
-            String feedType = "REPLY".equals(item.getType()) ? "POST_WITH_REPLY" : "POST_WITH_COMMENT";
-            
-            // 댓글 시간으로 정렬되도록 하지만 타입은 POST_WITH_COMMENT 또는 POST_WITH_REPLY로 설정
+            // 댓글 시간으로 정렬되도록 하지만 타입은 POST_WITH_COMMENT로 설정
             FeedItemDto commentFeedItem = new FeedItemDto(
                 item.getPostId(), // 게시글 ID
                 item.getCommentId(), // 댓글 ID  
                 item.getSortTime(), // 댓글 시간
-                feedType, // 특별 타입
-                item.getParentCommentId(), // 대댓글인 경우 상위 댓글 ID
-                item.getRepostUsername(),  // 댓글 작성자 이름
-                true  // 댓글 여부
+                "POST_WITH_COMMENT", // 특별 타입
+                item.getRepostUserId(), // 댓글 작성자 ID
+                null  // repostUsername
             );
             feedItemMap.put(keyStr, commentFeedItem);
+        }
+        
+        // 3-1. 내가 쓴 게시글에 내가 단 댓글들 (중복 제거를 위해 별도 처리)
+        List<FeedItemDto> myCommentsOnMyPosts = commentRepository.findMyCommentsOnMyPosts(userId);
+        for (FeedItemDto item : myCommentsOnMyPosts) {
+            FeedItemKey key = FeedItemKey.forPostWithComment(item.getPostId(), item.getCommentId(), item.getRepostUserId());
+            String keyStr = key.toRedisKey();
+            
+            // 이미 존재하지 않는 경우에만 추가 (중복 방지)
+            if (!feedItemMap.containsKey(keyStr)) {
+                FeedItemDto commentFeedItem = new FeedItemDto(
+                    item.getPostId(), // 게시글 ID
+                    item.getCommentId(), // 댓글 ID  
+                    item.getSortTime(), // 댓글 시간
+                    "POST_WITH_COMMENT", // 특별 타입
+                    item.getRepostUserId(), // 댓글 작성자 ID
+                    null  // repostUsername
+                );
+                feedItemMap.put(keyStr, commentFeedItem);
+            }
         }
 
         // 4. 관련 댓글 리포스트들
@@ -117,7 +130,7 @@ public class RedisFeedService {
         }
 
         // 5. 시간순 정렬 및 페이징
-        List<FeedItemDto> sortedItems = feedItemMap.values()
+        List<FeedItemDto> sortedItems = feedItemMap.values() 
                 .stream()
                 .sorted((a, b) -> b.getSortTime().compareTo(a.getSortTime()))
                 .collect(Collectors.toList());
@@ -134,7 +147,7 @@ public class RedisFeedService {
                 if (post != null) {
                     result.put(post, item);
                 }
-            } else if ("POST_WITH_COMMENT".equals(item.getType()) || "POST_WITH_REPLY".equals(item.getType())) {
+            } else if ("POST_WITH_COMMENT".equals(item.getType())) {
                 // 댓글이 달린 게시글 + 해당 댓글을 그룹화해서 리턴
                 PostEntity post = postRepository.findById(item.getPostId()).orElse(null);
                 if (post != null) {
@@ -151,6 +164,46 @@ public class RedisFeedService {
         return result;
     }
 
+    // 특정 사용자의 전체 피드 개수 조회
+    public long getTotalFeedCount(Long userId) {
+        String cacheKey = FEED_KEY_PREFIX + userId;
+        
+        // Redis에 캐시된 피드가 있으면 그 개수를 반환
+        Long cachedCount = redisTemplate.opsForZSet().zCard(cacheKey);
+        if (cachedCount != null && cachedCount > 0) {
+            return cachedCount;
+        }
+        
+        // Redis에 캐시가 없으면 DB에서 전체 개수 조회
+        return getTotalFeedCountFromDB(userId);
+    }
+    
+    // DB에서 전체 피드 개수 조회
+    private long getTotalFeedCountFromDB(Long userId) {
+        try {
+            // 1. 원본 게시글 개수
+            long originalPostCount = postRepository.countOriginalPosts(userId);
+            
+            // 2. 리포스트된 게시글 개수 (중복 제거)
+            long repostedPostCount = postRepository.countRepostedPosts(userId);
+            
+            // 3. 관련 댓글 개수
+            long relevantCommentCount = commentRepository.countRelevantComments(userId);
+            
+            // 3-1. 내가 쓴 게시글에 내가 단 댓글 개수 (중복 방지)
+            long myCommentsOnMyPostsCount = commentRepository.countMyCommentsOnMyPosts(userId);
+            
+            // 4. 관련 댓글 리포스트 개수 (중복 제거)
+            long relevantCommentRepostCount = commentRepository.countRelevantCommentReposts(userId);
+            
+            return originalPostCount + repostedPostCount + relevantCommentCount + myCommentsOnMyPostsCount + relevantCommentRepostCount;
+        } catch (Exception e) {
+            log.warn("Failed to get total feed count from DB for user: {}", userId, e);
+            // 실패 시 기본값 반환 (무한스크롤이 계속 동작하도록)
+            return 1000;
+        }
+    }
+
     // 캐시에서 피드 아이템 구성
     private Map<Object, FeedItemDto> buildFeedItemsFromCache(Set<Object> redisKeys) {
         Map<Object, FeedItemDto> result = new LinkedHashMap<>();
@@ -160,13 +213,27 @@ public class RedisFeedService {
             try {
                 FeedItemKey feedKey = FeedItemKey.fromRedisKey(keyStr);
                 
-                if ("POST".equals(feedKey.getType()) || "REPOST".equals(feedKey.getType())) {
+                if ("POST_WITH_COMMENT".equals(feedKey.getType())) {
+                    PostEntity post = postRepository.findById(feedKey.getContentId()).orElse(null);
+                    if (post != null) {
+                        // commentId는 feedKey에 포함되어 있음
+                        FeedItemDto feedItem = new FeedItemDto(
+                            feedKey.getContentId(), // postId
+                            feedKey.getCommentId(), // commentId
+                            null, // sortTime은 나중에 integration에서 설정
+                            feedKey.getType(),
+                            feedKey.getRepostUserId(), // commentAuthorId
+                            null // repostUsername은 나중에 조회
+                        );
+                        result.put(post, feedItem);
+                    }
+                } else if ("POST".equals(feedKey.getType()) || "REPOST".equals(feedKey.getType())) {
                     PostEntity post = postRepository.findById(feedKey.getContentId()).orElse(null);
                     if (post != null) {
                         FeedItemDto feedItem = new FeedItemDto(
                             feedKey.getContentId(),
                             null, // commentId는 null
-                            post.getCreatedAt(), // 임시로 원본 시간 사용
+                            null, // sortTime은 나중에 integration에서 설정
                             feedKey.getType(),
                             feedKey.getRepostUserId(),
                             null // repostUsername은 나중에 조회
@@ -177,9 +244,9 @@ public class RedisFeedService {
                     CommentEntity comment = commentRepository.findById(feedKey.getContentId()).orElse(null);
                     if (comment != null) {
                         FeedItemDto feedItem = new FeedItemDto(
-                            feedKey.getContentId(),
                             comment.getPost().getId(),
-                            comment.getCreatedAt(),
+                            feedKey.getContentId(),
+                            null, // sortTime은 나중에 integration에서 설정
                             feedKey.getType(),
                             feedKey.getRepostUserId(),
                             null
@@ -199,12 +266,14 @@ public class RedisFeedService {
     private void cacheFeedToRedis(Long userId, Map<Object, FeedItemDto> feedItems) {
         String cacheKey = FEED_KEY_PREFIX + userId;
 
-        long score = System.currentTimeMillis();
         for (Map.Entry<Object, FeedItemDto> entry : feedItems.entrySet()) {
             FeedItemDto item = entry.getValue();
             String redisKey;
+            double score = calculateScore(item.getSortTime());
             
-            if ("POST".equals(item.getType())) {
+            if ("POST_WITH_COMMENT".equals(item.getType())) {
+                redisKey = FeedItemKey.forPostWithComment(item.getPostId(), item.getCommentId(), item.getRepostUserId()).toRedisKey();
+            } else if ("POST".equals(item.getType())) {
                 redisKey = FeedItemKey.forOriginalPost(item.getPostId()).toRedisKey();
             } else if ("REPOST".equals(item.getType())) {
                 redisKey = FeedItemKey.forRepost(item.getPostId(), item.getRepostUserId()).toRedisKey();
@@ -216,7 +285,7 @@ public class RedisFeedService {
                 continue;
             }
             
-            redisTemplate.opsForZSet().add(cacheKey, redisKey, score--);
+            redisTemplate.opsForZSet().add(cacheKey, redisKey, score);
         }
 
         redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
@@ -226,6 +295,7 @@ public class RedisFeedService {
     @Async
     public void addPostToFollowerFeeds(Long postId, Long authorId, LocalDateTime createdAt) {
         List<Long> followerIds = getFollowerIds(authorId);
+        followerIds.add(authorId); // 작성자 본인 피드에도 추가
         double score = calculateScore(createdAt);
         String redisKey = FeedItemKey.forOriginalPost(postId).toRedisKey();
 
@@ -235,43 +305,19 @@ public class RedisFeedService {
             redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
             redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
         }
-
-        // 작성자 본인 피드에도 추가
-        String authorCacheKey = FEED_KEY_PREFIX + authorId;
-        redisTemplate.opsForZSet().add(authorCacheKey, redisKey, score);
-        redisTemplate.opsForZSet().removeRange(authorCacheKey, 0, -FEED_CACHE_SIZE - 1);
-        redisTemplate.expire(authorCacheKey, Duration.ofSeconds(FEED_TTL));
-
-        log.info("게시글 추가 - PostId: {}, AuthorId: {}", postId, authorId);
     }
 
     // 댓글 작성 시 팔로워 피드에 추가
     @Async
     public void addCommentToFollowerFeeds(Long commentId, Long authorId, LocalDateTime createdAt) {
-        List<Long> followerIds = getFollowerIds(authorId);
-        double score = calculateScore(createdAt);
-        String redisKey = FeedItemKey.forOriginalComment(commentId).toRedisKey();
-
-        for (Long followerId : followerIds) {
-            String cacheKey = FEED_KEY_PREFIX + followerId;
-            redisTemplate.opsForZSet().add(cacheKey, redisKey, score);
-            redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
-            redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
-        }
-
-        // 작성자 본인 피드에도 추가
-        String authorCacheKey = FEED_KEY_PREFIX + authorId;
-        redisTemplate.opsForZSet().add(authorCacheKey, redisKey, score);
-        redisTemplate.opsForZSet().removeRange(authorCacheKey, 0, -FEED_CACHE_SIZE - 1);
-        redisTemplate.expire(authorCacheKey, Duration.ofSeconds(FEED_TTL));
-
-        log.info("댓글 추가 - CommentId: {}, AuthorId: {}", commentId, authorId);
+        // 이 메소드는 이제 직접 사용되지 않고, addPostWithCommentToFollowerFeeds로 대체됨
     }
 
     // 게시글 리포스트 시 팔로워 피드에 추가
     @Async
     public void addPostRepostToFollowerFeeds(Long postId, Long userId, LocalDateTime repostedAt) {
         List<Long> followerIds = getFollowerIds(userId);
+        followerIds.add(userId);
         double score = calculateScore(repostedAt);
         String redisKey = FeedItemKey.forRepost(postId, userId).toRedisKey();
 
@@ -281,20 +327,13 @@ public class RedisFeedService {
             redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
             redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
         }
-
-        // 본인 피드에도 추가
-        String userCacheKey = FEED_KEY_PREFIX + userId;
-        redisTemplate.opsForZSet().add(userCacheKey, redisKey, score);
-        redisTemplate.opsForZSet().removeRange(userCacheKey, 0, -FEED_CACHE_SIZE - 1);
-        redisTemplate.expire(userCacheKey, Duration.ofSeconds(FEED_TTL));
-
-        log.info("게시글 리포스트 추가 - PostId: {}, UserId: {}", postId, userId);
     }
 
     // 댓글 리포스트 시 팔로워 피드에 추가
     @Async
     public void addCommentRepostToFollowerFeeds(Long commentId, Long userId, LocalDateTime repostedAt) {
         List<Long> followerIds = getFollowerIds(userId);
+        followerIds.add(userId);
         double score = calculateScore(repostedAt);
         String redisKey = FeedItemKey.forCommentRepost(commentId, userId).toRedisKey();
 
@@ -304,73 +343,45 @@ public class RedisFeedService {
             redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
             redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
         }
-
-        // 본인 피드에도 추가
-        String userCacheKey = FEED_KEY_PREFIX + userId;
-        redisTemplate.opsForZSet().add(userCacheKey, redisKey, score);
-        redisTemplate.opsForZSet().removeRange(userCacheKey, 0, -FEED_CACHE_SIZE - 1);
-        redisTemplate.expire(userCacheKey, Duration.ofSeconds(FEED_TTL));
-
-        log.info("댓글 리포스트 추가 - CommentId: {}, UserId: {}", commentId, userId);
     }
 
     // 게시글 리포스트 제거
     @Async
     public void removePostRepostFromFollowerFeeds(Long postId, Long userId) {
         List<Long> followerIds = getFollowerIds(userId);
+        followerIds.add(userId);
         String redisKey = FeedItemKey.forRepost(postId, userId).toRedisKey();
 
         for (Long followerId : followerIds) {
             String cacheKey = FEED_KEY_PREFIX + followerId;
             redisTemplate.opsForZSet().remove(cacheKey, redisKey);
         }
-
-        // 본인 피드에서도 제거
-        String userCacheKey = FEED_KEY_PREFIX + userId;
-        redisTemplate.opsForZSet().remove(userCacheKey, redisKey);
-
-        log.info("게시글 리포스트 제거 - PostId: {}, UserId: {}", postId, userId);
     }
 
     // 댓글 리포스트 제거
     @Async
     public void removeCommentRepostFromFollowerFeeds(Long commentId, Long userId) {
         List<Long> followerIds = getFollowerIds(userId);
+        followerIds.add(userId);
         String redisKey = FeedItemKey.forCommentRepost(commentId, userId).toRedisKey();
 
         for (Long followerId : followerIds) {
             String cacheKey = FEED_KEY_PREFIX + followerId;
             redisTemplate.opsForZSet().remove(cacheKey, redisKey);
         }
-
-        // 본인 피드에서도 제거
-        String userCacheKey = FEED_KEY_PREFIX + userId;
-        redisTemplate.opsForZSet().remove(userCacheKey, redisKey);
-
-        log.info("댓글 리포스트 제거 - CommentId: {}, UserId: {}", commentId, userId);
     }
 
     // 게시글 삭제 시 작성자와 팔로워들의 피드에서 관련 항목 제거
     @Async
     public void removePostFromAllFeeds(Long postId, Long authorId) {
-        // 1. 작성자의 팔로워들 조회
         List<Long> followerIds = getFollowerIds(authorId);
         List<Long> allAffectedUsers = new ArrayList<>(followerIds);
-        allAffectedUsers.add(authorId); // 작성자도 포함
+        allAffectedUsers.add(authorId);
         
         for (Long userId : allAffectedUsers) {
             String cacheKey = FEED_KEY_PREFIX + userId;
-            
-            // 원본 게시글 제거
-            String originalKey = FeedItemKey.forOriginalPost(postId).toRedisKey();
-            redisTemplate.opsForZSet().remove(cacheKey, originalKey);
-            
-            // 해당 게시글과 관련된 모든 키 패턴으로 제거
-            // postId:*:* 형태의 모든 키 제거 (리포스트, 댓글 등)
             removePostRelatedKeys(cacheKey, postId);
         }
-
-        log.info("게시글 관련 항목 제거 완료 - PostId: {}, 영향받은 사용자 수: {}", postId, allAffectedUsers.size());
     }
     
     // 댓글 삭제 시 관련 항목 제거
@@ -382,76 +393,66 @@ public class RedisFeedService {
         
         for (Long userId : allAffectedUsers) {
             String cacheKey = FEED_KEY_PREFIX + userId;
-            
-            // 댓글 관련 모든 키 제거
             removeCommentRelatedKeys(cacheKey, commentId);
         }
-
-        log.info("댓글 관련 항목 제거 완료 - CommentId: {}, 영향받은 사용자 수: {}", commentId, allAffectedUsers.size());
     }
     
-    // Redis에서 특정 게시글과 관련된 모든 키 제거
     private void removePostRelatedKeys(String cacheKey, Long postId) {
-        try {
-            Set<Object> allMembers = redisTemplate.opsForZSet().range(cacheKey, 0, -1);
-            if (allMembers != null) {
-                List<Object> keysToRemove = allMembers.stream()
-                    .filter(key -> key.toString().startsWith(postId + ":"))
-                    .collect(Collectors.toList());
-                
-                if (!keysToRemove.isEmpty()) {
-                    redisTemplate.opsForZSet().remove(cacheKey, keysToRemove.toArray());
-                }
+        Set<Object> allMembers = redisTemplate.opsForZSet().range(cacheKey, 0, -1);
+        if (allMembers != null) {
+            List<Object> keysToRemove = allMembers.stream()
+                .filter(key -> {
+                    try {
+                        return FeedItemKey.fromRedisKey(key.toString()).getContentId().equals(postId);
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+            
+            if (!keysToRemove.isEmpty()) {
+                redisTemplate.opsForZSet().remove(cacheKey, keysToRemove.toArray());
             }
-        } catch (Exception e) {
-            log.warn("Failed to remove post related keys for postId: {}", postId, e);
         }
     }
     
-    // Redis에서 특정 댓글과 관련된 모든 키 제거  
     private void removeCommentRelatedKeys(String cacheKey, Long commentId) {
-        try {
-            Set<Object> allMembers = redisTemplate.opsForZSet().range(cacheKey, 0, -1);
-            if (allMembers != null) {
-                List<Object> keysToRemove = allMembers.stream()
-                    .filter(key -> {
-                        String keyStr = key.toString();
-                        // commentId로 시작하는 키들과 :comment:commentId를 포함하는 키들 제거
-                        return keyStr.startsWith(commentId + ":") || keyStr.contains(":comment:" + commentId);
-                    })
-                    .collect(Collectors.toList());
-                
-                if (!keysToRemove.isEmpty()) {
-                    redisTemplate.opsForZSet().remove(cacheKey, keysToRemove.toArray());
-                }
+        Set<Object> allMembers = redisTemplate.opsForZSet().range(cacheKey, 0, -1);
+        if (allMembers != null) {
+            List<Object> keysToRemove = allMembers.stream()
+                .filter(key -> {
+                    try {
+                        FeedItemKey feedKey = FeedItemKey.fromRedisKey(key.toString());
+                        return (feedKey.getCommentId() != null && feedKey.getCommentId().equals(commentId)) ||
+                               (feedKey.getContentId().equals(commentId) && !"POST".equals(feedKey.getType()) && !"REPOST".equals(feedKey.getType()));
+                    } catch (Exception e) {
+                        return false;
+                    }
+                })
+                .collect(Collectors.toList());
+            
+            if (!keysToRemove.isEmpty()) {
+                redisTemplate.opsForZSet().remove(cacheKey, keysToRemove.toArray());
             }
-        } catch (Exception e) {
-            log.warn("Failed to remove comment related keys for commentId: {}", commentId, e);
         }
     }
 
     public void invalidateFeedCache(Long userId) {
         String cacheKey = FEED_KEY_PREFIX + userId;
         redisTemplate.delete(cacheKey);
-        log.info("Feed cache invalidated - UserId: {}", userId);
     }
 
     private List<Long> getFollowerIds(Long userId) {
         return followRepository.findFollowerIdsByFollowingId(userId);
     }
 
-    /**
-     * 댓글이 달린 게시글을 댓글 시간으로 피드에 다시 푸시
-     * Twitter/Threads 방식: 댓글 달리면 원본 게시글이 상단으로 올라옴
-     */
     @Async
     public void addPostWithCommentToFollowerFeeds(Long postId, Long commentAuthorId, 
                                                 LocalDateTime commentTime, Long commentId) {
         List<Long> followerIds = getFollowerIds(commentAuthorId);
-        followerIds.add(commentAuthorId); // 댓글 작성자 자신의 피드에도 추가
+        followerIds.add(commentAuthorId);
         
         double score = calculateScore(commentTime);
-        // POST_WITH_COMMENT 타입으로 저장 (게시글 + 관련 댓글 정보)
         String redisKey = FeedItemKey.forPostWithComment(postId, commentId, commentAuthorId).toRedisKey();
 
         for (Long followerId : followerIds) {
@@ -460,5 +461,76 @@ public class RedisFeedService {
             redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
             redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
         }
+    }
+    
+    @Async
+    public void addPostWithCommentToUserFeed(Long postId, Long commentAuthorId, 
+                                           LocalDateTime commentTime, Long commentId, Long targetUserId) {
+        double score = calculateScore(commentTime);
+        String redisKey = FeedItemKey.forPostWithComment(postId, commentId, commentAuthorId).toRedisKey();
+        
+        String cacheKey = FEED_KEY_PREFIX + targetUserId;
+        redisTemplate.opsForZSet().add(cacheKey, redisKey, score);
+        redisTemplate.opsForZSet().removeRange(cacheKey, 0, -FEED_CACHE_SIZE - 1);
+        redisTemplate.expire(cacheKey, Duration.ofSeconds(FEED_TTL));
+        
+        log.debug("Added post with comment to user feed: postId={}, commentId={}, userId={}", 
+                  postId, commentId, targetUserId);
+    }
+    
+    // === 회원 탈퇴 관련 피드 정리 메서드 ===
+    
+    public void deleteFeedCache(Long userId) {
+        String cacheKey = FEED_KEY_PREFIX + userId;
+        redisTemplate.delete(cacheKey);
+        log.debug("Deleted feed cache for user: {}", userId);
+    }
+    
+    public void removeUserContentFromAllFeeds(Long userId) {
+        // Redis에서 모든 피드 키 패턴을 가져와서 해당 사용자의 컨텐츠를 제거
+        Set<String> feedKeys = redisTemplate.keys(FEED_KEY_PREFIX + "*");
+        
+        if (feedKeys != null && !feedKeys.isEmpty()) {
+            for (String feedKey : feedKeys) {
+                removeUserContentFromFeed(feedKey, userId);
+            }
+        }
+        
+        log.debug("Removed user content from all feeds for user: {}", userId);
+    }
+    
+    private void removeUserContentFromFeed(String feedKey, Long userId) {
+        Set<Object> allKeys = redisTemplate.opsForZSet().range(feedKey, 0, -1);
+        
+        if (allKeys != null && !allKeys.isEmpty()) {
+            List<Object> keysToRemove = allKeys.stream()
+                    .filter(key -> {
+                        try {
+                            FeedItemKey feedItemKey = FeedItemKey.fromRedisKey(key.toString());
+                            // 해당 사용자가 작성한 게시글, 댓글, 리포스트인지 확인
+                            return userId.equals(feedItemKey.getUserId());
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    })
+                    .collect(Collectors.toList());
+            
+            if (!keysToRemove.isEmpty()) {
+                redisTemplate.opsForZSet().remove(feedKey, keysToRemove.toArray());
+                log.debug("Removed {} items from feed: {}", keysToRemove.size(), feedKey);
+            }
+        }
+    }
+    
+    public void invalidateFollowerFeedCaches(Long userId) {
+        // 해당 사용자의 팔로워들 목록을 가져와서 피드 캐시 무효화
+        List<Long> followerIds = getFollowerIds(userId);
+        
+        for (Long followerId : followerIds) {
+            String cacheKey = FEED_KEY_PREFIX + followerId;
+            redisTemplate.delete(cacheKey);
+        }
+        
+        log.debug("Invalidated feed caches for {} followers of user: {}", followerIds.size(), userId);
     }
 }

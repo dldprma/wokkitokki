@@ -303,10 +303,17 @@ public class PostService {
         // 한번의 쿼리로 모든 좋아요/리포스트 상태 조회
         final Set<Long> likedPostIds;
         final Set<Long> repostedPostIds;
+        final Map<Long, RepostEntity> repostInfoMap = new HashMap<>();
 
         if (currentUser != null) {
             likedPostIds = new HashSet<>(likeRepository.findLikedPostIdsByUserAndPostIds(currentUser.getId(), postIds));
             repostedPostIds = new HashSet<>(repostRepository.findRepostedPostIdsByUserAndPostIds(currentUser.getId(), postIds));
+            
+            // 리포스트 상세 정보 조회
+            List<RepostEntity> reposts = repostRepository.findRepostsByUserAndPostIds(currentUser.getId(), postIds);
+            for (RepostEntity repost : reposts) {
+                repostInfoMap.put(repost.getPost().getId(), repost);
+            }
         } else {
             likedPostIds = Collections.emptySet();
             repostedPostIds = Collections.emptySet();
@@ -331,6 +338,13 @@ public class PostService {
             if (finalCurrentUser != null) {
                 dto.setLiked(likedPostIds.contains(post.getId()));
                 dto.setReposted(repostedPostIds.contains(post.getId()));
+
+                // 리포스트 정보 설정
+                RepostEntity repostInfo = repostInfoMap.get(post.getId());
+                if (repostInfo != null) {
+                    dto.setRepostedBy(repostInfo.getUser().getUsername());
+                    dto.setRepostedAt(repostInfo.getRepostedAt().toString());
+                }
 
                 boolean isOwner = post.getUser().getId().equals(finalCurrentUser.getId());
                 dto.setCanEdit(isOwner && !post.isDeleted());

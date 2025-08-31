@@ -38,11 +38,16 @@ public class RedisFeedIntegration {
      */
     public Page<Object> getFeedItems(Long userId, Pageable pageable) {
         try {
+            // 먼저 전체 피드 개수를 조회
+            long totalElements = redisFeedService.getTotalFeedCount(userId);
+            
             Map<Object, FeedItemDto> itemsWithMetadata = redisFeedService.getFeedItemsWithMetadata(userId, pageable);
             UserEntity currentUser = userRepository.findById(userId).orElse(null);
 
             List<Object> feedItems = convertToResponseObjects(itemsWithMetadata, currentUser);
-            return new PageImpl<>(feedItems, pageable, feedItems.size());
+
+
+            return new PageImpl<>(feedItems, pageable, totalElements);
         } catch (Exception e) {
             log.error("Failed to get feed items from Redis for user: {}", userId, e);
             throw new RuntimeException("피드 조회에 실패했습니다.", e);
@@ -173,6 +178,21 @@ public class RedisFeedIntegration {
         boolean isReposted = currentUser != null && comment.isRepostedBy(currentUser);
         boolean isOwner = currentUser != null && comment.getAuthor().getId().equals(currentUser.getId());
 
+        // 리포스트 정보 확인
+        String repostedBy = null;
+        String repostedAt = null;
+        if (isReposted && currentUser != null) {
+            // FeedItem에서 리포스트 정보 가져오기
+            if (feedItem != null && feedItem.getRepostUserId() != null) {
+                UserEntity repostUser = userRepository.findById(feedItem.getRepostUserId()).orElse(null);
+                if (repostUser != null) {
+                    repostedBy = repostUser.getUsername();
+                    // FeedItem의 sortTime을 리포스트 시간으로 사용
+                    repostedAt = feedItem.getSortTime().toString();
+                }
+            }
+        }
+
         CommentResponseDto dto = CommentResponseDto.builder()
                 .id(comment.getId())
                 .content(comment.getContent())
@@ -190,6 +210,8 @@ public class RedisFeedIntegration {
                 .isReposted(isReposted)
                 .canEdit(isOwner)
                 .canDelete(isOwner)
+                .repostedBy(repostedBy)
+                .repostedAt(repostedAt)
                 .createdAt(comment.getCreatedAt().toString())
                 .updatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null)
                 .build();
@@ -226,10 +248,14 @@ public class RedisFeedIntegration {
             }
         }
         
-        // 활동 요약 생성
+        // 활동 요약 및 최신 활동 시간 생성
         String activitySummary = "";
+        String lastActivityAt = post.getCreatedAt().toString(); // 기본값은 게시글 생성시간
+
         if (!relevantComments.isEmpty()) {
             CommentResponseDto targetComment = relevantComments.get(relevantComments.size() - 1); // 마지막 댓글(실제 활동한 댓글)
+            lastActivityAt = targetComment.getCreatedAt(); // 최신 활동 시간은 댓글 생성시간으로 업데이트
+
             if (currentUser != null && targetComment.getAuthorId().equals(currentUser.getId())) {
                 if ("POST_WITH_REPLY".equals(feedItem.getType())) {
                     activitySummary = "내가 대댓글을 남겼습니다";
@@ -245,13 +271,16 @@ public class RedisFeedIntegration {
             }
         }
         
-        return PostWithCommentsDto.builder()
+        PostWithCommentsDto resultDto = PostWithCommentsDto.builder()
                 .post(postDto)
                 .relevantComments(relevantComments)
                 .feedType("POST_WITH_COMMENTS")
-                .lastActivityAt(feedItem.getSortTime().toString())
+                .lastActivityAt(lastActivityAt)
                 .activitySummary(activitySummary)
                 .build();
+
+
+        return resultDto;
     }
 
     // === 게시글 관련 이벤트 핸들러 ===
@@ -298,18 +327,28 @@ public class RedisFeedIntegration {
     
     public void handleCommentCreated(CommentEntity comment) {
         try {
-            // 댓글이 달린 원본 게시글을 댓글 시간으로 피드에 다시 푸시
-            // 단, 댓글 작성자나 팔로워들의 피드에만 나타남
             PostEntity originalPost = comment.getPost();
             Long commentAuthorId = comment.getAuthor().getId();
+            Long postAuthorId = originalPost.getUser().getId();
             
-            // 원본 게시글을 댓글 시간으로 피드 상단에 올림 (댓글 정보와 함께)
+            // 1. 댓글 작성자의 팔로워들에게 알림 (기존 로직)
             redisFeedService.addPostWithCommentToFollowerFeeds(
                     originalPost.getId(),
                     commentAuthorId,
                     comment.getCreatedAt(),
-                    comment.getId()  // 관련 댓글 ID
+                    comment.getId()
             );
+            
+            // 2. 게시글 작성자의 피드에도 추가 (댓글 작성자와 다른 경우만)
+            if (!commentAuthorId.equals(postAuthorId)) {
+                redisFeedService.addPostWithCommentToUserFeed(
+                        originalPost.getId(),
+                        commentAuthorId,
+                        comment.getCreatedAt(),
+                        comment.getId(),
+                        postAuthorId  // 게시글 작성자의 피드에 추가
+                );
+            }
             
             log.debug("Redis feed updated for post {} with new comment: {}", originalPost.getId(), comment.getId());
         } catch (Exception e) {
@@ -350,6 +389,23 @@ public class RedisFeedIntegration {
             log.debug("Redis feed cache invalidated for user: {}", userId);
         } catch (Exception e) {
             log.error("Failed to invalidate Redis feed cache for user: {}", userId, e);
+        }
+    }
+    
+    public void handleUserDeleted(Long userId) {
+        try {
+            // 1. 해당 사용자의 피드 캐시 완전 삭제
+            redisFeedService.deleteFeedCache(userId);
+            
+            // 2. 해당 사용자가 작성한 모든 게시글과 댓글을 다른 사용자들의 피드에서 제거
+            redisFeedService.removeUserContentFromAllFeeds(userId);
+            
+            // 3. 해당 사용자의 팔로워들의 피드 캐시 무효화 (재구성 필요)
+            redisFeedService.invalidateFollowerFeedCaches(userId);
+            
+            log.info("Redis feed cleanup completed for deleted user: {}", userId);
+        } catch (Exception e) {
+            log.error("Failed to cleanup Redis feed data for deleted user: {}", userId, e);
         }
     }
 }

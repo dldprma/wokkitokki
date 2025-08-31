@@ -110,6 +110,8 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     if (!post) return;
 
     try {
+      console.log("리포스트 시작 - 현재 post 상태:", post);
+
       const result = await dispatch(
         togglePostRepostFromDetail({
           postId: post.id,
@@ -117,16 +119,23 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
         })
       ).unwrap();
 
+      console.log("리포스트 결과:", result);
+
       // 로컬 상태도 업데이트
-      setPost((prev) =>
-        prev
+      setPost((prev) => {
+        const updatedPost = prev
           ? {
               ...prev,
               reposted: result.isReposted,
               repostCount: result.repostCount,
+              // 리포스트된 경우 현재 사용자명을 repostedBy에 설정
+              repostedBy: result.isReposted ? user?.username : null,
             }
-          : null
-      );
+          : null;
+
+        console.log("업데이트된 post 상태:", updatedPost);
+        return updatedPost;
+      });
     } catch (error) {
       console.error("리포스트 처리 중 오류 발생:", error);
     }

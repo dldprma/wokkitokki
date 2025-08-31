@@ -65,4 +65,17 @@ public interface PostRepository extends JpaRepository<PostEntity, Long> {
 
     @Query("SELECT COUNT(r) FROM RepostEntity r WHERE r.user.id = :userId")
     Long countUserReposts(@Param("userId") Long userId);
+
+    // 피드용 카운트 쿼리들
+    @Query("SELECT COUNT(p) FROM PostEntity p " +
+           "WHERE (p.user.id = :userId " +
+           "OR p.user.id IN (SELECT f.following.id FROM FollowEntity f WHERE f.follower.id = :userId)) " +
+           "AND p.originalPost IS NULL AND p.deleted = false")
+    long countOriginalPosts(@Param("userId") Long userId);
+
+    @Query("SELECT COUNT(DISTINCT r.post.id) FROM RepostEntity r " +
+           "WHERE (r.user.id = :userId " +
+           "OR r.user.id IN (SELECT f.following.id FROM FollowEntity f WHERE f.follower.id = :userId)) " +
+           "AND r.post.deleted = false")
+    long countRepostedPosts(@Param("userId") Long userId);
 }

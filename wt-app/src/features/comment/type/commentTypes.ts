@@ -17,6 +17,7 @@ export interface Comment {
   repostedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  deleted?: boolean; // soft delete 플래그
   replies?: Comment[];
   hasMoreReplies?: boolean;
 }
@@ -28,6 +29,7 @@ export interface CreateCommentRequest {
 
 export interface UpdateCommentRequest {
   content: string;
+  imgUrl?: File | undefined; // 게시글과 동일한 필드명 사용
 }
 
 export interface CommentResponse {
@@ -49,6 +51,7 @@ export interface CommentResponse {
   repostedAt?: string | null;
   createdAt: string;
   updatedAt: string;
+  deleted?: boolean; // soft delete 플래그
   hasMoreReplies?: boolean;
 }
 

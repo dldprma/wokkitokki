@@ -97,7 +97,7 @@ export const getFollowing = async (
 
 // 회원탈퇴 API
 export const deleteUser = async (): Promise<{ message: string }> => {
-  const response = await api.delete("/api/users/account", {
+  const response = await api.delete("/api/users/withdraw", {
     withCredentials: true,
   });
   return response.data;

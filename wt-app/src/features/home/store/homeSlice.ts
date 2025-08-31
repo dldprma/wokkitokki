@@ -200,21 +200,38 @@ const homeSlice = createSlice({
       })
       .addCase(fetchFeedPosts.fulfilled, (state, action: any) => {
         state.loading = false;
-        const normalized = action.payload.content.map(
-          (p: any) =>
-            ({
-              ...p,
-              likeCount: Math.max(0, Number(p.likeCount ?? 0)),
-              repostCount: Math.max(0, Number(p.repostCount ?? 0)),
-              commentCount: Math.max(0, Number(p.commentCount ?? 0)),
-              // 백엔드에서 받는 필드명 사용
-              liked: Boolean(p.liked ?? false),
-              reposted: Boolean(p.reposted ?? false),
-              // 리포스트 관련 필드도 명시적으로 설정
-              isRepost: Boolean(p.isRepost ?? false),
-              repostedBy: p.repostedBy || null,
-            } as any)
-        );
+
+        // 백엔드 응답 구조에 맞게 데이터 정규화
+        const normalized = action.payload.content.map((item: any) => {
+          // 디버깅: 실제 백엔드 응답 구조 확인
+          console.log("백엔드 응답 아이템:", item);
+          console.log("아이템 타입:", typeof item);
+          console.log("아이템 키들:", Object.keys(item));
+
+          // PostWithCommentsDto 구조인지 확인 (백엔드 구조와 정확히 일치)
+          if (item.post && Array.isArray(item.relevantComments)) {
+            console.log("PostWithCommentsDto 구조 발견:", item);
+            // PostWithCommentsDto 구조인 경우 - 그대로 반환
+            return item;
+          } else if (item.content && item.authorName) {
+            console.log("일반 Post 구조 발견:", item);
+            // 일반 Post 구조인 경우
+            return {
+              ...item,
+              likeCount: Math.max(0, Number(item.likeCount ?? 0)),
+              repostCount: Math.max(0, Number(item.repostCount ?? 0)),
+              commentCount: Math.max(0, Number(item.commentCount ?? 0)),
+              liked: Boolean(item.liked ?? false),
+              reposted: Boolean(item.reposted ?? false),
+              isRepost: Boolean(item.isRepost ?? false),
+              repostedBy: item.repostedBy || null,
+            } as any;
+          } else {
+            console.log("기타 구조 발견:", item);
+            // 기타 구조 (Comment 등)
+            return item;
+          }
+        });
 
         if (action.payload.number === 0) {
           // 첫 페이지인 경우 기존 데이터 교체
@@ -269,9 +286,9 @@ const homeSlice = createSlice({
       .addCase(togglePostRepost.fulfilled, (state, action) => {
         const { postId, isReposted, currentUsername } = action.payload;
 
-        // 홈 피드에서 해당 게시글 찾기
+        // 홈 피드에서 해당 게시글 찾기 (리포스트된 게시글 제외)
         let originalPost = (state as any).posts.find(
-          (p: any) => p.id === postId
+          (p: any) => p.id === postId && !p.isRepost
         );
 
         // 홈 피드에 원본 게시글이 없는 경우, 상세조회에서 리포스트한 것으로 간주
@@ -306,13 +323,14 @@ const homeSlice = createSlice({
           // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
           const repostedPost = {
             ...originalPost,
-            id: postId, // 임시 ID 대신 원본 ID 사용 (400 에러 해결)
+            id: `repost-${postId}-${currentUsername}`, // 고유한 리포스트 ID 생성
             reposted: true,
             repostCount: originalPost.repostCount, // 카운트는 원래대로 유지
             isRepost: true,
             repostedBy: currentUsername,
             repostedAt: new Date().toISOString(),
             createdAt: new Date().toISOString(),
+            originalPostId: postId, // 원본 게시글 ID 저장
             // 원래 위치 정보 저장
             originalIndex: originalPostIndex,
           };
@@ -333,7 +351,7 @@ const homeSlice = createSlice({
             (p: any) =>
               p.isRepost &&
               p.repostedBy === currentUsername &&
-              p.content === originalPost.content
+              p.originalPostId === postId
           );
 
           if (repostedPostIndex !== -1) {
@@ -387,9 +405,14 @@ const homeSlice = createSlice({
             feedPost.repostCount = Math.max(0, feedPost.repostCount - 1);
           }
         } else {
-          // 리포스트 추가 시: 원본 게시글 상태 업데이트
-          originalPost.reposted = true;
-          originalPost.repostCount = Math.max(0, originalPost.repostCount + 1);
+          // 리포스트 추가 시: 원본 게시글 상태 업데이트 (리포스트된 게시글은 제외)
+          if (!originalPost.isRepost) {
+            originalPost.reposted = true;
+            originalPost.repostCount = Math.max(
+              0,
+              originalPost.repostCount + 1
+            );
+          }
         }
       })
 
@@ -400,22 +423,53 @@ const homeSlice = createSlice({
 
         if (isReposted) {
           // 리포스트 추가 시: 게시글을 홈 피드 맨 위에 추가
-          const repostedPost = {
-            ...postData,
-            reposted: true,
-            isRepost: true,
-            repostedBy: currentUsername,
-            repostedAt: new Date().toISOString(),
-            createdAt: new Date().toISOString(),
-          };
+          // postData가 유효한지 확인하고 기본값 설정
+          if (postData && postData.content) {
+            const repostedPost = {
+              ...postData,
+              id: `repost-${postId}-${currentUsername}`, // 고유한 리포스트 ID 생성
+              reposted: true,
+              isRepost: true,
+              repostedBy: currentUsername,
+              repostedAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              originalPostId: postId, // 원본 게시글 ID 저장
+            };
 
-          // 홈 피드 맨 위에 추가
-          (state as any).posts.unshift(repostedPost);
+            // 홈 피드 맨 위에 추가
+            (state as any).posts.unshift(repostedPost);
+          } else {
+            // postData가 유효하지 않은 경우 기본 게시글 데이터로 생성
+            const repostedPost = {
+              id: `repost-${postId}-${currentUsername}`,
+              content: "리포스트된 게시글입니다",
+              authorName: "알 수 없음",
+              authorUsername: "unknown",
+              authorProfileImg: null,
+              imgUrl: null,
+              likeCount: 0,
+              repostCount: 0,
+              commentCount: 0,
+              liked: false,
+              reposted: true,
+              isRepost: true,
+              repostedBy: currentUsername,
+              repostedAt: new Date().toISOString(),
+              createdAt: new Date().toISOString(),
+              originalPostId: postId,
+            };
+
+            // 홈 피드 맨 위에 추가
+            (state as any).posts.unshift(repostedPost);
+          }
         } else {
           // 리포스트 취소 시: 해당 게시글을 홈 피드에서 제거
           (state as any).posts = (state as any).posts.filter(
             (post: any) =>
-              !(post.id === postId && post.repostedBy === currentUsername)
+              !(
+                post.originalPostId === postId &&
+                post.repostedBy === currentUsername
+              )
           );
         }
       });

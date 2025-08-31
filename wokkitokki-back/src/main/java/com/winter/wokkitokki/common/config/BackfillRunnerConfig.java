@@ -2,40 +2,42 @@ package com.winter.wokkitokki.common.config;
 
 import com.winter.wokkitokki.post.entity.PostEntity;
 import com.winter.wokkitokki.post.repository.PostRepository;
-import com.winter.wokkitokki.search.service.SearchIndexService;
-import com.winter.wokkitokki.user.entity.UserEntity;
-import com.winter.wokkitokki.user.repository.UserRepository;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import com.winter.wokkitokki.search.document.PostDocument;
+import com.winter.wokkitokki.search.repository.PostSearchRepository;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
+
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Configuration
-@ConditionalOnProperty(value = "app.es.backfill.enabled", havingValue = "true")
 public class BackfillRunnerConfig {
 
-    @Bean
-    public ApplicationRunner backfillToElasticsearch(PostRepository postRepo,
-                                                     UserRepository userRepo,
-                                                     SearchIndexService indexer) {
-        return args -> {
-            int page = 0, size = 500;
-            Page<PostEntity> posts;
-            do {
-                posts = postRepo.findAll(PageRequest.of(page, size));
-                posts.forEach(indexer::indexPost);
-                page++;
-            } while (!posts.isEmpty());
+    private final PostRepository postRepository;
+    private final PostSearchRepository postSearchRepository;
 
-            int up = 0, usize = 500;
-            Page<UserEntity> users;
-            do {
-                users = userRepo.findAll(PageRequest.of(up, usize));
-                users.forEach(indexer::indexUser);
-                up++;
-            } while (!users.isEmpty());
+    public BackfillRunnerConfig(PostRepository postRepository, PostSearchRepository postSearchRepository) {
+        this.postRepository = postRepository;
+        this.postSearchRepository = postSearchRepository;
+    }
+
+    @Bean
+    public CommandLineRunner backfill() {
+        return args -> {
+            List<PostEntity> posts = postRepository.findAll();
+            List<PostDocument> postDocuments = posts.stream()
+                    .map(this::convertToDocument)
+                    .collect(Collectors.toList());
+            postSearchRepository.saveAll(postDocuments);
         };
+    }
+
+    private PostDocument convertToDocument(PostEntity postEntity) {
+        PostDocument postDocument = new PostDocument();
+        postDocument.setId(postEntity.getId().toString());
+        postDocument.setContent(postEntity.getContent());
+        // 필요한 다른 필드들도 여기에 추가
+        return postDocument;
     }
 }

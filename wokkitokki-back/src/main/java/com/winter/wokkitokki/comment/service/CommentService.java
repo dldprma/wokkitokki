@@ -11,7 +11,7 @@ import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
 import com.winter.wokkitokki.post.service.RedisFeedIntegration;
-import com.winter.wokkitokki.search.service.SearchIndexService;
+ import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -131,7 +131,7 @@ public class CommentService {
         post.setCommentCount(post.getCommentCount() + 1);
         postRepository.save(post);
 
-        searchIndexService.indexComment(savedComment);
+         searchIndexService.indexComment(savedComment);
         redisFeedIntegration.handleCommentCreated(savedComment);
 
         return convertToResponseDto(savedComment, currentUserId);
@@ -217,13 +217,98 @@ public class CommentService {
         }
 
         CommentEntity updatedComment = commentRepository.save(comment);
-        searchIndexService.indexComment(updatedComment);
+         searchIndexService.indexComment(updatedComment);
         return convertToResponseDto(updatedComment, currentUserId);
     }
 
-    // 댓글 삭제
+    // 댓글 수정 (이미지 포함 - 멀티파트 전용)
+    @Transactional
+    public CommentResponseDto updateCommentWithImage(Long commentId, CommentUpdateRequestDto request, 
+                                                   MultipartFile imageFile, boolean removeImage, Long currentUserId) {
+        CommentEntity comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다."));
+
+        if (!comment.getAuthor().getId().equals(currentUserId)) {
+            throw new RuntimeException("댓글을 수정할 권한이 없습니다.");
+        }
+
+        // 내용 업데이트
+        if (request.getContent() != null) {
+            comment.setContent(request.getContent());
+        }
+
+        // 이미지 제거 요청 처리
+        if (removeImage && comment.getImageUrl() != null) {
+            try {
+                fileService.deleteFile(comment.getImageUrl());
+                comment.setImageUrl(null);
+                log.info("댓글 이미지 삭제 완료");
+            } catch (Exception e) {
+                log.warn("댓글 이미지 삭제 실패: {}", e.getMessage());
+                comment.setImageUrl(null); // 삭제 실패해도 URL은 제거
+            }
+        }
+
+        // 새 이미지 업로드 처리
+        if (imageFile != null && !imageFile.isEmpty()) {
+            try {
+                // 기존 이미지가 있으면 삭제
+                if (comment.getImageUrl() != null) {
+                    fileService.deleteFile(comment.getImageUrl());
+                }
+                
+                String imageUrl = fileService.uploadFile(imageFile, "comments");
+                comment.setImageUrl(imageUrl);
+                log.info("댓글 이미지 업데이트 완료: {}", imageUrl);
+            } catch (Exception e) {
+                log.error("댓글 이미지 업데이트 실패", e);
+                throw new RuntimeException("이미지 업로드에 실패했습니다: " + e.getMessage());
+            }
+        }
+
+        CommentEntity updatedComment = commentRepository.save(comment);
+         searchIndexService.indexComment(updatedComment);
+        return convertToResponseDto(updatedComment, currentUserId);
+    }
+
+    // 댓글 삭제 (논리적 삭제)
     @Transactional
     public void deleteComment(Long commentId, Long currentUserId) {
+        CommentEntity comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다."));
+
+        if (!comment.getAuthor().getId().equals(currentUserId)) {
+            throw new RuntimeException("댓글을 삭제할 권한이 없습니다.");
+        }
+
+        // 이미 삭제된 댓글인지 확인
+        if (comment.isDeleted()) {
+            throw new RuntimeException("이미 삭제된 댓글입니다.");
+        }
+
+        // 논리적 삭제 처리 (이미지는 유지)
+        comment.markAsDeleted(currentUserId);
+        
+        // 게시글의 댓글 수 감소
+        PostEntity post = comment.getPost();
+        post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
+        postRepository.save(post);
+
+        // 댓글 저장 (논리적 삭제 상태로)
+        commentRepository.save(comment);
+        
+        // 검색 인덱스에서 제거
+         searchIndexService.deleteCommentIndex(commentId);
+        
+        // Redis 피드에서 제거
+        redisFeedIntegration.handleCommentDeleted(commentId, currentUserId);
+        
+        log.info("댓글 논리적 삭제 완료: commentId={}, deletedBy={}", commentId, currentUserId);
+    }
+
+    // 댓글 완전 삭제 (관리자용 또는 내부 사용)
+    @Transactional
+    public void permanentDeleteComment(Long commentId, Long currentUserId) {
         CommentEntity comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다."));
 
@@ -235,19 +320,52 @@ public class CommentService {
         if (comment.getImageUrl() != null) {
             try {
                 fileService.deleteFile(comment.getImageUrl());
-                log.info("댓글 삭제 시 이미지 삭제 완료: {}", comment.getImageUrl());
+                log.info("댓글 완전 삭제 시 이미지 삭제 완료: {}", comment.getImageUrl());
             } catch (Exception e) {
-                log.warn("댓글 삭제 시 이미지 삭제 실패: {}", e.getMessage());
+                log.warn("댓글 완전 삭제 시 이미지 삭제 실패: {}", e.getMessage());
             }
         }
 
         PostEntity post = comment.getPost();
-        post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
-        postRepository.save(post);
+        if (!comment.isDeleted()) {
+            // 논리적 삭제되지 않은 댓글의 경우만 카운트 감소
+            post.setCommentCount(Math.max(0, post.getCommentCount() - 1));
+            postRepository.save(post);
+        }
 
         commentRepository.delete(comment);
-        searchIndexService.deleteCommentIndex(commentId);
+         searchIndexService.deleteCommentIndex(commentId);
         redisFeedIntegration.handleCommentDeleted(commentId, currentUserId);
+        
+        log.info("댓글 완전 삭제 완료: commentId={}, deletedBy={}", commentId, currentUserId);
+    }
+
+    // 댓글 복구 (관리자용)
+    @Transactional
+    public CommentResponseDto restoreComment(Long commentId, Long currentUserId) {
+        CommentEntity comment = commentRepository.findById(commentId)
+                .orElseThrow(() -> new RuntimeException("댓글을 찾을 수 없습니다."));
+
+        if (!comment.isDeleted()) {
+            throw new RuntimeException("삭제되지 않은 댓글입니다.");
+        }
+
+        // 댓글 복구
+        comment.restore();
+        
+        // 게시글의 댓글 수 증가
+        PostEntity post = comment.getPost();
+        post.setCommentCount(post.getCommentCount() + 1);
+        postRepository.save(post);
+
+        // 댓글 저장 (복구된 상태로)
+        CommentEntity restoredComment = commentRepository.save(comment);
+        
+        // 검색 인덱스에 다시 추가
+         searchIndexService.indexComment(restoredComment);
+        
+        log.info("댓글 복구 완료: commentId={}, restoredBy={}", commentId, currentUserId);
+        return convertToResponseDto(restoredComment, currentUserId);
     }
 
     // 댓글 좋아요 토글
@@ -269,7 +387,7 @@ public class CommentService {
             comment.setLikeCount(newCount);
             commentRepository.save(comment);
             
-            searchIndexService.updateCommentStats(commentId);
+             searchIndexService.updateCommentStats(commentId);
             return new CommentLikeResponseDto(false, comment.getLikeCount(), "댓글 좋아요를 취소했습니다.");
         } else {
             LikeEntity like = new LikeEntity();
@@ -281,7 +399,7 @@ public class CommentService {
             comment.setLikeCount(comment.getLikeCount() + 1);
             commentRepository.save(comment);
             
-            searchIndexService.updateCommentStats(commentId);
+             searchIndexService.updateCommentStats(commentId);
             return new CommentLikeResponseDto(true, comment.getLikeCount(), "댓글에 좋아요를 눌렀습니다.");
         }
     }
@@ -305,7 +423,7 @@ public class CommentService {
             comment.setRepostCount(newCount);
             commentRepository.save(comment);
             
-            searchIndexService.updateCommentStats(commentId);
+             searchIndexService.updateCommentStats(commentId);
             redisFeedIntegration.handleCommentRepostRemoved(commentId, currentUserId);
             return new CommentRepostResponseDto(false, comment.getRepostCount(), "댓글 리포스트를 취소했습니다.");
         } else {
@@ -319,7 +437,7 @@ public class CommentService {
             comment.setRepostCount(comment.getRepostCount() + 1);
             commentRepository.save(comment);
             
-            searchIndexService.updateCommentStats(commentId);
+             searchIndexService.updateCommentStats(commentId);
             redisFeedIntegration.handleCommentRepostCreated(commentId, currentUserId, repost.getRepostedAt());
             return new CommentRepostResponseDto(true, comment.getRepostCount(), "댓글을 리포스트했습니다.");
         }

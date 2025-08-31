@@ -93,7 +93,20 @@ export const updateComment = async (
   commentId: number,
   data: UpdateCommentRequest
 ): Promise<CommentResponse> => {
-  const response = await api.put(`/api/comments/${commentId}`, data);
+  const formData = new FormData();
+  formData.append("content", data.content);
+
+  if (data.imgUrl instanceof File) {
+    formData.append("image", data.imgUrl);
+  } else if (data.imgUrl === undefined) {
+    formData.append("removeImage", "true");
+  }
+
+  const response = await api.put(`/api/comments/${commentId}`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
   return response.data;
 };
 

@@ -538,8 +538,8 @@ public class UserService {
         // Elasticsearch에서 사용자 인덱스 삭제
         searchIndexService.deleteUserIndex(userId);
         
-        // TODO: Redis 피드에서 사용자 관련 데이터 정리 메서드 구현 필요
-        // redisFeedIntegration.handleUserDeleted(userId);
+        // Redis 피드에서 사용자 관련 데이터 정리
+        redisFeedIntegration.handleUserDeleted(userId);
         
         log.info("사용자 탈퇴 처리 완료: userId={}", userId);
     }

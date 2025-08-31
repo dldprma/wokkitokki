@@ -65,6 +65,18 @@ export interface RepostResponse {
   repostCount: number;
 }
 
+// 댓글이 포함된 게시글 DTO
+// Comment 타입 import
+import type { Comment } from "../../comment/type/commentTypes";
+
+export interface PostWithCommentsDto {
+  post: Post;
+  relevantComments: Comment[];
+  feedType: string;
+  lastActivityAt: string;
+  activitySummary: string;
+}
+
 // 홈 상태
 export interface HomeState {
   posts: Post[];

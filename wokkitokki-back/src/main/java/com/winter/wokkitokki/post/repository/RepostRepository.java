@@ -43,4 +43,11 @@ public interface RepostRepository extends JpaRepository<RepostEntity, Long> {
     boolean existsByUserAndComment(UserEntity user, CommentEntity comment);
     long countByComment(CommentEntity comment);
     void deleteByUserAndComment(UserEntity user, CommentEntity comment);
+
+    // 리포스트 정보 조회 (누가 언제 리포스트했는지)
+    @Query("SELECT r FROM RepostEntity r WHERE r.user.id = :userId AND r.post.id IN :postIds")
+    List<RepostEntity> findRepostsByUserAndPostIds(@Param("userId") Long userId, @Param("postIds") List<Long> postIds);
+
+    @Query("SELECT r FROM RepostEntity r WHERE r.user.id = :userId AND r.comment.id IN :commentIds")
+    List<RepostEntity> findRepostsByUserAndCommentIds(@Param("userId") Long userId, @Param("commentIds") List<Long> commentIds);
 }

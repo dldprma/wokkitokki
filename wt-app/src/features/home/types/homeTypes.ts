@@ -3,6 +3,7 @@ export type {
   Post,
   CreatePostData,
   PostResponse,
+  PostWithCommentsDto,
   HomeState,
 } from "../../post/type/postTypes";
 

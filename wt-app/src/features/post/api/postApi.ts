@@ -12,11 +12,11 @@ import type {
   ImageUploadResponse,
 } from "../type/postTypes";
 
-// 피드 게시글 조회
+// 피드 게시글 조회 (Post + Comment 혼합)
 export const getFeedPosts = async (
   page: number = 0,
   size: number = 10
-): Promise<PostResponse> => {
+): Promise<any> => {
   try {
     const response = await api.get(`/api/posts/feed?page=${page}&size=${size}`);
     return response.data;

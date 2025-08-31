@@ -53,17 +53,21 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
           ...commentResponse,
           liked: commentResponse.liked || false,
           reposted: commentResponse.reposted || false,
+          deleted: commentResponse.deleted || false, // deleted 필드 추가
         };
         setComment(updatedComment);
 
+        // 모든 대댓글 표시 (삭제 여부와 관계없이)
         const updatedReplies = repliesData.map((reply: Comment) => ({
           ...reply,
           liked: reply.liked || false,
           reposted: reply.reposted || false,
+          deleted: reply.deleted || false, // deleted 필드 추가
         }));
         setReplies(updatedReplies);
       } else {
         setComment(commentResponse);
+        // 모든 대댓글 표시 (삭제 여부와 관계없이)
         setReplies(repliesData);
       }
     } catch (error: any) {
@@ -291,12 +295,20 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
         </h3>
         <div className="bg-blue-50 rounded-xl border border-blue-200 shadow-sm">
           <div className="p-4">
-            <CommentItem
-              comment={comment}
-              postId={comment.postId}
-              onReplySuccess={handleReplySuccess}
-              onEditSuccess={handleReplySuccess}
-            />
+            {comment && comment.deleted ? (
+              // 삭제된 댓글 표시
+              <div className="text-gray-500 italic text-center py-4">
+                <p className="text-sm">삭제된 댓글입니다</p>
+              </div>
+            ) : (
+              // 정상 댓글 표시
+              <CommentItem
+                comment={comment}
+                postId={comment.postId}
+                onReplySuccess={handleReplySuccess}
+                onEditSuccess={handleReplySuccess}
+              />
+            )}
           </div>
         </div>
       </div>

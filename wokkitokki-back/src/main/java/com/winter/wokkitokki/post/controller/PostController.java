@@ -21,7 +21,7 @@ public class PostController {
     private final PostService postService;
     private final UserService userService;
 
-    // 피드 가져오기(팔로잉한 사람들 + 내 포스트 + 댓글) - V2로 업데이트됨
+    // 피드 가져오기(팔로잉한 사람들 + 내 포스트 + 댓글)
     @GetMapping("/feed")
     public ResponseEntity<Page<Object>> getFeedPosts(
             @RequestParam(defaultValue = "0") int page,
@@ -29,11 +29,19 @@ public class PostController {
             Authentication auth) {
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Long userId = userService.getUserIdByUsername(auth.getName());
-
+            Long userId = null;
+            if (auth != null) {
+                userId = userService.getUserIdByUsername(auth.getName());
+            } else {
+                // 인증되지 않은 사용자를 위한 기본 userId (임시로 12 사용)
+                userId = 12L;
+            }
+            
             Page<Object> feedItems = postService.getFeedPosts(userId, pageable);
+            
             return ResponseEntity.ok(feedItems);
         } catch (Exception e) {
+            e.printStackTrace();
             return ResponseEntity.badRequest().build();
         }
     }

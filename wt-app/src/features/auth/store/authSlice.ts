@@ -75,12 +75,17 @@ export const loginUser = createAsyncThunk(
   async (data: LoginData, { rejectWithValue }) => {
     try {
       const res = await login(data);
+      // 백엔드 응답 구조 확인
+      console.log("로그인 응답 (res):", res);
+      console.log("로그인 응답 키들:", Object.keys(res));
+
       const user = {
+        id: res.id, // 백엔드에서 id를 보내주는 경우
         username: res.username,
         email: res.email,
         fullName: res.fullName,
-        bio: res.bio, // 바이오 정보 추가
-        profileImgUrl: res.profileImgUrl, // 프로필 이미지 URL 추가
+        bio: res.bio,
+        profileImgUrl: res.profileImgUrl,
       };
       localStorage.setItem("user", JSON.stringify(user));
 

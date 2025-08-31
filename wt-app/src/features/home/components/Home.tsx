@@ -261,89 +261,218 @@ const Home: React.FC = () => {
         <div className="posts-container">
           {feedPosts
             .filter((item: any, index: number, arr: any[]) => {
-              // 게시글과 댓글을 구분하여 중복 제거
-              if (item.postId) {
-                // 댓글인 경우
+              // PostWithCommentsDto 구조에서 중복 제거
+              if (item.relevantComments && item.relevantComments.length > 0) {
+                // 댓글이 포함된 게시글인 경우
                 return arr.findIndex((i: any) => i.id === item.id) === index;
               } else {
-                // 게시글인 경우
+                // 일반 게시글인 경우
                 return arr.findIndex((i: any) => i.id === item.id) === index;
               }
             })
             .map((item: any) => {
-              // 댓글인 경우
-              if (item.postId) {
+              // 디버깅: 실제 아이템 구조 확인
+              console.log("홈 피드 아이템:", item);
+              console.log("아이템 키들:", Object.keys(item));
+              console.log("item.post:", item.post);
+              console.log("item.relevantComments:", item.relevantComments);
+
+              // 댓글 관련 데이터 확인
+              const hasRelevantComments =
+                item.relevantComments && item.relevantComments.length > 0;
+              const hasComments = item.comments && item.comments.length > 0;
+              const isCommentActivity =
+                item.feedType === "comment" || item.activitySummary;
+
+              // 댓글이 포함된 게시글인 경우 (PostWithCommentsDto 구조)
+              if (item.post && Array.isArray(item.relevantComments)) {
                 return (
                   <article
-                    key={`home-comment-${item.id}`}
-                    className="comment-card"
+                    key={`home-post-with-comments-${item.id}`}
+                    className="post-card"
                   >
-                    <div className="comment-preview-connector">
-                      <div className="comment-preview-connector-line"></div>
-                    </div>
-                    <div className="comment-preview-item">
-                      <div className="comment-preview-item-connector">
-                        <div className="comment-preview-item-line"></div>
+                    {/* 활동 요약 표시 */}
+                    {item.activitySummary && (
+                      <div className="activity-summary text-sm text-gray-500 mb-2 p-2 bg-blue-50 rounded-lg">
+                        {item.activitySummary}
                       </div>
-                      <div className="comment-preview-content-wrapper">
-                        <div className="comment-preview-header">
-                          <div className="comment-preview-author-info">
-                            <img
-                              src={
-                                item.authorProfileImg || "/default-avatar.png"
-                              }
-                              alt={item.authorName}
-                              className="comment-preview-avatar"
-                              onClick={() =>
-                                handleUserClick(item.authorUsername)
-                              }
-                            />
-                            <div className="comment-preview-author-details">
-                              <span className="comment-preview-author-name">
-                                {item.authorName}
-                              </span>
-                              <span className="comment-preview-author-username">
-                                @{item.authorUsername}
-                              </span>
+                    )}
+
+                    {/* 원본 게시글 표시 */}
+                    <div className="flex items-start space-x-3">
+                      <div
+                        className="cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => handleUserClick(item.authorUsername)}
+                      >
+                        <ProfileImage
+                          imageUrl={item.authorProfileImg}
+                          username={item.authorUsername}
+                          size="md"
+                          className="w-10 h-10 flex-shrink-0"
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <div
+                          className="flex items-center justify-between mb-2 cursor-pointer hover:opacity-80 transition-opacity"
+                          onClick={() =>
+                            handleUserClick(item.post.authorUsername)
+                          }
+                        >
+                          <div className="flex items-center space-x-2">
+                            <span className="font-semibold text-gray-900">
+                              {item.post.authorName}
+                            </span>
+                            <span className="text-gray-500">
+                              @{item.post.authorUsername}
+                            </span>
+                          </div>
+                          <span className="text-gray-400 text-sm">
+                            {formatTimeAgo(item.post.createdAt)}
+                          </span>
+                        </div>
+
+                        {/* 게시글 내용 */}
+                        <div
+                          className="cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-colors"
+                          onClick={() => handlePostClick(item.post.id)}
+                        >
+                          <p className="text-gray-800 mb-3 leading-relaxed">
+                            {item.post.content}
+                          </p>
+                          {item.post.imgUrl && (
+                            <div className="mb-3">
+                              <img
+                                src={item.post.imgUrl}
+                                alt="Post image"
+                                className="w-full max-h-96 object-cover rounded-lg"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* 댓글 미리보기 (선으로 연결된 형태) */}
+                        <div className="mt-3">
+                          <div className="comment-preview-connector">
+                            <div className="comment-preview-connector-line"></div>
+                          </div>
+                          <div className="comment-preview-item">
+                            <div className="comment-preview-item-connector">
+                              <div className="comment-preview-item-line"></div>
+                            </div>
+                            <div className="comment-preview-content-wrapper">
+                              <div className="comment-preview-header">
+                                <div className="comment-preview-author-info">
+                                  <img
+                                    src={
+                                      item.relevantComments?.[0]
+                                        ?.authorProfileImg ||
+                                      "/default-avatar.png"
+                                    }
+                                    alt="댓글 작성자"
+                                    className="comment-preview-avatar"
+                                  />
+                                  <div className="comment-preview-author-details">
+                                    <span className="comment-preview-author-name">
+                                      {item.relevantComments?.[0]?.authorName ||
+                                        "댓글 작성자"}
+                                    </span>
+                                    <span className="comment-preview-author-username">
+                                      @
+                                      {item.relevantComments?.[0]
+                                        ?.authorUsername || "username"}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="comment-preview-text">
+                                <span className="comment-preview-content">
+                                  {item.relevantComments?.[0]?.content ||
+                                    "댓글 내용을 불러올 수 없습니다"}
+                                </span>
+                              </div>
+
+                              {item.relevantComments?.[0]?.imageUrl && (
+                                <div className="comment-preview-image">
+                                  <img
+                                    src={item.relevantComments[0].imageUrl}
+                                    alt="댓글 이미지"
+                                    className="comment-preview-image-content"
+                                  />
+                                </div>
+                              )}
+
+                              <div className="comment-preview-actions">
+                                {item.relevantComments?.[0]?.replyCount > 0 && (
+                                  <span className="comment-preview-action">
+                                    💬 {item.relevantComments[0].replyCount}
+                                  </span>
+                                )}
+                                {item.relevantComments?.[0]?.likeCount > 0 && (
+                                  <span className="comment-preview-action">
+                                    ♥ {item.relevantComments[0].likeCount}
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="comment-preview-more">
+                                <button
+                                  onClick={() => handlePostClick(item.id)}
+                                  className="text-blue-500 text-sm hover:underline"
+                                >
+                                  원본 게시글 보기
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>
 
-                        <div className="comment-preview-text">
-                          <span className="comment-preview-content">
-                            {item.content}
-                          </span>
-                        </div>
-
-                        {item.imageUrl && (
-                          <div className="comment-preview-image">
-                            <img
-                              src={item.imageUrl}
-                              alt="댓글 이미지"
-                              className="comment-preview-image-content"
-                            />
-                          </div>
-                        )}
-
-                        <div className="comment-preview-actions">
-                          {item.replyCount > 0 && (
-                            <span className="comment-preview-action">
-                              💬 {item.replyCount}
-                            </span>
-                          )}
-                          {item.likeCount > 0 && (
-                            <span className="comment-preview-action">
-                              ♥ {item.likeCount}
-                            </span>
-                          )}
-                        </div>
-
-                        <div className="comment-preview-more">
+                        {/* 상호작용 버튼들 */}
+                        <div className="flex items-center space-x-6 mt-3">
                           <button
-                            onClick={() => handlePostClick(item.postId)}
-                            className="text-blue-500 text-sm hover:underline"
+                            className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
+                            aria-label="댓글"
                           >
-                            원본 게시글 보기
+                            <span>💬</span>
+                            <span className="text-sm">
+                              {item.post.commentCount || 0}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleRepost(item.post.id)}
+                            className={`flex items-center space-x-2 transition-colors ${
+                              item.post.reposted
+                                ? "text-green-500"
+                                : "text-gray-500 hover:text-green-500"
+                            }`}
+                            aria-label="리포스트"
+                          >
+                            <span>{item.post.reposted ? "↪️" : "🔄"}</span>
+                            <span className="text-sm">
+                              {item.post.repostCount}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => handleLike(item.post.id)}
+                            className={`flex items-center space-x-2 transition-colors ${
+                              item.post.liked
+                                ? "text-red-500"
+                                : "text-gray-500 hover:text-red-500"
+                            }`}
+                            aria-label={
+                              item.post.liked ? "좋아요 취소" : "좋아요"
+                            }
+                          >
+                            <span>{item.post.liked ? "❤️" : "🤍"}</span>
+                            <span className="text-sm">
+                              {item.post.likeCount}
+                            </span>
+                          </button>
+                          <button
+                            className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
+                            aria-label="공유"
+                          >
+                            <span>📤</span>
                           </button>
                         </div>
                       </div>

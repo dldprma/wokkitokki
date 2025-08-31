@@ -73,13 +73,21 @@ public class CommentController {
     @PutMapping("/comments/{commentId}")
     public ResponseEntity<CommentResponseDto> updateComment(
             @PathVariable Long commentId,
-            @RequestPart("comment") CommentUpdateRequestDto request,
-            @RequestPart(value = "image", required = false) MultipartFile imageFile,
-            Authentication auth) {
+            Authentication auth,
+            @RequestPart(value = "content") String content,
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "removeImage", required = false, defaultValue = "false") Boolean removeImage) {
+        try {
+            Long currentUserId = userService.getUserIdByUsername(auth.getName());
 
-        Long currentUserId = userService.getUserIdByUsername(auth.getName());
-        CommentResponseDto response = commentService.updateComment(commentId, request, imageFile, currentUserId);
-        return ResponseEntity.ok(response);
+            CommentUpdateRequestDto request = new CommentUpdateRequestDto();
+            request.setContent(content);
+
+            CommentResponseDto response = commentService.updateCommentWithImage(commentId, request, image, removeImage, currentUserId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().build();
+        }
     }
 
     // 댓글 삭제

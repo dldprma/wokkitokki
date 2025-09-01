@@ -66,7 +66,7 @@ public class UserService {
         // 작성글갯수, 댓글갯수 각각 조회
         Long originalPostCount = postRepository.countUserOriginalPosts(userId);
         Long commentCount = commentRepository.countByAuthorId(userId);
-
+        
         // 직접 작성한 이미지 게시글 개수 (리포스트 제외)
         int imgCount = postRepository.countByUserAndImgUrlIsNotNullAndDeletedFalse(user);
 
@@ -466,11 +466,10 @@ public class UserService {
         dto.setProfileImgUrl(user.getProfileImgUrl());
         dto.setBio(user.getBio());
 
-        // 작성글, 댓글, 리포스트 각각 조회
+        // 작성글, 댓글 조회 (원본 게시글만 카운트)
         Long originalPostCount = postRepository.countUserOriginalPosts(user.getId());
         Long commentCount = commentRepository.countByAuthorId(user.getId());
-        Long repostCount = postRepository.countUserReposts(user.getId());
-        dto.setPostCount(originalPostCount + repostCount); // 게시글 + 리포스트
+        dto.setPostCount(originalPostCount); // 원본 게시글만
         dto.setCommentCount(commentCount);
 
         // 직접 작성한 이미지 게시글만

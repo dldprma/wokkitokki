@@ -9,6 +9,7 @@ import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.user.repository.FollowRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
@@ -30,7 +31,7 @@ public class RedisFeedService {
     private final FollowRepository followRepository;
 
     private static final String FEED_KEY_PREFIX = "user:feed:";
-    private static final int FEED_CACHE_SIZE = 1000;
+    private static final int FEED_CACHE_SIZE = 10000;  // 10,000개로 증가
     private static final long FEED_TTL = 24 * 60 * 60;
 
     private double calculateScore(LocalDateTime dateTime) {
@@ -41,6 +42,16 @@ public class RedisFeedService {
     public Map<Object, FeedItemDto> getFeedItemsWithMetadata(Long userId, Pageable pageable) {
         String cacheKey = FEED_KEY_PREFIX + userId;
 
+        // 캐시에서 전체 개수 확인
+        Long cachedCount = redisTemplate.opsForZSet().zCard(cacheKey);
+        
+        // 캐시가 비어있거나 요청한 페이지가 캐시 범위를 벗어나면 DB에서 전체 데이터를 다시 로드
+        if (cachedCount == null || cachedCount == 0 || pageable.getOffset() >= cachedCount) {
+            // DB에서 전체 피드 조회하여 캐시 갱신
+            refreshFeedCache(userId);
+        }
+
+        // 캐시에서 요청된 페이지 조회
         Set<Object> cachedKeys = redisTemplate.opsForZSet()
                 .reverseRangeByScore(cacheKey, 0, Double.MAX_VALUE,
                         pageable.getOffset(), pageable.getPageSize());
@@ -49,9 +60,20 @@ public class RedisFeedService {
             return buildFeedItemsFromCache(cachedKeys);
         }
 
-        Map<Object, FeedItemDto> dbItems = getFeedItemsFromDB(userId, pageable);
-        cacheFeedToRedis(userId, dbItems);
-        return dbItems;
+        // 캐시에서도 데이터가 없으면 DB에서 해당 페이지만 조회
+        return getFeedItemsFromDB(userId, pageable);
+    }
+
+    // 피드 캐시 새로고침 (전체 피드를 DB에서 조회하여 캐시에 저장)
+    private void refreshFeedCache(Long userId) {
+        // 무제한 페이지로 전체 데이터 조회
+        Pageable unlimitedPageable = PageRequest.of(0, Integer.MAX_VALUE);
+        Map<Object, FeedItemDto> allItems = getFeedItemsFromDB(userId, unlimitedPageable);
+        
+        // 기존 캐시 삭제 후 새로 저장
+        String cacheKey = FEED_KEY_PREFIX + userId;
+        redisTemplate.delete(cacheKey);
+        cacheFeedToRedis(userId, allItems);
     }
 
     // DB에서 피드 조회 (Post + Comment 통합)
@@ -97,25 +119,7 @@ public class RedisFeedService {
             feedItemMap.put(keyStr, commentFeedItem);
         }
         
-        // 3-1. 내가 쓴 게시글에 내가 단 댓글들 (중복 제거를 위해 별도 처리)
-        List<FeedItemDto> myCommentsOnMyPosts = commentRepository.findMyCommentsOnMyPosts(userId);
-        for (FeedItemDto item : myCommentsOnMyPosts) {
-            FeedItemKey key = FeedItemKey.forPostWithComment(item.getPostId(), item.getCommentId(), item.getRepostUserId());
-            String keyStr = key.toRedisKey();
-            
-            // 이미 존재하지 않는 경우에만 추가 (중복 방지)
-            if (!feedItemMap.containsKey(keyStr)) {
-                FeedItemDto commentFeedItem = new FeedItemDto(
-                    item.getPostId(), // 게시글 ID
-                    item.getCommentId(), // 댓글 ID  
-                    item.getSortTime(), // 댓글 시간
-                    "POST_WITH_COMMENT", // 특별 타입
-                    item.getRepostUserId(), // 댓글 작성자 ID
-                    null  // repostUsername
-                );
-                feedItemMap.put(keyStr, commentFeedItem);
-            }
-        }
+        // findRelevantComments에서 내 댓글들이 모두 포함되므로 별도 처리 불필요
 
         // 4. 관련 댓글 리포스트들
         List<FeedItemDto> relevantCommentReposts = commentRepository.findRelevantCommentReposts(userId);
@@ -187,16 +191,13 @@ public class RedisFeedService {
             // 2. 리포스트된 게시글 개수 (중복 제거)
             long repostedPostCount = postRepository.countRepostedPosts(userId);
             
-            // 3. 관련 댓글 개수
+            // 3. 관련 댓글 개수 (내가 작성했거나 팔로우한 사람이 작성한 댓글)
             long relevantCommentCount = commentRepository.countRelevantComments(userId);
-            
-            // 3-1. 내가 쓴 게시글에 내가 단 댓글 개수 (중복 방지)
-            long myCommentsOnMyPostsCount = commentRepository.countMyCommentsOnMyPosts(userId);
             
             // 4. 관련 댓글 리포스트 개수 (중복 제거)
             long relevantCommentRepostCount = commentRepository.countRelevantCommentReposts(userId);
             
-            return originalPostCount + repostedPostCount + relevantCommentCount + myCommentsOnMyPostsCount + relevantCommentRepostCount;
+            return originalPostCount + repostedPostCount + relevantCommentCount + relevantCommentRepostCount;
         } catch (Exception e) {
             log.warn("Failed to get total feed count from DB for user: {}", userId, e);
             // 실패 시 기본값 반환 (무한스크롤이 계속 동작하도록)

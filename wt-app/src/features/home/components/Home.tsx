@@ -1,14 +1,13 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useHome } from "../hooks/useHome";
-import { useUser } from "../../user/hooks/useUser";
-import { usePost } from "../../post/hooks/usePost";
+// import { useUser } from "../../user/hooks/useUser";
 import { useAuth } from "../../auth/hooks/useAuth";
 import ProfileImage from "../../user/components/ProfileImage";
 import { CommentPreview } from "../../comment";
 import "../../../css/Home.css";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
-import { setLoading, clearError, setError } from "../store/homeSlice";
+import { setLoading, setError } from "../store/homeSlice";
 
 const Home: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -22,17 +21,18 @@ const Home: React.FC = () => {
     loading,
     error,
     hasMore,
+    page,
     getPosts: originalGetPosts,
     createPost,
     toggleLike,
     toggleRepost,
-    deletePost,
+    // deletePost,
   } = useHome();
 
   // getPosts 함수를 useCallback으로 최적화
   const getPosts = useCallback(originalGetPosts, [originalGetPosts]);
   const { posts: feedPosts } = useAppSelector((state) => state.home);
-  const { profileUser } = useUser();
+  // const { profileUser } = useUser();
   const { user: authUser } = useAuth();
   const navigate = useNavigate();
   const [newPostContent, setNewPostContent] = useState("");
@@ -40,6 +40,8 @@ const Home: React.FC = () => {
   const [imagePreview, setImagePreview] = useState<string>("");
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const isInitialLoad = useRef(true);
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   // 사용자 프로필로 이동
   const handleUserClick = (username: string) => {
@@ -72,11 +74,46 @@ const Home: React.FC = () => {
     }
   }, [isInitialized, isAuthenticated, authLoading, dispatch]);
 
+  // 무한 스크롤 설정
+  useEffect(() => {
+    if (!hasMore || loading) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const [entry] = entries;
+        if (entry.isIntersecting) {
+          console.log("무한 스크롤 트리거됨", {
+            feedPostsLength: feedPosts.length,
+            hasMore,
+            loading,
+            currentPage: page,
+          });
+          const nextPage = page + 1;
+          console.log("다음 페이지:", nextPage);
+          getPosts(nextPage, 10);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observerRef.current = observer;
+
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+
+    return () => {
+      if (observerRef.current) {
+        observerRef.current.disconnect();
+      }
+    };
+  }, [hasMore, loading, page, getPosts]);
+
   const handleCreatePost = useCallback(async () => {
     if (!newPostContent.trim() && !selectedImage) return;
 
     try {
-      const result = await createPost({
+      await createPost({
         content: newPostContent,
         imgUrl: selectedImage || undefined,
       });
@@ -149,21 +186,7 @@ const Home: React.FC = () => {
     }
   };
 
-  // 게시글 삭제 처리
-  const handleDeletePost = async (postId: number) => {
-    if (!window.confirm("게시글을 삭제하시겠습니까?")) {
-      return;
-    }
-
-    try {
-      await deletePost(postId);
-      // 삭제 후 피드 새로고침
-      getPosts(0, 10);
-    } catch (error) {
-      console.error("게시글 삭제 실패:", error);
-      alert("게시글 삭제에 실패했습니다. 다시 시도해주세요.");
-    }
-  };
+  // 게시글 삭제는 현재 화면에서 사용되지 않음
 
   const formatTimeAgo = (createdAt: string) => {
     const now = new Date();
@@ -261,36 +284,36 @@ const Home: React.FC = () => {
         <div className="posts-container">
           {feedPosts
             .filter((item: any, index: number, arr: any[]) => {
-              // PostWithCommentsDto 구조에서 중복 제거
-              if (item.relevantComments && item.relevantComments.length > 0) {
-                // 댓글이 포함된 게시글인 경우
-                return arr.findIndex((i: any) => i.id === item.id) === index;
-              } else {
-                // 일반 게시글인 경우
-                return arr.findIndex((i: any) => i.id === item.id) === index;
-              }
+              // PostWithCommentsDto는 상단 id가 없을 수 있으므로 안정적 키로 비교
+              const makeKey = (x: any) =>
+                x.post && Array.isArray(x.relevantComments)
+                  ? `pwc-${x.post.id}-${x.relevantComments?.[0]?.id ?? "none"}`
+                  : `post-${x.id}`;
+              const key = makeKey(item);
+              return index === arr.findIndex((i: any) => makeKey(i) === key);
             })
             .map((item: any) => {
-              // 디버깅: 실제 아이템 구조 확인
-              console.log("홈 피드 아이템:", item);
-              console.log("아이템 키들:", Object.keys(item));
-              console.log("item.post:", item.post);
-              console.log("item.relevantComments:", item.relevantComments);
-
               // 댓글 관련 데이터 확인
-              const hasRelevantComments =
-                item.relevantComments && item.relevantComments.length > 0;
-              const hasComments = item.comments && item.comments.length > 0;
-              const isCommentActivity =
-                item.feedType === "comment" || item.activitySummary;
+              // const hasRelevantComments =
+              //   item.relevantComments && item.relevantComments.length > 0;
+              // const hasComments = item.comments && item.comments.length > 0;
+              // const isCommentActivity =
+              //   item.feedType === "comment" || item.activitySummary;
 
               // 댓글이 포함된 게시글인 경우 (PostWithCommentsDto 구조)
               if (item.post && Array.isArray(item.relevantComments)) {
                 return (
                   <article
-                    key={`home-post-with-comments-${item.id}`}
+                    key={`home-post-with-comments-${item.post.id}`}
                     className="post-card"
                   >
+                    {/* 리포스트 정보 표시 */}
+                    {item.post.repostedBy && (
+                      <div className="repost-info text-sm text-gray-500 mb-2 p-2 bg-green-50 rounded-lg">
+                        🔄 {item.post.repostedBy}님이 리포스트했습니다
+                      </div>
+                    )}
+
                     {/* 활동 요약 표시 */}
                     {item.activitySummary && (
                       <div className="activity-summary text-sm text-gray-500 mb-2 p-2 bg-blue-50 rounded-lg">
@@ -302,11 +325,13 @@ const Home: React.FC = () => {
                     <div className="flex items-start space-x-3">
                       <div
                         className="cursor-pointer hover:opacity-80 transition-opacity"
-                        onClick={() => handleUserClick(item.authorUsername)}
+                        onClick={() =>
+                          handleUserClick(item.post.authorUsername)
+                        }
                       >
                         <ProfileImage
-                          imageUrl={item.authorProfileImg}
-                          username={item.authorUsername}
+                          imageUrl={item.post.authorProfileImg}
+                          username={item.post.authorUsername}
                           size="md"
                           className="w-10 h-10 flex-shrink-0"
                         />
@@ -417,7 +442,7 @@ const Home: React.FC = () => {
 
                               <div className="comment-preview-more">
                                 <button
-                                  onClick={() => handlePostClick(item.id)}
+                                  onClick={() => handlePostClick(item.post.id)}
                                   className="text-blue-500 text-sm hover:underline"
                                 >
                                   원본 게시글 보기
@@ -486,7 +511,7 @@ const Home: React.FC = () => {
                 <article key={`home-post-${item.id}`} className="post-card">
                   {/* 리포스트 정보 표시 */}
                   {item.repostedBy && (
-                    <div className="repost-info text-sm text-gray-500 mb-2">
+                    <div className="repost-info text-sm text-gray-500 mb-2 p-2 bg-green-50 rounded-lg">
                       🔄 {item.repostedBy}님이 리포스트했습니다
                     </div>
                   )}
@@ -629,20 +654,20 @@ const Home: React.FC = () => {
         </section>
       )}
 
-      {/* 더 보기 버튼 */}
-      {hasMore && !loading && (
-        <section className="load-more-section">
-          <div className="load-more-container">
-            <button
-              onClick={() => getPosts(feedPosts.length / 10, 10)}
-              className="load-more-btn"
-              aria-label="더 많은 게시글 보기"
-            >
-              더 보기
-            </button>
-          </div>
-        </section>
-      )}
+      {/* 무한 스크롤 트리거 */}
+      <section className="load-more-section" ref={loadMoreRef}>
+        <div className="load-more-container">
+          {loading ? (
+            <div className="loading-spinner" aria-label="로딩 중"></div>
+          ) : hasMore ? (
+            <div className="load-more-text">
+              더 많은 게시글을 불러오는 중...
+            </div>
+          ) : (
+            <div className="load-more-text">모든 게시글을 불러왔습니다</div>
+          )}
+        </div>
+      </section>
     </main>
   );
 };

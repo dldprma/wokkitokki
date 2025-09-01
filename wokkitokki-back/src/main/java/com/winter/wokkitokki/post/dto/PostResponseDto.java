@@ -9,6 +9,7 @@ public class PostResponseDto {
     private Long id;
     private String content;
     private String imgUrl;
+    private Long authorId;
     private String authorName;
     private String authorUsername;
     private String authorProfileImg;

@@ -7,6 +7,7 @@ import com.winter.wokkitokki.post.dto.FeedItemDto;
 import com.winter.wokkitokki.post.dto.PostResponseDto;
 import com.winter.wokkitokki.post.dto.PostWithCommentsDto;
 import com.winter.wokkitokki.post.entity.PostEntity;
+import com.winter.wokkitokki.post.entity.RepostEntity;
 import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
 import com.winter.wokkitokki.user.entity.UserEntity;
@@ -136,6 +137,7 @@ public class RedisFeedIntegration {
                 .id(post.getId())
                 .content(post.getContent())
                 .imgUrl(post.getImgUrl())
+                .authorId(post.getUser().getId())
                 .authorName(post.getUser().getFullName())
                 .authorUsername(post.getUser().getUsername())
                 .authorProfileImg(post.getUser().getProfileImgUrl())
@@ -149,7 +151,15 @@ public class RedisFeedIntegration {
         // 리포스트 정보 설정
         if ("REPOST".equals(feedItem.getType())) {
             dto.setRepost(true);
-            dto.setRepostedBy(feedItem.getRepostUsername());
+            // repostUsername이 null인 경우 repostUserId로 사용자명 조회
+            String repostedBy = feedItem.getRepostUsername();
+            if (repostedBy == null && feedItem.getRepostUserId() != null) {
+                UserEntity repostUser = userRepository.findById(feedItem.getRepostUserId()).orElse(null);
+                if (repostUser != null) {
+                    repostedBy = repostUser.getUsername();
+                }
+            }
+            dto.setRepostedBy(repostedBy);
             dto.setRepostedAt(feedItem.getSortTime().toString());
             dto.setOriginalCreatedAt(post.getCreatedAt().toString());
         }
@@ -157,6 +167,16 @@ public class RedisFeedIntegration {
         if (currentUser != null) {
             dto.setLiked(likedPostIds.contains(post.getId()));
             dto.setReposted(repostedPostIds.contains(post.getId()));
+
+            // REPOST 타입이 아닌 경우에만 현재 사용자의 리포스트 상태를 확인
+            if (repostedPostIds.contains(post.getId()) && !"REPOST".equals(feedItem.getType()) && dto.getRepostedBy() == null) {
+                // 현재 사용자가 이 게시글을 리포스트한 경우만
+                RepostEntity repost = repostRepository.findByUserAndPost(currentUser, post);
+                if (repost != null) {
+                    dto.setRepostedBy(currentUser.getUsername());
+                    dto.setRepostedAt(repost.getRepostedAt().toString());
+                }
+            }
 
             boolean isOwner = post.getUser().getId().equals(currentUser.getId());
             dto.setCanEdit(isOwner && !post.isDeleted());

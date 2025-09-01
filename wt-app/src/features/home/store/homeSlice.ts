@@ -24,11 +24,14 @@ export const fetchFeedPosts = createAsyncThunk(
   "home/fetchFeedPosts",
   async (
     { page, size }: { page: number; size: number },
-    { rejectWithValue }
+    { rejectWithValue, getState }
   ) => {
     try {
       const response = await getFeedPosts(page, size);
-      return { ...response, page };
+      const state = getState() as any;
+      const currentUsername = state.auth.user?.username || "알 수 없음";
+
+      return { ...response, page, currentUsername };
     } catch (err: any) {
       return rejectWithValue(
         err.response?.data?.message || "게시글을 불러오는데 실패했습니다."
@@ -203,20 +206,44 @@ const homeSlice = createSlice({
 
         // 백엔드 응답 구조에 맞게 데이터 정규화
         const normalized = action.payload.content.map((item: any) => {
-          // 디버깅: 실제 백엔드 응답 구조 확인
-          console.log("백엔드 응답 아이템:", item);
-          console.log("아이템 타입:", typeof item);
-          console.log("아이템 키들:", Object.keys(item));
-
           // PostWithCommentsDto 구조인지 확인 (백엔드 구조와 정확히 일치)
           if (item.post && Array.isArray(item.relevantComments)) {
-            console.log("PostWithCommentsDto 구조 발견:", item);
-            // PostWithCommentsDto 구조인 경우 - 그대로 반환
-            return item;
+            // PostWithCommentsDto 구조인 경우 - 안정적 고유 id 주입 및 리포스트 정보 확인
+            const stableId = `pwc-${item.post.id}-${
+              item.relevantComments?.[0]?.id ?? "none"
+            }`;
+
+            if (item.post.repostedBy) {
+              // 리포스트된 게시글인 경우 리포스트 정보 표시
+              return {
+                ...item,
+                id: stableId,
+                post: {
+                  ...item.post,
+                  isRepost: true,
+                  reposted: true,
+                  repostedBy: item.post.repostedBy,
+                  repostedAt: item.post.repostedAt,
+                },
+              };
+            } else if (item.post.reposted) {
+              // reposted가 true인데 repostedBy가 없는 경우, 임시로 설정
+              return {
+                ...item,
+                id: stableId,
+                post: {
+                  ...item.post,
+                  isRepost: true,
+                  reposted: true,
+                  repostedBy: "알 수 없음",
+                  repostedAt: item.post.repostedAt,
+                },
+              };
+            }
+            return { ...item, id: stableId };
           } else if (item.content && item.authorName) {
-            console.log("일반 Post 구조 발견:", item);
-            // 일반 Post 구조인 경우
-            return {
+            // 일반 Post 구조인 경우 (리포스트 정보 포함)
+            const normalizedPost = {
               ...item,
               likeCount: Math.max(0, Number(item.likeCount ?? 0)),
               repostCount: Math.max(0, Number(item.repostCount ?? 0)),
@@ -225,9 +252,21 @@ const homeSlice = createSlice({
               reposted: Boolean(item.reposted ?? false),
               isRepost: Boolean(item.isRepost ?? false),
               repostedBy: item.repostedBy || null,
-            } as any;
+              repostedAt: item.repostedAt || null,
+            };
+
+            // 리포스트된 게시글인 경우 리포스트 정보 표시
+            if (normalizedPost.repostedBy) {
+              normalizedPost.isRepost = true;
+              normalizedPost.reposted = true;
+            } else if (normalizedPost.reposted) {
+              // reposted가 true인데 repostedBy가 없는 경우, 임시로 설정
+              normalizedPost.repostedBy = "알 수 없음";
+              normalizedPost.isRepost = true;
+            }
+
+            return normalizedPost as any;
           } else {
-            console.log("기타 구조 발견:", item);
             // 기타 구조 (Comment 등)
             return item;
           }

@@ -485,85 +485,33 @@ const postSlice = createSlice({
     builder.addCase(togglePostRepost.fulfilled, (state, action) => {
       const { postId, reposted, currentUsername } = action.payload;
 
-      // 프로필 포스트에서 해당 게시글 찾기
-      const originalPost = state.profilePosts.find((p) => p.id === postId);
-      if (!originalPost) {
+      // 프로필 포스트에서 해당 게시글 찾기 (원본 또는 리포스트된 게시글)
+      const postIndex = state.profilePosts.findIndex((p) => p.id === postId);
+
+      if (postIndex === -1) {
         return;
       }
 
+      const post = state.profilePosts[postIndex];
+
       if (reposted) {
-        // 리포스트 추가 시: 새로운 리포스트 게시글을 피드 상단에 추가
-        const repostedPost = {
-          ...originalPost,
-          id: postId, // 임시 ID 대신 원본 ID 사용 (400 에러 해결)
+        // 리포스트 추가 시: 원본 게시글의 상태만 변경
+        state.profilePosts[postIndex] = {
+          ...post,
           reposted: true,
-          repostCount: action.payload.repostCount || originalPost.repostCount, // 백엔드에서 받은 카운트 사용
-          isRepost: true,
-          repostedBy: currentUsername, // 실제 현재 사용자 username
+          repostCount: action.payload.repostCount,
+          repostedBy: currentUsername,
           repostedAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(), // 리포스트 시간을 생성 시간으로
         };
-
-        // 불변성을 보장하기 위해 새로운 배열 생성
-        const newProfilePosts = [...state.profilePosts];
-
-        // 새로운 리포스트 게시글을 맨 위에 추가
-        newProfilePosts.unshift(repostedPost);
-
-        // 원본 게시글을 피드에서 제거 (중복 방지)
-        const originalPostIndex = newProfilePosts.findIndex(
-          (p) => p.id === postId
-        );
-        if (originalPostIndex !== -1) {
-          newProfilePosts.splice(originalPostIndex, 1);
-        }
-
-        // 완전히 새로운 상태 객체 생성 (불변성 보장)
-        state.profilePosts = [...newProfilePosts];
       } else {
-        // 리포스트 취소 시: 리포스트된 게시글을 피드에서 제거하고 원본 게시글을 원래 위치에 추가
-        const repostedPostIndex = state.profilePosts.findIndex(
-          (p) =>
-            p.isRepost &&
-            p.repostedBy === currentUsername &&
-            p.content === originalPost.content
-        );
-
-        if (repostedPostIndex !== -1) {
-          // 상태 변경을 확실히 감지하기 위해 완전히 새로운 객체 생성
-          const newProfilePosts = state.profilePosts.map((post, index) => {
-            if (index === repostedPostIndex) {
-              // 리포스트된 게시글 위치에 원본 게시글 복원
-              return {
-                ...originalPost,
-                reposted: false,
-                isRepost: false,
-                repostedBy: null,
-                repostedAt: null,
-              };
-            }
-            return post;
-          });
-
-          // 리포스트된 게시글 제거 (filter 사용)
-          const filteredPosts = newProfilePosts.filter(
-            (post, index) =>
-              !(
-                post.isRepost &&
-                post.repostedBy === currentUsername &&
-                post.content === originalPost.content
-              )
-          );
-
-          // 완전히 새로운 상태 객체 생성
-          state.profilePosts = [...filteredPosts];
-        }
-      }
-
-      // 백엔드에서 받은 repostCount로 업데이트
-      if (action.payload.repostCount !== undefined) {
-        // 원본 게시글의 repostCount 업데이트
-        originalPost.repostCount = action.payload.repostCount;
+        // 리포스트 취소 시: 원본 게시글의 상태만 변경
+        state.profilePosts[postIndex] = {
+          ...post,
+          reposted: false,
+          repostCount: action.payload.repostCount,
+          repostedBy: null,
+          repostedAt: null,
+        };
       }
     });
 

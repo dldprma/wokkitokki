@@ -42,12 +42,9 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     long countByParentCommentId(@Param("parentCommentId") Long parentCommentId);
     
     // 피드용: 내가 작성했거나 팔로우한 사람이 작성한 댓글만 (게시글과 함께 표시용)
-    // 대댓글의 경우 상위 댓글 ID도 함께 포함 (삭제되지 않은 것들)
     @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(" +
            "c.post.id, c.id, c.createdAt, " +
-           "CASE WHEN c.parentComment IS NOT NULL THEN 'REPLY' ELSE 'COMMENT' END, " +
-           "CASE WHEN c.parentComment IS NOT NULL THEN c.parentComment.id ELSE null END, " +
-           "c.author.username, true) " +
+           "'POST_WITH_COMMENT', c.author.id, null) " +
            "FROM CommentEntity c " +
            "WHERE (c.author.id = :userId " +
            "OR c.author.id IN (SELECT f.following.id FROM FollowEntity f WHERE f.follower.id = :userId)) " +
@@ -58,9 +55,7 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
     // 내가 쓴 게시글에 내가 단 댓글만 조회 (중복 방지용)
     @Query("SELECT new com.winter.wokkitokki.post.dto.FeedItemDto(" +
            "c.post.id, c.id, c.createdAt, " +
-           "CASE WHEN c.parentComment IS NOT NULL THEN 'REPLY' ELSE 'COMMENT' END, " +
-           "CASE WHEN c.parentComment IS NOT NULL THEN c.parentComment.id ELSE null END, " +
-           "c.author.username, true) " +
+           "'POST_WITH_COMMENT', c.author.id, null) " +
            "FROM CommentEntity c " +
            "WHERE c.author.id = :userId " +
            "AND c.post.user.id = :userId " +

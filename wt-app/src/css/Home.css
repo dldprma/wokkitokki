@@ -278,3 +278,20 @@ hr {
 .no-posts-description {
   @apply text-gray-500;
 }
+
+/* 무한 스크롤 관련 스타일 */
+.load-more-section {
+  @apply py-8;
+}
+
+.load-more-container {
+  @apply flex justify-center items-center;
+}
+
+.load-more-text {
+  @apply text-gray-500 text-sm;
+}
+
+.loading-spinner {
+  @apply w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin;
+}

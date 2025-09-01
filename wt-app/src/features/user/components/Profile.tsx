@@ -459,9 +459,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
           <div className="flex items-center space-x-6 mt-6 border-t pt-6">
             <div className="text-center">
               <div className="text-lg font-semibold text-gray-900">
-                {profilePosts.length > 0
-                  ? profilePosts.length
-                  : profileUser?.postCount || 0}
+                {profileUser?.postCount || 0}
               </div>
               <div className="text-sm text-gray-600">게시글</div>
             </div>
@@ -498,11 +496,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
             }`}
             onClick={() => setActiveTab("posts")}
           >
-            Posts (
-            {profilePosts.length > 0
-              ? profilePosts.length
-              : profileUser?.postCount || 0}
-            )
+            Posts ({profileUser?.postCount || 0})
           </button>
           <button
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${

@@ -5,6 +5,7 @@ import userReducer from "../features/user/store/userSlice";
 import postReducer from "../features/post/store/postSlice";
 import searchReducer from "../features/search/store/searchSlice";
 import commentReducer from "../features/comment/store/commentSlice";
+import messageReducer from "../features/message/store/messageSlice";
 
 export const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ export const store = configureStore({
     post: postReducer,
     search: searchReducer,
     comment: commentReducer,
+    message: messageReducer,
   },
 });
 

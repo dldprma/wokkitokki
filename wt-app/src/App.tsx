@@ -16,6 +16,8 @@ import SearchPage from "./pages/SearchPage";
 import UserProfilePage from "./pages/UserProfilePage";
 import PostDetailPage from "./pages/PostDetailPage";
 import CommentDetailPage from "./pages/CommentDetailPage";
+import MessagePage from "./pages/MessagePage";
+import ChatRoomPage from "./pages/ChatRoomPage";
 
 // axios에 Redux store 설정
 setStore(store);
@@ -118,6 +120,22 @@ function App() {
           element={
             <ProtectedRoute>
               <SearchPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages"
+          element={
+            <ProtectedRoute>
+              <MessagePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/messages/:roomId"
+          element={
+            <ProtectedRoute>
+              <ChatRoomPage />
             </ProtectedRoute>
           }
         />

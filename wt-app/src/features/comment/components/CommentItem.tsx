@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../store/hooks";
 import { toggleLike, toggleRepost, removeComment } from "../store/commentSlice";
 import CommentComposer from "./CommentComposer";
+import UserSelectModal from "../../message/components/UserSelectModal";
 import type { Comment } from "../type/commentTypes";
 import "../../../css/comment.css";
 
@@ -25,6 +26,9 @@ const CommentItem: React.FC<CommentItemProps> = ({
   const [isReplying, setIsReplying] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showUserSelectModal, setShowUserSelectModal] = useState(false);
+  const [selectedCommentForShare, setSelectedCommentForShare] =
+    useState<any>(null);
 
   // 댓글 상태를 로컬로 관리 (UI 즉시 반영용)
   const [localIsLiked, setLocalIsLiked] = useState(comment.liked || false);
@@ -255,11 +259,20 @@ const CommentItem: React.FC<CommentItemProps> = ({
 
             {/* DM 버튼 */}
             <button
-              onClick={() => navigate(`/dm/${comment.authorUsername}`)}
+              onClick={() => {
+                setSelectedCommentForShare({
+                  type: "comment",
+                  content: comment.content,
+                  imageUrl: comment.imageUrl,
+                  authorName: comment.authorName,
+                  postId: postId.toString(),
+                });
+                setShowUserSelectModal(true);
+              }}
               className="comment-item-action-btn dm"
-              aria-label="DM 보내기"
+              aria-label="메시지 보내기"
             >
-              📩
+              💬
             </button>
           </div>
 
@@ -295,6 +308,16 @@ const CommentItem: React.FC<CommentItemProps> = ({
           )}
         </>
       )}
+
+      {/* 사용자 선택 모달 */}
+      <UserSelectModal
+        isOpen={showUserSelectModal}
+        onClose={() => {
+          setShowUserSelectModal(false);
+          setSelectedCommentForShare(null);
+        }}
+        shareContent={selectedCommentForShare}
+      />
     </div>
   );
 };

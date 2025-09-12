@@ -29,6 +29,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
+	implementation 'org.springframework.boot:spring-boot-starter-reactor-netty'
 	// 기존 Spring Data Elasticsearch
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 	// Jackson 의존성 (JSON 처리용)

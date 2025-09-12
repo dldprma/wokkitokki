@@ -8,6 +8,7 @@ import ProfilePosts from "./ProfilePosts";
 import ProfileImage from "./ProfileImage";
 import EditProfile from "./EditProfile";
 import { updateProfileImage } from "../../auth/store/authSlice";
+import { useMessage } from "../../message/hooks/useMessage";
 import type { UserProfile } from "../types/userTypes";
 import { usePost } from "../../post/hooks/usePost";
 import { useUser } from "../hooks/useUser";
@@ -34,6 +35,9 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
 
   // 현재 로그인한 사용자의 username
   const currentUsername = currentUser?.username;
+
+  // 메시지 관련 훅
+  const { createRoom } = useMessage();
 
   // 모달 상태
   const [showFollowersModal, setShowFollowersModal] = useState(false);
@@ -331,6 +335,35 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
     setShowFollowingModal(true);
   };
 
+  // 메시지 버튼 클릭 핸들러
+  const handleSendMessage = async () => {
+    console.log("profileUser:", profileUser);
+    console.log("profileUser.id:", profileUser?.id);
+    console.log("profileUser.username:", profileUser?.username);
+
+    if (!profileUser?.username) {
+      console.error("profileUser.username이 없습니다:", profileUser);
+      alert("사용자 정보를 불러올 수 없습니다. 다시 시도해주세요.");
+      return;
+    }
+
+    try {
+      // 해당 사용자와의 채팅방 생성 또는 이동 (username 사용)
+      const roomId = await createRoom([profileUser.username]);
+      console.log("생성된 roomId:", roomId);
+
+      if (!roomId) {
+        alert("채팅방을 생성할 수 없습니다. 다시 시도해주세요.");
+        return;
+      }
+
+      navigate(`/messages/${roomId}`);
+    } catch (error) {
+      console.error("채팅방 생성 실패:", error);
+      alert("메시지 전송에 실패했습니다. 다시 시도해주세요.");
+    }
+  };
+
   if (!profileUsername || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -431,18 +464,26 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
                   </div>
                 )}
 
-                {/* 다른 사용자일 때만 팔로우 버튼 표시 */}
+                {/* 다른 사용자일 때만 팔로우 버튼과 메시지 버튼 표시 */}
                 {profileUser && profileUser?.username !== currentUsername && (
-                  <button
-                    onClick={handleToggleFollow}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      localIsFollowing
-                        ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
-                        : "bg-blue-500 text-white hover:bg-blue-600"
-                    }`}
-                  >
-                    {localIsFollowing ? "UnFollow" : "Follow"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleToggleFollow}
+                      className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                        localIsFollowing
+                          ? "bg-gray-200 text-gray-800 hover:bg-gray-300"
+                          : "bg-blue-500 text-white hover:bg-blue-600"
+                      }`}
+                    >
+                      {localIsFollowing ? "UnFollow" : "Follow"}
+                    </button>
+                    <button
+                      onClick={handleSendMessage}
+                      className="px-3 py-1.5 text-sm rounded-md bg-green-500 text-white hover:bg-green-600 transition-colors"
+                    >
+                      💬 메시지
+                    </button>
+                  </div>
                 )}
               </div>
 

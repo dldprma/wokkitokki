@@ -1,0 +1,264 @@
+.chat-room {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  background-color: #f8f9fa;
+  position: relative;
+}
+
+.chat-room-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.back-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.back-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.room-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.room-avatar {
+  position: relative;
+  width: 40px;
+  height: 40px;
+}
+
+.room-avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.online-indicator {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  width: 12px;
+  height: 12px;
+  background-color: #28a745;
+  border: 2px solid white;
+  border-radius: 50%;
+}
+
+.room-details {
+  flex: 1;
+  min-width: 0;
+}
+
+.room-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-status {
+  margin: 2px 0 0 0;
+  font-size: 12px;
+  color: #8e8e8e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: none;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #666;
+  transition: all 0.2s ease;
+}
+
+.header-button:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.chat-room-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.typing-indicator-container {
+  position: absolute;
+  bottom: 80px;
+  left: 16px;
+  background: white;
+  border-radius: 18px;
+  padding: 8px 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  z-index: 5;
+  animation: slideUp 0.3s ease-out;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 3px;
+}
+
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: #007bff;
+  animation: typing 1.4s ease-in-out infinite both;
+}
+
+.typing-dots span:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.typing-dots span:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.typing-dots span:nth-child(3) {
+  animation-delay: 0s;
+}
+
+.typing-text {
+  font-size: 12px;
+  color: #666;
+  white-space: nowrap;
+}
+
+@keyframes typing {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .chat-room-header {
+    padding: 8px 12px;
+  }
+
+  .header-left {
+    gap: 8px;
+  }
+
+  .back-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .room-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .online-indicator {
+    width: 10px;
+    height: 10px;
+    bottom: 1px;
+    right: 1px;
+  }
+
+  .room-name {
+    font-size: 15px;
+  }
+
+  .room-status {
+    font-size: 11px;
+  }
+
+  .header-button {
+    width: 36px;
+    height: 36px;
+  }
+
+  .typing-indicator-container {
+    bottom: 70px;
+    left: 12px;
+    padding: 6px 10px;
+  }
+
+  .typing-text {
+    font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .room-info {
+    gap: 8px;
+  }
+
+  .header-right {
+    gap: 4px;
+  }
+
+  .header-button {
+    width: 32px;
+    height: 32px;
+  }
+}

@@ -5,6 +5,7 @@ import { useHome } from "../hooks/useHome";
 import { useAuth } from "../../auth/hooks/useAuth";
 import ProfileImage from "../../user/components/ProfileImage";
 import { CommentPreview } from "../../comment";
+import UserSelectModal from "../../message/components/UserSelectModal";
 import "../../../css/Home.css";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { setLoading, setError } from "../store/homeSlice";
@@ -38,6 +39,8 @@ const Home: React.FC = () => {
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [showUserSelectModal, setShowUserSelectModal] = useState(false);
+  const [selectedPostForShare, setSelectedPostForShare] = useState<any>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const isInitialLoad = useRef(true);
   const observerRef = useRef<IntersectionObserver | null>(null);
@@ -494,6 +497,22 @@ const Home: React.FC = () => {
                             </span>
                           </button>
                           <button
+                            onClick={() => {
+                              setSelectedPostForShare({
+                                type: "post",
+                                content: item.post.content,
+                                imageUrl: item.post.imageUrl,
+                                authorName: item.post.authorName,
+                                postId: item.post.id,
+                              });
+                              setShowUserSelectModal(true);
+                            }}
+                            className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
+                            aria-label="메시지"
+                          >
+                            <span>💬</span>
+                          </button>
+                          <button
                             className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
                             aria-label="공유"
                           >
@@ -668,6 +687,16 @@ const Home: React.FC = () => {
           )}
         </div>
       </section>
+
+      {/* 사용자 선택 모달 */}
+      <UserSelectModal
+        isOpen={showUserSelectModal}
+        onClose={() => {
+          setShowUserSelectModal(false);
+          setSelectedPostForShare(null);
+        }}
+        shareContent={selectedPostForShare}
+      />
     </main>
   );
 };

@@ -261,7 +261,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
             <button
               onClick={() => {
                 setSelectedCommentForShare({
-                  type: "comment",
+                  type: "dirctmessage",
                   content: comment.content,
                   imageUrl: comment.imageUrl,
                   authorName: comment.authorName,
@@ -272,7 +272,7 @@ const CommentItem: React.FC<CommentItemProps> = ({
               className="comment-item-action-btn dm"
               aria-label="메시지 보내기"
             >
-              💬
+              📤
             </button>
           </div>
 

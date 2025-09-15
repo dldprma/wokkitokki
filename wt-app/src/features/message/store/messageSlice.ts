@@ -141,7 +141,7 @@ export const sendImageMessage = createAsyncThunk(
       image,
       replyToMessageId
     );
-    return { receiverUsername, message: response.message };
+    return { receiverUsername, message: response };
   }
 );
 
@@ -444,8 +444,27 @@ const messageSlice = createSlice({
         state.messages[receiverUsername] = [];
       }
       if (message) {
-        // Message 타입을 그대로 사용
-        state.messages[receiverUsername].push(message);
+        // MessageDto를 Message로 변환
+        const newMessage: Message = {
+          id: message.id,
+          content: message.content,
+          senderId: message.senderId,
+          senderUsername: message.senderUsername,
+          senderFullName: message.senderFullName,
+          receiverId: message.receiverId,
+          receiverUsername: message.receiverUsername,
+          receiverFullName: message.receiverFullName,
+          createdAt: message.createdAt,
+          messageType: message.messageType || "TEXT",
+          imageUrl: message.imageUrl,
+          fileUrl: message.fileUrl,
+          fileName: message.fileName,
+          sharedPostId: message.sharedPostId,
+          sharedPost: message.sharedPost,
+          read: message.isRead || false,
+          roomId: receiverUsername,
+        };
+        state.messages[receiverUsername].push(newMessage);
       }
     });
 

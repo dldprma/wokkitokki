@@ -76,8 +76,8 @@ public class MessageUserSearchService {
                         dto.setOnline(messageCacheService.isUserOnline(userId));
                         dto.setLastSeen(messageCacheService.getUserLastSeen(userId));
                         
-                        boolean hasExistingChat = chatRoomRepository.findByUsers(currentUser, 
-                            userRepository.findById(userId).orElse(null)).isPresent();
+                        boolean hasExistingChat = !chatRoomRepository.findByUsers(currentUser,
+                            userRepository.findById(userId).orElse(null)).isEmpty();
                         dto.setHasExistingChat(hasExistingChat);
                         
                         boolean isFollowing = followingIds.contains(userId);
@@ -148,9 +148,9 @@ public class MessageUserSearchService {
                         boolean isFollowing = followingIds.contains(userId);
                         dto.setFollowing(isFollowing);
                         
-                        boolean hasExistingChat = currentUser != null && 
-                            chatRoomRepository.findByUsers(currentUser, 
-                                userRepository.findById(userId).orElse(null)).isPresent();
+                        boolean hasExistingChat = currentUser != null &&
+                            !chatRoomRepository.findByUsers(currentUser,
+                                userRepository.findById(userId).orElse(null)).isEmpty();
                         dto.setHasExistingChat(hasExistingChat);
                         
                         int priority = calculatePriority(isFollowing, hasExistingChat, dto.isOnline());
@@ -318,8 +318,8 @@ public class MessageUserSearchService {
                         dto.setOnline(messageCacheService.isUserOnline(user.getId()));
                         dto.setLastSeen(messageCacheService.getUserLastSeen(user.getId()));
                         
-                        boolean hasExistingChat = chatRoomRepository.findByUsers(
-                            userRepository.findById(currentUserId).orElse(null), user).isPresent();
+                        boolean hasExistingChat = !chatRoomRepository.findByUsers(
+                            userRepository.findById(currentUserId).orElse(null), user).isEmpty();
                         dto.setHasExistingChat(hasExistingChat);
                         
                         return dto;

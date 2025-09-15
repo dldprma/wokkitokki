@@ -75,11 +75,11 @@ const CommentPreview: React.FC<CommentPreviewProps> = ({
                 </span>
               </div>
             </div>
-            
+
             <div className="text-gray-900 mb-3 leading-relaxed">
               {comment.content}
             </div>
-            
+
             {comment.imageUrl && (
               <div className="mb-3">
                 <img
@@ -96,19 +96,31 @@ const CommentPreview: React.FC<CommentPreviewProps> = ({
                 {/* 답글 */}
                 <span className="flex items-center space-x-2 text-gray-500">
                   <span>💬</span>
-                  <span>{comment.replyCount > 0 ? formatCount(comment.replyCount) : '0'}</span>
+                  <span>
+                    {comment.replyCount > 0
+                      ? formatCount(comment.replyCount)
+                      : "0"}
+                  </span>
                 </span>
 
                 {/* 리포스트 */}
                 <span className="flex items-center space-x-2 text-gray-500">
                   <span>🔄</span>
-                  <span>{comment.repostCount > 0 ? formatCount(comment.repostCount) : '0'}</span>
+                  <span>
+                    {comment.repostCount > 0
+                      ? formatCount(comment.repostCount)
+                      : "0"}
+                  </span>
                 </span>
 
                 {/* 좋아요 */}
                 <span className="flex items-center space-x-2 text-gray-500">
                   <span>🤍</span>
-                  <span>{comment.likeCount > 0 ? formatCount(comment.likeCount) : '0'}</span>
+                  <span>
+                    {comment.likeCount > 0
+                      ? formatCount(comment.likeCount)
+                      : "0"}
+                  </span>
                 </span>
 
                 {/* DM */}
@@ -116,7 +128,7 @@ const CommentPreview: React.FC<CommentPreviewProps> = ({
                   onClick={() => handleUserClick(comment.authorUsername)}
                   className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
                 >
-                  <span>📩</span>
+                  <span>📤</span>
                 </button>
               </div>
             </div>

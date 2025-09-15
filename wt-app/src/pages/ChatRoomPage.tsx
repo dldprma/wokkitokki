@@ -1,17 +1,19 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ChatRoom, useChatRoom } from "../features/message";
+import { ChatRoom, useChatRoom, useMessage } from "../features/message";
 import { useAuth } from "../features/auth/hooks/useAuth";
 
 const ChatRoomPage: React.FC = () => {
   const { username } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { loadChatRooms } = useMessage();
 
   const chatRoomData = useChatRoom(username || "");
   const {
     messages,
     pagination,
+    roomId,
     loading,
     handleSendMessage,
     handleSendImage,
@@ -67,10 +69,13 @@ const ChatRoomPage: React.FC = () => {
     return null;
   }
 
+  // roomId가 없으면 로딩 중이거나 채팅방을 찾을 수 없음
+  // 하지만 채팅방은 표시하고, 나가기 기능만 비활성화
+
   return (
     <div className="chat-room-page" style={{ height: "calc(100vh - 60px)" }}>
       <ChatRoom
-        roomId={username}
+        roomId={roomId}
         roomName={currentRoom?.name || "채팅방"}
         roomImage={currentRoom?.image || ""}
         currentUsername={user?.username || ""}
@@ -79,6 +84,7 @@ const ChatRoomPage: React.FC = () => {
         onSendFile={handleSendFileWrapper}
         onSendFiles={handleSendFilesWrapper}
         onLoadMoreMessages={handleLoadMoreWrapper}
+        onChatRoomLeft={loadChatRooms}
         isLoading={loading.messages || loading.userInfo}
         hasMore={pagination?.hasMore || false}
         isOnline={currentRoom?.isOnline || false}

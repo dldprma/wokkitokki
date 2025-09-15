@@ -200,15 +200,27 @@ public class MessageController {
             @RequestParam(value = "content", required = false) String content,
             @RequestParam(value = "image", required = false) MultipartFile image,
             @RequestParam(value = "file", required = false) MultipartFile file,
-            @RequestParam(value = "sharedPostId", required = false) Long sharedPostId) {
+            @RequestParam(value = "sharedPostId", required = false) Long sharedPostId,
+            @RequestParam(value = "messageType", required = false) String messageType) {
 
         try {
             UserEntity currentUser = getCurrentUser();
             Long receiverId = userService.getUserIdByUsername(receiverUsername);
 
 
+            // MessageType 안전하게 파싱
+            MessageEntity.MessageType requestedType = null;
+            if (messageType != null && !messageType.trim().isEmpty()) {
+                try {
+                    requestedType = MessageEntity.MessageType.valueOf(messageType.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    // 잘못된 messageType이면 null로 설정하여 서버에서 자동 결정
+                    requestedType = null;
+                }
+            }
+
             MessageDto message = messageService.sendMessageWithFiles(
-                currentUser.getId(), receiverId, content, image, file, sharedPostId);
+                currentUser.getId(), receiverId, content, image, file, sharedPostId, requestedType);
             return ResponseEntity.ok(message);
         } catch (Exception e) {
             log.error("메시지 전송 실패: ", e);
@@ -293,8 +305,21 @@ public class MessageController {
     @DeleteMapping("/chat-rooms/{roomId}")
     public ResponseEntity<Void> deleteChatRoom(@PathVariable String roomId) {
         UserEntity currentUser = getCurrentUser();
-        
+
         messageService.deleteChatRoom(roomId, currentUser.getId());
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/chat-rooms/with/{username}")
+    public ResponseEntity<Void> deleteChatRoomByUsername(@PathVariable String username) {
+        UserEntity currentUser = getCurrentUser();
+        Long otherUserId = userService.getUserIdByUsername(username);
+
+        if (otherUserId == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        messageService.deleteChatRoomByUsers(currentUser.getId(), otherUserId);
         return ResponseEntity.ok().build();
     }
 

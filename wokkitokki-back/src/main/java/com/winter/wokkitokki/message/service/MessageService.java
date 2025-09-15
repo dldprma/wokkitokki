@@ -99,7 +99,8 @@ public class MessageService {
 
     @Transactional
     public MessageDto sendMessageWithFiles(Long senderId, Long receiverId, String content,
-                                           MultipartFile image, MultipartFile file, Long sharedPostId) {
+                                           MultipartFile image, MultipartFile file, Long sharedPostId,
+                                           MessageEntity.MessageType requestedType) {
         String imageUrl = null;
         String fileUrl = null;
         String fileName = null;
@@ -116,8 +117,8 @@ public class MessageService {
                 fileName = file.getOriginalFilename();
             }
 
-            // 메시지 타입 자동 결정하여 메시지 전송
-            return sendMessage(senderId, receiverId, content, imageUrl, fileUrl, fileName, sharedPostId, MessageEntity.MessageType.TEXT);
+            // 메시지 전송 (requestedType을 전달하여 서버에서 최종 검증)
+            return sendMessage(senderId, receiverId, content, imageUrl, fileUrl, fileName, sharedPostId, requestedType);
 
         } catch (Exception e) {
             // 업로드 실패 시 이미 업로드된 파일들 정리
@@ -138,17 +139,33 @@ public class MessageService {
         return sendMessage(senderId, receiverId, content, null, null, null, postId, MessageEntity.MessageType.POST_SHARE);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public Page<MessageDto> getMessages(Long userId, Long otherUserId, int page, int size) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         UserEntity otherUser = userRepository.findById(otherUserId)
                 .orElseThrow(() -> new RuntimeException("Other user not found"));
 
-        Pageable pageable = PageRequest.of(page, size);
-        Page<MessageEntity> messages = messageRepository.findMessagesBetweenUsers(user, otherUser, pageable);
-        
         ChatRoomEntity chatRoom = findOrCreateChatRoom(user, otherUser);
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        // 사용자가 채팅방을 나간 상태인지 확인
+        boolean userLeft = (chatRoom.getUser1().getId().equals(userId) && chatRoom.isUser1Left()) ||
+                          (chatRoom.getUser2().getId().equals(userId) && chatRoom.isUser2Left());
+
+        Page<MessageEntity> messages;
+        if (userLeft) {
+            // 나간 사용자는 채팅방 생성 시점 이후의 메시지만 보기 (즉, 빈 메시지)
+            // 실제로는 나간 시점 이후의 메시지만 보여야 하지만, 일단은 모든 메시지를 숨김
+            messages = messageRepository.findMessagesBetweenUsersAfterDate(user, otherUser, LocalDateTime.now(), pageable);
+        } else {
+            // 나가지 않은 사용자는 모든 메시지 보기
+            messages = messageRepository.findMessagesBetweenUsers(user, otherUser, pageable);
+        }
+
+        // 메시지 조회 시 자동으로 읽음 처리
+        markMessagesAsRead(userId, otherUserId);
 
         return messages.map(message -> {
             MessageDto dto = MessageDto.fromEntity(message, chatRoom.getRoomId());
@@ -175,12 +192,21 @@ public class MessageService {
         List<ChatRoomEntity> chatRooms = chatRoomRepository.findByUser(user);
         
         List<ChatRoomDto> chatRoomDtos = chatRooms.stream()
+                .filter(chatRoom -> {
+                    // 사용자가 나간 채팅방은 제외
+                    if (chatRoom.getUser1().getId().equals(userId)) {
+                        return !chatRoom.isUser1Left();
+                    } else {
+                        return !chatRoom.isUser2Left();
+                    }
+                })
                 .map(chatRoom -> {
                     ChatRoomDto dto = ChatRoomDto.fromEntity(chatRoom);
                     
                     UserEntity otherUser = chatRoom.getUser1().getId().equals(userId) 
                             ? chatRoom.getUser2() : chatRoom.getUser1();
                     
+                    // 최신 메시지 가져오기
                     List<MessageEntity> latestMessages = messageRepository.findLatestMessageBetweenUsers(
                             user, otherUser, PageRequest.of(0, 1));
                     
@@ -243,17 +269,27 @@ public class MessageService {
     }
 
     private ChatRoomEntity findOrCreateChatRoom(UserEntity user1, UserEntity user2) {
-        return chatRoomRepository.findByUsers(user1, user2)
-                .orElseGet(() -> {
-                    ChatRoomEntity newChatRoom = new ChatRoomEntity();
-                    newChatRoom.setRoomId(UUID.randomUUID().toString());
-                    newChatRoom.setUser1(user1);
-                    newChatRoom.setUser2(user2);
-                    newChatRoom.setCreatedAt(LocalDateTime.now());
-                    newChatRoom.setLastMessageAt(LocalDateTime.now());
-                    newChatRoom.setActive(true);
-                    return chatRoomRepository.save(newChatRoom);
-                });
+        // 기존 채팅방이 있는지 확인 (최신순으로 정렬된 리스트)
+        List<ChatRoomEntity> existingChatRooms = chatRoomRepository.findByUsers(user1, user2);
+
+        // 활성 상태인 채팅방이 있으면 그대로 사용 (나간 사용자 상태는 변경하지 않음)
+        for (ChatRoomEntity chatRoom : existingChatRooms) {
+            if (chatRoom.isActive()) {
+                return chatRoom;
+            }
+        }
+
+        // 활성 채팅방이 없으면 새로운 채팅방 생성
+        ChatRoomEntity newChatRoom = new ChatRoomEntity();
+        newChatRoom.setRoomId(UUID.randomUUID().toString());
+        newChatRoom.setUser1(user1);
+        newChatRoom.setUser2(user2);
+        newChatRoom.setCreatedAt(LocalDateTime.now());
+        newChatRoom.setLastMessageAt(LocalDateTime.now());
+        newChatRoom.setActive(true);
+        newChatRoom.setUser1Left(false);
+        newChatRoom.setUser2Left(false);
+        return chatRoomRepository.save(newChatRoom);
     }
 
 
@@ -316,16 +352,68 @@ public class MessageService {
     public void deleteChatRoom(String roomId, Long userId) {
         ChatRoomEntity chatRoom = chatRoomRepository.findByRoomId(roomId)
                 .orElseThrow(() -> new RuntimeException("Chat room not found"));
-        
+
         if (!chatRoom.getUser1().getId().equals(userId) && !chatRoom.getUser2().getId().equals(userId)) {
             throw new RuntimeException("Unauthorized to delete this chat room");
         }
-        
-        chatRoom.setActive(false);
+
+        // 사용자별로 나가기 상태 설정
+        if (chatRoom.getUser1().getId().equals(userId)) {
+            chatRoom.setUser1Left(true);
+        } else {
+            chatRoom.setUser2Left(true);
+        }
+
+        // 두 사용자 모두 나갔다면 채팅방을 비활성화
+        if (chatRoom.isUser1Left() && chatRoom.isUser2Left()) {
+            chatRoom.setActive(false);
+        }
+
         chatRoomRepository.save(chatRoom);
-        
+
         messageCacheService.invalidateChatRoomsCache(chatRoom.getUser1().getId());
         messageCacheService.invalidateChatRoomsCache(chatRoom.getUser2().getId());
+    }
+
+    @Transactional
+    public void deleteChatRoomByUsers(Long userId, Long otherUserId) {
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        UserEntity otherUser = userRepository.findById(otherUserId)
+                .orElseThrow(() -> new RuntimeException("Other user not found"));
+
+        List<ChatRoomEntity> chatRooms = chatRoomRepository.findByUsers(user, otherUser);
+
+        // 활성 채팅방 중에서 사용자가 참여 중인 방 찾기
+        ChatRoomEntity activeChatRoom = chatRooms.stream()
+                .filter(chatRoom -> chatRoom.isActive())
+                .filter(chatRoom -> {
+                    // 현재 사용자가 나가지 않은 방만 대상으로 함
+                    if (chatRoom.getUser1().getId().equals(userId)) {
+                        return !chatRoom.isUser1Left();
+                    } else {
+                        return !chatRoom.isUser2Left();
+                    }
+                })
+                .findFirst()
+                .orElseThrow(() -> new RuntimeException("Chat room not found"));
+
+        // 사용자별로 나가기 상태 설정
+        if (activeChatRoom.getUser1().getId().equals(userId)) {
+            activeChatRoom.setUser1Left(true);
+        } else {
+            activeChatRoom.setUser2Left(true);
+        }
+
+        // 두 사용자 모두 나갔다면 채팅방을 비활성화
+        if (activeChatRoom.isUser1Left() && activeChatRoom.isUser2Left()) {
+            activeChatRoom.setActive(false);
+        }
+
+        chatRoomRepository.save(activeChatRoom);
+
+        messageCacheService.invalidateChatRoomsCache(userId);
+        messageCacheService.invalidateChatRoomsCache(otherUserId);
     }
 
     @Transactional

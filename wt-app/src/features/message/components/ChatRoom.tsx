@@ -17,6 +17,7 @@ interface ChatRoomProps {
   onSendFiles?: (files: File[]) => void;
   onLoadMoreMessages?: () => void;
   onMarkAsRead?: (messageIds: number[]) => void;
+  onChatRoomLeft?: () => void;
   isLoading?: boolean;
   hasMore?: boolean;
   isOnline?: boolean;
@@ -35,6 +36,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
   onSendFiles,
   onLoadMoreMessages,
   onMarkAsRead,
+  onChatRoomLeft,
   isLoading = false,
   hasMore = false,
   isOnline = false,
@@ -164,14 +166,28 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
             <div className="dropdown-menu">
               <button
                 className="dropdown-item"
+                disabled={!roomId}
                 onClick={async () => {
+                  if (!roomId) {
+                    alert(
+                      "채팅방 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요."
+                    );
+                    setShowMenu(false);
+                    return;
+                  }
+
                   try {
                     await messageApi.deleteChatRoom(roomId);
-                    console.log("대화방 나가기 성공:", roomId);
+                    // 채팅방 목록 새로고침
+                    if (onChatRoomLeft) {
+                      onChatRoomLeft();
+                    }
                     // 메시지 페이지로 이동
                     navigate("/messages");
                   } catch (error) {
                     console.error("대화방 나가기 실패:", error);
+                    console.error("에러 응답:", error.response?.data);
+                    console.error("에러 상태:", error.response?.status);
                     alert("대화방 나가기에 실패했습니다. 다시 시도해주세요.");
                   }
                   setShowMenu(false);

@@ -15,9 +15,10 @@ public interface ChatRoomRepository extends JpaRepository<ChatRoomEntity, Long> 
     
     @Query("SELECT c FROM ChatRoomEntity c WHERE " +
            "(c.user1 = :user1 AND c.user2 = :user2) OR " +
-           "(c.user1 = :user2 AND c.user2 = :user1)")
-    Optional<ChatRoomEntity> findByUsers(@Param("user1") UserEntity user1, 
-                                        @Param("user2") UserEntity user2);
+           "(c.user1 = :user2 AND c.user2 = :user1) " +
+           "ORDER BY c.createdAt DESC")
+    List<ChatRoomEntity> findByUsers(@Param("user1") UserEntity user1,
+                                     @Param("user2") UserEntity user2);
     
     @Query("SELECT c FROM ChatRoomEntity c WHERE " +
            "(c.user1 = :user OR c.user2 = :user) AND c.active = true " +

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useHome } from "../hooks/useHome";
 // import { useUser } from "../../user/hooks/useUser";
 import { useAuth } from "../../auth/hooks/useAuth";
+import { useMessage } from "../../message/hooks/useMessage";
 import ProfileImage from "../../user/components/ProfileImage";
 import { CommentPreview } from "../../comment";
 import UserSelectModal from "../../message/components/UserSelectModal";
@@ -35,6 +36,7 @@ const Home: React.FC = () => {
   const { posts: feedPosts } = useAppSelector((state) => state.home);
   // const { profileUser } = useUser();
   const { user: authUser } = useAuth();
+  const { createRoom } = useMessage();
   const navigate = useNavigate();
   const [newPostContent, setNewPostContent] = useState("");
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
@@ -501,24 +503,28 @@ const Home: React.FC = () => {
                             </span>
                           </button>
                           <button
-                            onClick={() => {
-                              setSelectedPostForShare({
-                                type: "post",
-                                content: item.post.content,
-                                imageUrl: item.post.imageUrl,
-                                authorName: item.post.authorName,
-                                postId: item.post.id,
-                              });
-                              setShowUserSelectModal(true);
-                            }}
+                            onClick={() => navigate(`/post/${item.post.id}`)}
                             className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
-                            aria-label="메시지"
+                            aria-label="댓글"
                           >
                             <span>💬</span>
                           </button>
                           <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const shareData = {
+                                type: "post",
+                                content: item.post.content,
+                                imageUrl: item.post.imgUrl,
+                                authorName: item.post.authorName,
+                                postId: item.post.id.toString(),
+                              };
+                              setSelectedPostForShare(shareData);
+                              setShowUserSelectModal(true);
+                            }}
                             className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
-                            aria-label="공유"
+                            aria-label="DM"
                           >
                             <span>📤</span>
                           </button>
@@ -632,8 +638,21 @@ const Home: React.FC = () => {
                           <span className="text-sm">{item.likeCount}</span>
                         </button>
                         <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const shareData = {
+                              type: "post",
+                              content: item.content,
+                              imageUrl: item.imgUrl,
+                              authorName: item.authorName,
+                              postId: item.id.toString(),
+                            };
+                            setSelectedPostForShare(shareData);
+                            setShowUserSelectModal(true);
+                          }}
                           className="flex items-center space-x-2 text-gray-500 hover:text-blue-500 transition-colors"
-                          aria-label="공유"
+                          aria-label="DM"
                         >
                           <span>📤</span>
                         </button>

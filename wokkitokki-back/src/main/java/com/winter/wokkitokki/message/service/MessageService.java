@@ -1,5 +1,6 @@
 package com.winter.wokkitokki.message.service;
 
+import com.winter.wokkitokki.common.service.FileService;
 import com.winter.wokkitokki.message.dto.ChatRoomDto;
 import com.winter.wokkitokki.message.dto.MessageDto;
 import com.winter.wokkitokki.message.dto.PostShareDto;
@@ -18,6 +19,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,6 +37,7 @@ public class MessageService {
     private final PostRepository postRepository;
     private final RedisMessagePublisher redisMessagePublisher;
     private final MessageCacheService messageCacheService;
+    private final FileService fileService;
 
     @Transactional
     public MessageDto sendMessage(Long senderId, Long receiverId, String content) {
@@ -69,7 +72,9 @@ public class MessageService {
         message.setReceiver(receiver);
         message.setCreatedAt(LocalDateTime.now());
         message.setRead(false);
-        message.setMessageType(messageType);
+        // MessageType 자동 결정
+        MessageEntity.MessageType finalMessageType = determineMessageType(imageUrl, fileUrl, sharedPostId, messageType);
+        message.setMessageType(finalMessageType);
         
         MessageEntity savedMessage = messageRepository.save(message);
         
@@ -93,13 +98,43 @@ public class MessageService {
     }
 
     @Transactional
+    public MessageDto sendMessageWithFiles(Long senderId, Long receiverId, String content,
+                                           MultipartFile image, MultipartFile file, Long sharedPostId) {
+        String imageUrl = null;
+        String fileUrl = null;
+        String fileName = null;
+
+        try {
+            // 이미지 파일 처리
+            if (image != null && !image.isEmpty()) {
+                imageUrl = uploadMessageImage(image);
+            }
+
+            // 일반 파일 처리
+            if (file != null && !file.isEmpty()) {
+                fileUrl = uploadMessageFile(file);
+                fileName = file.getOriginalFilename();
+            }
+
+            // 메시지 타입 자동 결정하여 메시지 전송
+            return sendMessage(senderId, receiverId, content, imageUrl, fileUrl, fileName, sharedPostId, MessageEntity.MessageType.TEXT);
+
+        } catch (Exception e) {
+            // 업로드 실패 시 이미 업로드된 파일들 정리
+            if (imageUrl != null) deleteMessageFile(imageUrl);
+            if (fileUrl != null) deleteMessageFile(fileUrl);
+            throw new RuntimeException("메시지 전송 실패: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
     public MessageDto sharePost(Long senderId, Long receiverId, Long postId, String message) {
         PostEntity post = postRepository.findById(postId)
                 .orElseThrow(() -> new RuntimeException("Post not found"));
-        
-        String content = message != null && !message.trim().isEmpty() 
+
+        String content = message != null && !message.trim().isEmpty()
                 ? message : "게시글을 공유했습니다.";
-        
+
         return sendMessage(senderId, receiverId, content, null, null, null, postId, MessageEntity.MessageType.POST_SHARE);
     }
 
@@ -114,15 +149,15 @@ public class MessageService {
         Page<MessageEntity> messages = messageRepository.findMessagesBetweenUsers(user, otherUser, pageable);
         
         ChatRoomEntity chatRoom = findOrCreateChatRoom(user, otherUser);
-        
+
         return messages.map(message -> {
             MessageDto dto = MessageDto.fromEntity(message, chatRoom.getRoomId());
-            
+
             if (message.getSharedPostId() != null) {
                 PostEntity post = postRepository.findById(message.getSharedPostId()).orElse(null);
                 dto.setSharedPost(PostShareDto.fromEntity(post));
             }
-            
+
             return dto;
         });
     }
@@ -153,7 +188,7 @@ public class MessageService {
                         MessageEntity lastMessage = latestMessages.get(0);
                         String messagePreview = getMessagePreview(lastMessage);
                         dto.setLastMessage(messagePreview);
-                        dto.setLastMessageTime(lastMessage.getCreatedAt());
+                        dto.setLastMessageTime(lastMessage.getCreatedAt().toString());
                     }
                     
                     Integer cachedUnreadCount = messageCacheService.getCachedUnreadCount(userId, otherUser.getId());
@@ -171,8 +206,21 @@ public class MessageService {
                     return dto;
                 })
                 .sorted((a, b) -> {
-                    LocalDateTime timeA = a.getLastMessageTime() != null ? a.getLastMessageTime() : a.getCreatedAt();
-                    LocalDateTime timeB = b.getLastMessageTime() != null ? b.getLastMessageTime() : b.getCreatedAt();
+                    // Entity의 실제 시간을 사용해서 정렬
+                    ChatRoomEntity chatRoomA = chatRooms.stream()
+                            .filter(cr -> cr.getRoomId().equals(a.getRoomId()))
+                            .findFirst().orElse(null);
+                    ChatRoomEntity chatRoomB = chatRooms.stream()
+                            .filter(cr -> cr.getRoomId().equals(b.getRoomId()))
+                            .findFirst().orElse(null);
+                    
+                    if (chatRoomA == null || chatRoomB == null) return 0;
+                    
+                    LocalDateTime timeA = chatRoomA.getLastMessageAt() != null ? 
+                            chatRoomA.getLastMessageAt() : chatRoomA.getCreatedAt();
+                    LocalDateTime timeB = chatRoomB.getLastMessageAt() != null ? 
+                            chatRoomB.getLastMessageAt() : chatRoomB.getCreatedAt();
+                    
                     return timeB.compareTo(timeA);
                 })
                 .collect(Collectors.toList());
@@ -208,6 +256,25 @@ public class MessageService {
                 });
     }
 
+
+    private MessageEntity.MessageType determineMessageType(String imageUrl, String fileUrl, Long sharedPostId, MessageEntity.MessageType requestedType) {
+        // 요청된 타입이 있고 그에 맞는 데이터가 있으면 우선 사용
+        if (requestedType != null && requestedType != MessageEntity.MessageType.TEXT) {
+            return requestedType;
+        }
+
+        // 자동 결정 로직
+        if (sharedPostId != null) {
+            return MessageEntity.MessageType.POST_SHARE;
+        } else if (imageUrl != null && !imageUrl.trim().isEmpty()) {
+            return MessageEntity.MessageType.IMAGE;
+        } else if (fileUrl != null && !fileUrl.trim().isEmpty()) {
+            return MessageEntity.MessageType.FILE;
+        } else {
+            return MessageEntity.MessageType.TEXT;
+        }
+    }
+
     private String getMessagePreview(MessageEntity message) {
         switch (message.getMessageType()) {
             case IMAGE:
@@ -220,7 +287,7 @@ public class MessageService {
             default:
                 String content = message.getContent();
                 if (content == null || content.trim().isEmpty()) {
-                    return "메시지를 보냈습니다.";
+                    return "메시지";
                 }
                 return content.length() > 50 ? content.substring(0, 50) + "..." : content;
         }
@@ -259,5 +326,38 @@ public class MessageService {
         
         messageCacheService.invalidateChatRoomsCache(chatRoom.getUser1().getId());
         messageCacheService.invalidateChatRoomsCache(chatRoom.getUser2().getId());
+    }
+
+    @Transactional
+    public String uploadMessageImage(MultipartFile file) {
+        fileService.validateImageFile(file);
+        fileService.validateFileSize(file, 10 * 1024 * 1024); // 10MB
+
+        try {
+            return fileService.uploadFile(file, "messages");
+        } catch (Exception e) {
+            throw new RuntimeException("이미지 업로드에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    public String uploadMessageFile(MultipartFile file) {
+        fileService.validateFileSize(file, 50 * 1024 * 1024); // 50MB
+
+        try {
+            return fileService.uploadFile(file, "messages");
+        } catch (Exception e) {
+            throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage(), e);
+        }
+    }
+
+    public void deleteMessageFile(String fileUrl) {
+        if (fileUrl != null && !fileUrl.isEmpty()) {
+            try {
+                fileService.deleteFile(fileUrl);
+            } catch (Exception e) {
+                log.warn("메시지 파일 삭제 실패: " + fileUrl, e);
+            }
+        }
     }
 }

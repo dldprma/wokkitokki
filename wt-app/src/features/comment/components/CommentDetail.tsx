@@ -345,7 +345,6 @@ const CommentDetail: React.FC<CommentDetailProps> = ({ commentId }) => {
               <button
                 onClick={() => {
                   // 답글 작성 폼을 여는 로직 (나중에 구현)
-                  console.log("답글 작성 폼 열기");
                 }}
                 className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
               >

@@ -35,6 +35,8 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()  // 인증 관련은 완전 공개
+                        // WebSocket/SockJS 관련 엔드포인트 (핸드셰이크 및 전송 허용, 실제 인증은 WebSocket CONNECT에서 처리)
+                        .requestMatchers("/ws/**").permitAll()  // 모든 SockJS 패턴 허용 (/{server-id}/{session-id}/xhr 등)
                         // 조회 전용 API들은 공개 (JWT 있으면 추가 정보 제공)
                         .requestMatchers("/api/users/*").permitAll() 
                         .requestMatchers("/api/users/*/posts").permitAll()

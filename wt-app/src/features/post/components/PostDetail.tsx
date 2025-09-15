@@ -110,16 +110,12 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
     if (!post) return;
 
     try {
-      console.log("리포스트 시작 - 현재 post 상태:", post);
-
       const result = await dispatch(
         togglePostRepostFromDetail({
           postId: post.id,
           postData: post,
         })
       ).unwrap();
-
-      console.log("리포스트 결과:", result);
 
       // 로컬 상태도 업데이트
       setPost((prev) => {
@@ -133,7 +129,6 @@ const PostDetail: React.FC<PostDetailProps> = ({ postId }) => {
             }
           : null;
 
-        console.log("업데이트된 post 상태:", updatedPost);
         return updatedPost;
       });
     } catch (error) {

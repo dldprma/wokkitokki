@@ -76,8 +76,6 @@ export const loginUser = createAsyncThunk(
     try {
       const res = await login(data);
       // 백엔드 응답 구조 확인
-      console.log("로그인 응답 (res):", res);
-      console.log("로그인 응답 키들:", Object.keys(res));
 
       const user = {
         id: res.id, // 백엔드에서 id를 보내주는 경우

@@ -305,7 +305,7 @@ public class UserService {
             UserEntity user = userRepository.findById(userId)
                     .orElseThrow(()->new RuntimeException("사용자를 찾을 수 없습니다."));
 
-            String imageUrl = "/uploads/profiles/"+filename;
+            String imageUrl = "http://localhost:5173/uploads/profiles/"+filename;
             user.setProfileImgUrl(imageUrl);
             userRepository.save(user);
             searchIndexService.indexUser(user);

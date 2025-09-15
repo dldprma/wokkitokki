@@ -8,6 +8,7 @@ import com.winter.wokkitokki.message.service.MessageCacheService;
 import com.winter.wokkitokki.message.service.MessageService;
 import com.winter.wokkitokki.message.service.MessageUserSearchService;
 import com.winter.wokkitokki.user.entity.UserEntity;
+import com.winter.wokkitokki.user.repository.UserRepository;
 import com.winter.wokkitokki.user.service.UserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +20,9 @@ import org.springframework.messaging.simp.SimpMessageHeaderAccessor;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -36,40 +39,73 @@ public class MessageController {
     private final SimpMessagingTemplate messagingTemplate;
     private final MessageUserSearchService messageUserSearchService;
     private final UserService userService;
+    private final UserRepository userRepository;
 
-    @MessageMapping("/send")
-    public void sendMessage(@Payload Map<String, Object> messageData, 
-                           SimpMessageHeaderAccessor headerAccessor) {
+    private UserEntity getCurrentUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated()) {
-            return;
+            throw new RuntimeException("인증되지 않은 사용자입니다");
         }
 
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        String receiverUsername = messageData.get("receiverUsername").toString();
-        Long receiverId = userService.getUserIdByUsername(receiverUsername);
-        String content = messageData.get("content").toString();
-        String imageUrl = (String) messageData.get("imageUrl");
-        String fileUrl = (String) messageData.get("fileUrl");
-        String fileName = (String) messageData.get("fileName");
-        Long sharedPostId = messageData.get("sharedPostId") != null 
-            ? Long.valueOf(messageData.get("sharedPostId").toString()) : null;
-        String messageTypeStr = (String) messageData.getOrDefault("messageType", "TEXT");
-        
-        MessageEntity.MessageType messageType = MessageEntity.MessageType.valueOf(messageTypeStr);
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String username = userDetails.getUsername();
+        return userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("사용자를 찾을 수 없습니다"));
+    }
 
-        messageService.sendMessage(currentUser.getId(), receiverId, content, imageUrl, fileUrl, fileName, sharedPostId, messageType);
+    private UserEntity getUserFromWebSocket(SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            Authentication auth = (Authentication) headerAccessor.getUser();
+            if (auth == null || !auth.isAuthenticated()) {
+                log.warn("WebSocket: 인증되지 않은 사용자");
+                return null;
+            }
+
+            UserDetails userDetails = (UserDetails) auth.getPrincipal();
+            String username = userDetails.getUsername();
+            return userRepository.findByUsername(username).orElse(null);
+        } catch (Exception e) {
+            log.error("WebSocket에서 사용자 정보 가져오기 실패", e);
+            return null;
+        }
+    }
+
+    @MessageMapping("/send")
+    public void sendMessage(@Payload Map<String, Object> messageData,
+                           SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            UserEntity currentUser = getUserFromWebSocket(headerAccessor);
+            if (currentUser == null) return;
+            String receiverUsername = messageData.get("receiverUsername").toString();
+            Long receiverId = userService.getUserIdByUsername(receiverUsername);
+            String content = messageData.get("content").toString();
+            String imageUrl = (String) messageData.get("imageUrl");
+            String fileUrl = (String) messageData.get("fileUrl");
+            String fileName = (String) messageData.get("fileName");
+            Long sharedPostId = messageData.get("sharedPostId") != null 
+                ? Long.valueOf(messageData.get("sharedPostId").toString()) : null;
+            String messageTypeStr = (String) messageData.getOrDefault("messageType", "TEXT");
+
+            MessageEntity.MessageType messageType;
+            try {
+                messageType = MessageEntity.MessageType.valueOf(messageTypeStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                log.warn("잘못된 MessageType: {}. TEXT로 기본 설정", messageTypeStr);
+                messageType = MessageEntity.MessageType.TEXT;
+            }
+
+            messageService.sendMessage(currentUser.getId(), receiverId, content, imageUrl, fileUrl, fileName, sharedPostId, messageType);
+        } catch (Exception e) {
+            log.error("WebSocket 메시지 전송 실패", e);
+        }
     }
 
     @MessageMapping("/typing")
-    public void handleTyping(@Payload Map<String, Object> typingData, 
+    public void handleTyping(@Payload Map<String, Object> typingData,
                            SimpMessageHeaderAccessor headerAccessor) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return;
-        }
-
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        try {
+            UserEntity currentUser = getUserFromWebSocket(headerAccessor);
+            if (currentUser == null) return;
         String receiverUsername = typingData.get("receiverUsername").toString();
         Long receiverId = userService.getUserIdByUsername(receiverUsername);
         boolean isTyping = Boolean.parseBoolean(typingData.get("isTyping").toString());
@@ -94,18 +130,17 @@ public class MessageController {
             typingStatus
         );
 
-        log.debug("User {} typing status to user {}: {}", currentUser.getId(), receiverId, isTyping);
+        } catch (Exception e) {
+            log.error("WebSocket typing 처리 실패", e);
+        }
     }
 
     @MessageMapping("/stop-typing")
-    public void handleStopTyping(@Payload Map<String, Object> typingData, 
+    public void handleStopTyping(@Payload Map<String, Object> typingData,
                                 SimpMessageHeaderAccessor headerAccessor) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication == null || !authentication.isAuthenticated()) {
-            return;
-        }
-
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        try {
+            UserEntity currentUser = getUserFromWebSocket(headerAccessor);
+            if (currentUser == null) return;
         String receiverUsername = typingData.get("receiverUsername").toString();
         Long receiverId = userService.getUserIdByUsername(receiverUsername);
 
@@ -125,13 +160,14 @@ public class MessageController {
             typingStatus
         );
 
-        log.debug("User {} stopped typing to user {}", currentUser.getId(), receiverId);
+        } catch (Exception e) {
+            log.error("WebSocket stop-typing 처리 실패", e);
+        }
     }
 
     @GetMapping("/chat-rooms")
     public ResponseEntity<List<ChatRoomDto>> getChatRooms() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         List<ChatRoomDto> chatRooms = messageService.getChatRooms(currentUser.getId());
         return ResponseEntity.ok(chatRooms);
@@ -143,8 +179,7 @@ public class MessageController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         Long otherUserId = userService.getUserIdByUsername(username);
         Page<MessageDto> messages = messageService.getMessages(currentUser.getId(), otherUserId, page, size);
@@ -153,33 +188,32 @@ public class MessageController {
 
     @PostMapping("/mark-read/{username}")
     public ResponseEntity<Void> markMessagesAsRead(@PathVariable String username) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        
+        UserEntity currentUser = getCurrentUser();
         Long otherUserId = userService.getUserIdByUsername(username);
         messageService.markMessagesAsRead(currentUser.getId(), otherUserId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/send")
-    public ResponseEntity<MessageDto> sendDirectMessage(@RequestBody Map<String, Object> messageData) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
-        
-        String receiverUsername = (String) messageData.get("receiverUsername");
-        Long receiverId = userService.getUserIdByUsername(receiverUsername);
-        String content = (String) messageData.get("content");
-        String imageUrl = (String) messageData.get("imageUrl");
-        String fileUrl = (String) messageData.get("fileUrl");
-        String fileName = (String) messageData.get("fileName");
-        Long sharedPostId = messageData.get("sharedPostId") != null 
-            ? Long.valueOf(messageData.get("sharedPostId").toString()) : null;
-        String messageTypeStr = (String) messageData.getOrDefault("messageType", "TEXT");
-        
-        MessageEntity.MessageType messageType = MessageEntity.MessageType.valueOf(messageTypeStr);
-        
-        MessageDto message = messageService.sendMessage(currentUser.getId(), receiverId, content, imageUrl, fileUrl, fileName, sharedPostId, messageType);
-        return ResponseEntity.ok(message);
+    public ResponseEntity<MessageDto> sendDirectMessage(
+            @RequestParam("receiverUsername") String receiverUsername,
+            @RequestParam(value = "content", required = false) String content,
+            @RequestParam(value = "image", required = false) MultipartFile image,
+            @RequestParam(value = "file", required = false) MultipartFile file,
+            @RequestParam(value = "sharedPostId", required = false) Long sharedPostId) {
+
+        try {
+            UserEntity currentUser = getCurrentUser();
+            Long receiverId = userService.getUserIdByUsername(receiverUsername);
+
+
+            MessageDto message = messageService.sendMessageWithFiles(
+                currentUser.getId(), receiverId, content, image, file, sharedPostId);
+            return ResponseEntity.ok(message);
+        } catch (Exception e) {
+            log.error("메시지 전송 실패: ", e);
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/users/{username}/online-status")
@@ -215,8 +249,7 @@ public class MessageController {
 
     @GetMapping("/users/{username}/typing-status")
     public ResponseEntity<Map<String, Object>> getTypingStatus(@PathVariable String username) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         Long userId = userService.getUserIdByUsername(username);
         boolean isTyping = messageCacheService.isUserTyping(userId, currentUser.getId());
@@ -248,8 +281,7 @@ public class MessageController {
 
     @PostMapping("/chat-rooms")
     public ResponseEntity<ChatRoomDto> createOrGetChatRoom(@RequestBody Map<String, Object> requestData) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         String otherUsername = (String) requestData.get("username");
         Long otherUserId = userService.getUserIdByUsername(otherUsername);
@@ -260,8 +292,7 @@ public class MessageController {
 
     @DeleteMapping("/chat-rooms/{roomId}")
     public ResponseEntity<Void> deleteChatRoom(@PathVariable String roomId) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         messageService.deleteChatRoom(roomId, currentUser.getId());
         return ResponseEntity.ok().build();
@@ -272,8 +303,7 @@ public class MessageController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "10") int size) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         List<UserSearchDto> users = messageUserSearchService.searchUsersForChat(keyword, currentUser.getId(), size);
         return ResponseEntity.ok(users);
@@ -284,8 +314,7 @@ public class MessageController {
             @RequestParam String keyword,
             @RequestParam(defaultValue = "5") int limit) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         List<UserSearchDto> users = messageUserSearchService.searchUsersAutocomplete(keyword, currentUser.getId(), limit);
         return ResponseEntity.ok(users);
@@ -295,8 +324,7 @@ public class MessageController {
     public ResponseEntity<List<UserSearchDto>> getRecentChatUsers(
             @RequestParam(defaultValue = "10") int limit) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         List<UserSearchDto> recentUsers = messageUserSearchService.getRecentChatUsers(currentUser.getId(), limit);
         return ResponseEntity.ok(recentUsers);
@@ -307,8 +335,7 @@ public class MessageController {
             @RequestParam(required = false) String keyword,
             @RequestParam(defaultValue = "10") int size) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         List<UserSearchDto> followingUsers = messageUserSearchService.searchFollowingUsersForShare(keyword, currentUser.getId(), size);
         return ResponseEntity.ok(followingUsers);
@@ -318,8 +345,7 @@ public class MessageController {
     public ResponseEntity<List<UserSearchDto>> getFollowingUsers(
             @RequestParam(defaultValue = "20") int limit) {
         
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         List<UserSearchDto> followingUsers = messageUserSearchService.getFollowingUsers(currentUser.getId(), limit);
         return ResponseEntity.ok(followingUsers);
@@ -327,8 +353,7 @@ public class MessageController {
 
     @GetMapping("/can-message/{username}")
     public ResponseEntity<Map<String, Boolean>> canSendMessage(@PathVariable String username) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         Long userId = userService.getUserIdByUsername(username);
         boolean canSend = messageUserSearchService.canSendMessageTo(currentUser.getId(), userId);
@@ -339,14 +364,17 @@ public class MessageController {
 
     @PostMapping("/share-post")
     public ResponseEntity<MessageDto> sharePost(@RequestBody Map<String, Object> shareData) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         String receiverUsername = (String) shareData.get("receiverUsername");
         Long receiverId = userService.getUserIdByUsername(receiverUsername);
         Long postId = Long.valueOf(shareData.get("postId").toString());
         String message = (String) shareData.get("message");
         
+        if (receiverId == null) {
+            return ResponseEntity.badRequest().body(null);
+        }
+
         boolean canSend = messageUserSearchService.canSendMessageTo(currentUser.getId(), receiverId);
         if (!canSend) {
             return ResponseEntity.badRequest().body(null);
@@ -358,8 +386,7 @@ public class MessageController {
 
     @PostMapping("/share-post-multiple")
     public ResponseEntity<Map<String, Object>> sharePostToMultipleUsers(@RequestBody Map<String, Object> shareData) {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        UserEntity currentUser = (UserEntity) authentication.getPrincipal();
+        UserEntity currentUser = getCurrentUser();
         
         @SuppressWarnings("unchecked")
         List<String> receiverUsernames = (List<String>) shareData.get("receiverUsernames");
@@ -378,11 +405,9 @@ public class MessageController {
                     successCount++;
                 } else {
                     failureCount++;
-                    log.warn("Cannot send message to non-existent user: {}", receiverUsername);
                 }
             } catch (Exception e) {
                 failureCount++;
-                log.error("Failed to share post to user {}: {}", receiverUsername, e.getMessage());
             }
         }
         
@@ -394,4 +419,17 @@ public class MessageController {
         
         return ResponseEntity.ok(result);
     }
+
+    @MessageMapping("/heartbeat")
+    public void handleHeartbeat(SimpMessageHeaderAccessor headerAccessor) {
+        try {
+            UserEntity currentUser = getUserFromWebSocket(headerAccessor);
+            if (currentUser == null) return;
+            messageCacheService.cacheOnlineUser(currentUser.getId());
+            messageCacheService.setUserLastSeen(currentUser.getId());
+        } catch (Exception e) {
+            log.error("Error handling heartbeat", e);
+        }
+    }
+
 }

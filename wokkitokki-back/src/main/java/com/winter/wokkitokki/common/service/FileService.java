@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -16,8 +15,6 @@ import java.util.UUID;
 @Slf4j
 @Service
 public class FileService {
-
-    // baseUrl 제거 - 프론트엔드에서 직접 서빙하므로 불필요
 
     /**
      * 파일 업로드

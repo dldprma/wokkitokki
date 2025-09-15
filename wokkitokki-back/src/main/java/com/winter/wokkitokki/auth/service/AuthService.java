@@ -5,14 +5,12 @@ import com.winter.wokkitokki.auth.dto.AuthResponse;
 import com.winter.wokkitokki.auth.entity.RefreshToken;
 import com.winter.wokkitokki.auth.repository.AuthRepository;
 import com.winter.wokkitokki.common.util.JwtUtils;
-import com.winter.wokkitokki.post.service.RedisFeedIntegration;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -23,14 +21,11 @@ import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
-@Slf4j
 public class AuthService implements UserDetailsService {
     private final UserRepository userRepository;
     private final AuthRepository authRepository;
     private final JwtUtils jwtUtils;
     private final PasswordEncoder passwordEncoder;
-    private final JwtBlacklistService jwtBlacklistService;
-    private final RedisFeedIntegration redisFeedIntegration;
 
     @Transactional
     public AuthResponse register(AuthRequest request, HttpServletResponse response){
@@ -142,38 +137,15 @@ public class AuthService implements UserDetailsService {
                 .username(user.getUsername())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
+                .bio(user.getBio())
+                .profileImgUrl(user.getProfileImgUrl())
                 .build();
     }
 
     @Transactional
-    public void logout(Long userId, String token, HttpServletResponse response) {
-        try {
-            log.info("사용자 {} 로그아웃 시작", userId);
-
-            // 1. Refresh Token DB에서 삭제
-            authRepository.deleteByUserId(userId);
-            log.info("Refresh Token DB 삭제 완료");
-
-            // 2. Refresh Token 쿠키 삭제
-            jwtUtils.clearRefreshTokenCookie(response);
-            log.info("Refresh Token 쿠키 삭제 완료");
-
-            // 3. Access Token 블랙리스트 추가
-            if (token != null && !token.isEmpty()) {
-                long expirationTime = jwtUtils.getExpirationFromToken(token);
-                jwtBlacklistService.addToBlacklist(token, expirationTime);
-                log.info("Access Token 블랙리스트 추가 완료");
-            }
-
-            // 4. Redis 피드 캐시 무효화
-            redisFeedIntegration.invalidateUserFeedCache(userId);
-            log.info("피드 캐시 무효화 완료");
-
-            log.info("사용자 {}의 로그아웃 처리 완료", userId);
-
-        } catch (Exception e) {
-            log.error("사용자 {} 로그아웃 처리 중 오류 발생", userId, e);
-        }
+    public void logout(Long userId, HttpServletResponse response) {
+        authRepository.deleteByUserId(userId);
+        jwtUtils.clearRefreshTokenCookie(response);
     }
 
     public boolean checkUsernameExists(String username) {

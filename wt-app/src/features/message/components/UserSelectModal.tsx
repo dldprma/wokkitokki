@@ -3,10 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useMessage } from "../hooks/useMessage";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { getFollowing } from "../../user/api/userApi";
-import { searchUsers } from "../../search/api/searchApi";
+import { messageApi } from "../api/messageApi";
 import type { User } from "../types/messageTypes";
 import type { UserProfile } from "../../user/types/userTypes";
-import type { UserSearchResult } from "../../search/types/searchTypes";
 import "../../../css/UserSelectModal.css";
 
 interface UserSelectModalProps {
@@ -122,17 +121,19 @@ const UserSelectModal: React.FC<UserSelectModalProps> = ({
 
     setSearchLoading(true);
     try {
-      const response = await searchUsers(query, 0, 20);
-      const users: User[] = response.content.map(
-        (searchResult: UserSearchResult) => ({
-          id: searchResult.id.toString(),
-          username: searchResult.username,
-          name: searchResult.fullName || searchResult.username,
-          profileImage: searchResult.profileImgUrl,
-          isOnline: false, // 온라인 상태는 별도 API가 필요
-          lastSeen: new Date().toISOString(), // 마지막 접속 시간도 별도 API 필요
-        })
-      );
+      const response = await messageApi.searchUsers(query, 20);
+
+      // 메시지 API 응답 구조에 맞게 매핑 (UserSearchDto 구조)
+      const users: User[] = response.map((searchResult: any) => ({
+        id: searchResult.id.toString(),
+        username: searchResult.username,
+        name: searchResult.fullName || searchResult.username,
+        profileImage: searchResult.profileImgUrl,
+        isOnline: searchResult.isOnline || false,
+        lastSeen: searchResult.lastSeen
+          ? new Date(searchResult.lastSeen).toISOString()
+          : new Date().toISOString(),
+      }));
       setSearchResults(users);
     } catch (error) {
       console.error("사용자 검색 실패:", error);
@@ -143,30 +144,32 @@ const UserSelectModal: React.FC<UserSelectModalProps> = ({
   }, []);
 
   const handleUserSelect = async (user: User) => {
-    console.log("선택된 사용자:", user);
-    console.log("사용자 ID:", user.id);
-    console.log("사용자 username:", user.username);
-
     try {
       // 채팅방 생성 또는 기존 채팅방으로 이동 (username 사용)
-      const roomId = await createRoom(user.username);
-      console.log("생성된 roomId:", roomId);
+      await createRoom(user.username);
 
-      // 임시 채팅방인 경우 사용자 정보를 추가로 저장
-      if (roomId.startsWith("temp-")) {
-        const userInfo = {
-          id: user.id,
-          username: user.username,
-          name: user.name,
-          profileImage: user.profileImage,
-          isOnline: user.isOnline,
-          lastSeen: user.lastSeen,
-        };
-        localStorage.setItem(`temp-user-${roomId}`, JSON.stringify(userInfo));
+      // 게시글 공유가 있는 경우 메시지 전송
+      if (shareContent && shareContent.postId) {
+        try {
+          console.log("🔍 게시글 공유 시작:", shareContent);
+          const result = await messageApi.sharePost(
+            user.username,
+            parseInt(shareContent.postId),
+            `"${shareContent.content.substring(0, 50)}${
+              shareContent.content.length > 50 ? "..." : ""
+            }" 게시글을 공유했습니다.`
+          );
+          console.log("🔍 게시글 공유 성공:", result);
+        } catch (shareError) {
+          console.error("게시글 공유 실패:", shareError);
+          console.error("에러 응답:", shareError.response?.data);
+          console.error("에러 상태:", shareError.response?.status);
+          // 게시글 공유 실패해도 채팅방은 열어줌
+        }
       }
 
       onClose();
-      navigate(`/messages/${roomId}`);
+      navigate(`/messages/${user.username}`);
     } catch (error) {
       console.error("채팅방 생성 실패:", error);
       alert("채팅방 생성에 실패했습니다. 다시 시도해주세요.");

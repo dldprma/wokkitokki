@@ -36,21 +36,39 @@ public class MessageUserSearchService {
 
             List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUserId);
             
-            List<UserDocument> userDocuments;
-            
-            if (keyword.length() <= 2) {
-                userDocuments = userSearchRepository.findByUsernameOrFullNameStartingWith(keyword)
+            List<UserDocument> userDocuments = new ArrayList<>();
+
+            // 1. 정확한 매칭부터 시도 (prefix 검색)
+            List<UserDocument> prefixResults = userSearchRepository.findByUsernameOrFullNameStartingWith(keyword);
+            userDocuments.addAll(prefixResults);
+
+            // 2. 부족하면 와일드카드 검색 추가
+            if (userDocuments.size() < size && keyword.length() >= 2) {
+                List<UserDocument> wildcardResults = userSearchRepository.findByUsernameOrFullNameContaining(keyword)
                         .stream()
-                        .limit(size * 2)
+                        .filter(doc -> !userDocuments.stream().anyMatch(existing -> existing.getId().equals(doc.getId())))
                         .collect(Collectors.toList());
-            } else {
+                userDocuments.addAll(wildcardResults);
+            }
+
+            // 3. 여전히 부족하면 퍼지 검색
+            if (userDocuments.size() < size && keyword.length() >= 3) {
                 Pageable pageable = PageRequest.of(0, size * 2);
-                Page<UserDocument> searchResults = userSearchRepository.findByUsernameOrFullName(keyword, pageable);
-                userDocuments = searchResults.getContent();
+                Page<UserDocument> fuzzyResults = userSearchRepository.findByUsernameOrFullName(keyword, pageable);
+                List<UserDocument> newResults = fuzzyResults.getContent()
+                        .stream()
+                        .filter(doc -> !userDocuments.stream().anyMatch(existing -> existing.getId().equals(doc.getId())))
+                        .collect(Collectors.toList());
+                userDocuments.addAll(newResults);
             }
 
             return userDocuments.stream()
                     .filter(doc -> !doc.getId().equals(currentUserId.toString()))
+                    .filter(doc -> {
+                        // 탈퇴한 사용자 제외
+                        UserEntity user = userRepository.findById(Long.valueOf(doc.getId())).orElse(null);
+                        return user != null && (user.getDeleted() == null || !user.getDeleted());
+                    })
                     .map(document -> {
                         UserSearchDto dto = UserSearchDto.fromDocument(document);
                         Long userId = Long.valueOf(document.getId());
@@ -97,9 +115,28 @@ public class MessageUserSearchService {
             List<Long> followingIds = followRepository.findFollowingIdsByFollowerId(currentUserId);
             UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
 
-            return userSearchRepository.findByUsernameOrFullNameStartingWith(keyword)
-                    .stream()
+            List<UserDocument> userDocuments = new ArrayList<>();
+
+            // 1. prefix 검색
+            List<UserDocument> prefixResults = userSearchRepository.findByUsernameOrFullNameStartingWith(keyword);
+            userDocuments.addAll(prefixResults);
+
+            // 2. 부족하면 와일드카드 검색 추가
+            if (userDocuments.size() < limit) {
+                List<UserDocument> wildcardResults = userSearchRepository.findByUsernameOrFullNameContaining(keyword)
+                        .stream()
+                        .filter(doc -> !userDocuments.stream().anyMatch(existing -> existing.getId().equals(doc.getId())))
+                        .collect(Collectors.toList());
+                userDocuments.addAll(wildcardResults);
+            }
+
+            return userDocuments.stream()
                     .filter(doc -> !doc.getId().equals(currentUserId.toString()))
+                    .filter(doc -> {
+                        // 탈퇴한 사용자 제외
+                        UserEntity user = userRepository.findById(Long.valueOf(doc.getId())).orElse(null);
+                        return user != null && (user.getDeleted() == null || !user.getDeleted());
+                    })
                     .limit(limit * 2)
                     .map(document -> {
                         UserSearchDto dto = UserSearchDto.fromDocument(document);
@@ -141,9 +178,14 @@ public class MessageUserSearchService {
                     .filter(chatRoom -> chatRoom.isActive())
                     .limit(limit)
                     .map(chatRoom -> {
-                        UserEntity otherUser = chatRoom.getUser1().getId().equals(currentUserId) 
+                        UserEntity otherUser = chatRoom.getUser1().getId().equals(currentUserId)
                                 ? chatRoom.getUser2() : chatRoom.getUser1();
-                        
+
+                        // 탈퇴한 사용자 제외
+                        if (otherUser.getDeleted() != null && otherUser.getDeleted()) {
+                            return null;
+                        }
+
                         UserSearchDto dto = new UserSearchDto();
                         dto.setId(otherUser.getId());
                         dto.setUsername(otherUser.getUsername());
@@ -153,9 +195,10 @@ public class MessageUserSearchService {
                         dto.setOnline(messageCacheService.isUserOnline(otherUser.getId()));
                         dto.setLastSeen(messageCacheService.getUserLastSeen(otherUser.getId()));
                         dto.setHasExistingChat(true);
-                        
+
                         return dto;
                     })
+                    .filter(dto -> dto != null)  // null 제거
                     .collect(Collectors.toList());
 
         } catch (Exception e) {
@@ -186,32 +229,52 @@ public class MessageUserSearchService {
                     }
                 }
             } else {
-                if (keyword.length() <= 2) {
-                    userDocuments = userSearchRepository.findByUsernameOrFullNameStartingWith(keyword)
+                userDocuments = new ArrayList<>();
+
+                // prefix 검색
+                List<UserDocument> prefixResults = userSearchRepository.findByUsernameOrFullNameStartingWith(keyword)
+                        .stream()
+                        .filter(doc -> followingIds.contains(Long.valueOf(doc.getId())))
+                        .collect(Collectors.toList());
+                userDocuments.addAll(prefixResults);
+
+                // 부족하면 와일드카드 검색
+                if (userDocuments.size() < size) {
+                    List<UserDocument> wildcardResults = userSearchRepository.findByUsernameOrFullNameContaining(keyword)
                             .stream()
                             .filter(doc -> followingIds.contains(Long.valueOf(doc.getId())))
-                            .limit(size)
+                            .filter(doc -> !userDocuments.stream().anyMatch(existing -> existing.getId().equals(doc.getId())))
                             .collect(Collectors.toList());
-                } else {
+                    userDocuments.addAll(wildcardResults);
+                }
+
+                // 여전히 부족하면 퍼지 검색
+                if (userDocuments.size() < size) {
                     Pageable pageable = PageRequest.of(0, size * 3);
-                    Page<UserDocument> searchResults = userSearchRepository.findByUsernameOrFullName(keyword, pageable);
-                    userDocuments = searchResults.getContent()
+                    Page<UserDocument> fuzzyResults = userSearchRepository.findByUsernameOrFullName(keyword, pageable);
+                    List<UserDocument> newResults = fuzzyResults.getContent()
                             .stream()
                             .filter(doc -> followingIds.contains(Long.valueOf(doc.getId())))
-                            .limit(size)
+                            .filter(doc -> !userDocuments.stream().anyMatch(existing -> existing.getId().equals(doc.getId())))
                             .collect(Collectors.toList());
+                    userDocuments.addAll(newResults);
                 }
             }
 
             return userDocuments.stream()
+                    .filter(doc -> {
+                        // 탈퇴한 사용자 제외
+                        UserEntity user = userRepository.findById(Long.valueOf(doc.getId())).orElse(null);
+                        return user != null && (user.getDeleted() == null || !user.getDeleted());
+                    })
                     .map(document -> {
                         UserSearchDto dto = UserSearchDto.fromDocument(document);
                         Long userId = Long.valueOf(document.getId());
-                        
+
                         dto.setOnline(messageCacheService.isUserOnline(userId));
                         dto.setLastSeen(messageCacheService.getUserLastSeen(userId));
                         dto.setHasExistingChat(true);
-                        
+
                         return dto;
                     })
                     .collect(Collectors.toList());
@@ -224,8 +287,9 @@ public class MessageUserSearchService {
 
     public boolean canSendMessageTo(Long senderId, Long receiverId) {
         try {
-            // 메시지는 누구에게나 보낼 수 있음 (단, 존재하는 사용자인지 확인)
-            return userRepository.existsById(receiverId);
+            // 메시지는 누구에게나 보낼 수 있음 (단, 존재하고 탈퇴하지 않은 사용자인지 확인)
+            UserEntity receiver = userRepository.findById(receiverId).orElse(null);
+            return receiver != null && (receiver.getDeleted() == null || !receiver.getDeleted());
         } catch (Exception e) {
             log.error("Error checking if can send message: {}", e.getMessage(), e);
             return false;
@@ -242,6 +306,7 @@ public class MessageUserSearchService {
 
             return userRepository.findAllById(followingIds)
                     .stream()
+                    .filter(user -> user.getDeleted() == null || !user.getDeleted())  // 탈퇴한 사용자 제외
                     .limit(limit)
                     .map(user -> {
                         UserSearchDto dto = new UserSearchDto();

@@ -337,10 +337,6 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
 
   // 메시지 버튼 클릭 핸들러
   const handleSendMessage = async () => {
-    console.log("profileUser:", profileUser);
-    console.log("profileUser.id:", profileUser?.id);
-    console.log("profileUser.username:", profileUser?.username);
-
     if (!profileUser?.username) {
       console.error("profileUser.username이 없습니다:", profileUser);
       alert("사용자 정보를 불러올 수 없습니다. 다시 시도해주세요.");
@@ -349,8 +345,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
 
     try {
       // 해당 사용자와의 채팅방 생성 또는 이동 (username 사용)
-      const roomId = await createRoom([profileUser.username]);
-      console.log("생성된 roomId:", roomId);
+      const roomId = await createRoom(profileUser.username);
 
       if (!roomId) {
         alert("채팅방을 생성할 수 없습니다. 다시 시도해주세요.");

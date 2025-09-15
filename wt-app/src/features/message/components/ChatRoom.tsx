@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import MessageList from "./MessageList";
 import MessageInput from "./MessageInput";
+import { messageApi } from "../api/messageApi";
 import type { Message } from "../types/messageTypes";
 import "../../../css/ChatRoom.css";
 
@@ -9,56 +10,62 @@ interface ChatRoomProps {
   roomId: string;
   roomName: string;
   roomImage?: string;
-  currentUserId: string;
+  currentUsername: string; // username만 사용
   messages: Message[];
   onSendMessage: (content: string, messageType: "text" | "image") => void;
   onSendFile?: (file: File) => void;
   onSendFiles?: (files: File[]) => void;
   onLoadMoreMessages?: () => void;
+  onMarkAsRead?: (messageIds: number[]) => void;
   isLoading?: boolean;
   hasMore?: boolean;
   isOnline?: boolean;
   lastSeen?: string;
+  typingUsers?: string[];
 }
 
 const ChatRoom: React.FC<ChatRoomProps> = ({
   roomId,
   roomName,
   roomImage,
-  currentUserId,
+  currentUsername,
   messages,
   onSendMessage,
   onSendFile,
   onSendFiles,
   onLoadMoreMessages,
+  onMarkAsRead,
   isLoading = false,
   hasMore = false,
   isOnline = false,
   lastSeen,
+  typingUsers = [],
 }) => {
-  const [typingUsers] = useState<string[]>([]);
   const navigate = useNavigate();
-  const [displayRoomName, setDisplayRoomName] = useState(roomName);
-  const [displayRoomImage, setDisplayRoomImage] = useState(roomImage);
+  const [showMenu, setShowMenu] = useState(false);
 
-  // 임시 채팅방인 경우 로컬 스토리지에서 사용자 정보 가져오기
-  useEffect(() => {
-    if (roomId && roomId.startsWith("temp-")) {
-      const userInfo = localStorage.getItem(`temp-user-${roomId}`);
-      if (userInfo) {
-        try {
-          const user = JSON.parse(userInfo);
-          setDisplayRoomName(user.name || roomName);
-          setDisplayRoomImage(user.profileImage || roomImage);
-        } catch (error) {
-          console.error("사용자 정보 파싱 실패:", error);
-        }
-      }
+  // props로 전달받은 값들을 직접 사용
+  const displayRoomName = roomName;
+  const displayRoomImage = roomImage;
+
+  const formatLastSeen = (timestamp: string | number) => {
+    if (!timestamp) return "오프라인";
+
+    let date: Date;
+
+    // timestamp가 숫자인 경우 (밀리초)
+    if (typeof timestamp === "number") {
+      date = new Date(timestamp);
+    } else {
+      // 문자열인 경우
+      date = new Date(timestamp);
     }
-  }, [roomId, roomName, roomImage]);
 
-  const formatLastSeen = (timestamp: string) => {
-    const date = new Date(timestamp);
+    // 유효하지 않은 날짜인 경우
+    if (isNaN(date.getTime())) {
+      return "오프라인";
+    }
+
     const now = new Date();
     const diff = now.getTime() - date.getTime();
 
@@ -101,7 +108,15 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
             />
           </svg>
         </div>
-        <div className="room-info">
+        <div
+          className="room-info"
+          onClick={() => {
+            // roomId에서 상대방 username 추출 (현재는 roomId가 username)
+            const otherUsername = roomId;
+            navigate(`/${otherUsername}`);
+          }}
+          style={{ cursor: "pointer" }}
+        >
           <div className="room-avatar">
             <img
               src={displayRoomImage || "/default-avatar.png"}
@@ -110,12 +125,16 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
                 (e.target as HTMLImageElement).src = "/default-avatar.png";
               }}
             />
-            {isOnline && <div className="online-indicator"></div>}
+            {isOnline && !roomId?.startsWith("temp-") && (
+              <div className="online-indicator"></div>
+            )}
           </div>
           <div className="room-details">
             <h3 className="room-name">{displayRoomName}</h3>
             <p className="room-status">
-              {isOnline
+              {roomId && roomId.startsWith("temp-")
+                ? "오프라인"
+                : isOnline
                 ? "온라인"
                 : lastSeen
                 ? `마지막 접속: ${formatLastSeen(lastSeen)}`
@@ -126,23 +145,49 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       </div>
 
       <div className="header-right">
-        <button className="header-button">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
-            <path
-              d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+        <div className="dropdown">
+          <button
+            className="header-button"
+            onClick={() => setShowMenu(!showMenu)}
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path
+                d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          {showMenu && (
+            <div className="dropdown-menu">
+              <button
+                className="dropdown-item"
+                onClick={async () => {
+                  try {
+                    await messageApi.deleteChatRoom(roomId);
+                    console.log("대화방 나가기 성공:", roomId);
+                    // 메시지 페이지로 이동
+                    navigate("/messages");
+                  } catch (error) {
+                    console.error("대화방 나가기 실패:", error);
+                    alert("대화방 나가기에 실패했습니다. 다시 시도해주세요.");
+                  }
+                  setShowMenu(false);
+                }}
+              >
+                대화방 나가기
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 
   const renderTypingIndicator = () => {
-    if (typingUsers.length === 0) return null;
+    if (!typingUsers || typingUsers.length === 0) return null;
 
     return (
       <div className="typing-indicator-container">
@@ -167,9 +212,10 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
       <div className="chat-room-content">
         <MessageList
           messages={messages}
-          currentUserId={currentUserId}
+          currentUsername={currentUsername}
           isLoading={isLoading}
           onLoadMore={onLoadMoreMessages}
+          onMarkAsRead={onMarkAsRead}
           hasMore={hasMore}
         />
 

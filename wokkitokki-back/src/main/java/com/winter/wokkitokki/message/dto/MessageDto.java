@@ -6,8 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
-
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -25,7 +23,7 @@ public class MessageDto {
     private Long receiverId;
     private String receiverUsername;
     private String receiverFullName;
-    private LocalDateTime createdAt;
+    private String createdAt;
     private boolean isRead;
     private MessageEntity.MessageType messageType;
     private String roomId;
@@ -44,7 +42,7 @@ public class MessageDto {
         dto.setReceiverId(message.getReceiver().getId());
         dto.setReceiverUsername(message.getReceiver().getUsername());
         dto.setReceiverFullName(message.getReceiver().getFullName());
-        dto.setCreatedAt(message.getCreatedAt());
+        dto.setCreatedAt(message.getCreatedAt().toString());
         dto.setRead(message.isRead());
         dto.setMessageType(message.getMessageType());
         dto.setRoomId(roomId);

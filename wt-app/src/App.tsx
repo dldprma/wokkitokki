@@ -132,7 +132,7 @@ function App() {
           }
         />
         <Route
-          path="/messages/:roomId"
+          path="/messages/:username"
           element={
             <ProtectedRoute>
               <ChatRoomPage />

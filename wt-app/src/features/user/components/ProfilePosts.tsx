@@ -2,8 +2,10 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../../store/hooks";
 import { usePost } from "../../post/hooks/usePost";
+import { useMessage } from "../../message/hooks/useMessage";
 import type { Post } from "../../post/type/postTypes";
 import ProfileImage from "./ProfileImage";
+import UserSelectModal from "../../message/components/UserSelectModal";
 
 type TabType = "photos" | "posts" | "reels" | "replies";
 
@@ -22,6 +24,9 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<TabType>("posts");
   const [currentPage, setCurrentPage] = useState(0);
+  const [showUserSelectModal, setShowUserSelectModal] = useState(false);
+  const [selectedPostForShare, setSelectedPostForShare] = useState<any>(null);
+  const { createRoom } = useMessage();
 
   // prop으로 전달된 activeTab이 있으면 사용
   useEffect(() => {
@@ -300,7 +305,7 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
                       <span className="text-sm">{post.likeCount}</span>
                     </button>
                     <button
-                      onClick={() => handleDmClick(post.authorUsername)}
+                      onClick={() => handleDmClick(post)}
                       className="flex items-center space-x-2 text-gray-500 hover:text-purple-500 transition-colors"
                       aria-label="DM 보내기"
                     >
@@ -585,9 +590,15 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
   };
 
   // DM 보내기 처리
-  const handleDmClick = (username: string) => {
-    // DM 페이지로 이동 (향후 구현)
-    // TODO: DM 기능 구현 시 navigate(`/dm/${username}`) 사용
+  const handleDmClick = (post: Post) => {
+    setSelectedPostForShare({
+      type: "post",
+      content: post.content,
+      imageUrl: post.imageUrl,
+      authorName: post.authorName,
+      postId: post.id.toString(),
+    });
+    setShowUserSelectModal(true);
   };
 
   return (
@@ -627,6 +638,13 @@ const ProfilePosts: React.FC<ProfilePostsProps> = ({
           </>
         )}
       </div>
+
+      {/* 사용자 선택 모달 */}
+      <UserSelectModal
+        isOpen={showUserSelectModal}
+        onClose={() => setShowUserSelectModal(false)}
+        shareContent={selectedPostForShare}
+      />
     </div>
   );
 };

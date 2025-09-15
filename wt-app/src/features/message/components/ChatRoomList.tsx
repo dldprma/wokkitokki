@@ -26,31 +26,37 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room }) => {
   const getLastMessagePreview = () => {
     if (!room.lastMessage) return "메시지가 없습니다.";
 
-    const { content, messageType, senderName } = room.lastMessage;
-
-    if (messageType === "image") {
-      return `${senderName}: 사진을 보냈습니다.`;
-    } else if (messageType === "file") {
-      return `${senderName}: 파일을 보냈습니다.`;
-    } else {
-      const preview =
-        content.length > 50 ? `${content.substring(0, 50)}...` : content;
-      return `${senderName}: ${preview}`;
-    }
+    // lastMessage가 string 타입이므로 직접 사용
+    const preview =
+      room.lastMessage.length > 50
+        ? `${room.lastMessage.substring(0, 50)}...`
+        : room.lastMessage;
+    return preview;
   };
 
+  // 현재 사용자 정보 가져오기
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  // 상대방 정보 결정
+  const isUser1 = room.user1Username === currentUser.username;
+  const otherUserName = isUser1 ? room.user2FullName : room.user1FullName;
+  const otherUserUsername = isUser1 ? room.user2Username : room.user1Username;
+  const otherUserProfileImg = isUser1
+    ? room.user2ProfileImg
+    : room.user1ProfileImg;
+  const isOtherUserOnline = room.isOtherUserOnline;
+
   return (
-    <Link to={`/messages/${room.id}`} className="chat-room-item">
+    <Link to={`/messages/${otherUserUsername}`} className="chat-room-item">
       <div className="room-avatar-container">
         <img
-          src={room.image || "/default-avatar.png"}
-          alt={room.name}
+          src={otherUserProfileImg || "/default-avatar.png"}
+          alt={otherUserName}
           className="room-avatar"
           onError={(e) => {
             (e.target as HTMLImageElement).src = "/default-avatar.png";
           }}
         />
-        {room.isOnline && <div className="online-indicator"></div>}
+        {isOtherUserOnline && <div className="online-indicator"></div>}
         {room.unreadCount > 0 && (
           <div className="unread-badge">
             {room.unreadCount > 99 ? "99+" : room.unreadCount}
@@ -60,10 +66,10 @@ const ChatRoomItem: React.FC<ChatRoomItemProps> = ({ room }) => {
 
       <div className="room-content">
         <div className="room-header">
-          <h3 className="room-name">{room.name}</h3>
+          <h3 className="room-name">{otherUserName}</h3>
           <span className="room-time">
-            {room.lastMessage
-              ? formatLastMessageTime(room.lastMessage.timestamp)
+            {room.lastMessageTime
+              ? formatLastMessageTime(room.lastMessageTime)
               : ""}
           </span>
         </div>

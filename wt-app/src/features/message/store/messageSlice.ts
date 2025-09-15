@@ -71,8 +71,8 @@ const initialState: MessageState = {
 // Async Thunks
 export const fetchChatRooms = createAsyncThunk(
   "message/fetchChatRooms",
-  async ({ page = 1, limit = 20 }: { page?: number; limit?: number }) => {
-    const response = await messageApi.getChatRooms(page, limit);
+  async () => {
+    const response = await messageApi.getChatRooms();
     return response;
   }
 );
@@ -80,88 +80,97 @@ export const fetchChatRooms = createAsyncThunk(
 export const fetchMessages = createAsyncThunk(
   "message/fetchMessages",
   async ({
-    roomId,
+    username,
     page = 1,
     limit = 50,
   }: {
-    roomId: string;
+    username: string;
     page?: number;
     limit?: number;
   }) => {
-    const response = await messageApi.getMessages(roomId, page, limit);
-    return { roomId, ...response };
+    const response = await messageApi.getMessages(username, page, limit);
+    return { username, ...response };
   }
 );
 
 export const sendMessage = createAsyncThunk(
   "message/sendMessage",
   async ({
-    roomId,
+    receiverUsername,
     content,
-    messageType,
-    replyToMessageId,
+    messageType = "TEXT",
+    imageUrl,
+    fileUrl,
+    fileName,
+    sharedPostId,
   }: {
-    roomId: string;
+    receiverUsername: string;
     content: string;
-    messageType: "text" | "image";
-    replyToMessageId?: string;
+    messageType?: "TEXT" | "IMAGE" | "FILE";
+    imageUrl?: string;
+    fileUrl?: string;
+    fileName?: string;
+    sharedPostId?: number;
   }) => {
     const response = await messageApi.sendMessage({
-      roomId,
+      receiverUsername,
       content,
       messageType,
-      replyToMessageId,
+      imageUrl,
+      fileUrl,
+      fileName,
+      sharedPostId,
     });
-    return { roomId, message: response.message };
+    return { receiverUsername, message: response };
   }
 );
 
 export const sendImageMessage = createAsyncThunk(
   "message/sendImageMessage",
   async ({
-    roomId,
+    receiverUsername,
     image,
     replyToMessageId,
   }: {
-    roomId: string;
+    receiverUsername: string;
     image: File;
     replyToMessageId?: string;
   }) => {
     const response = await messageApi.sendImageMessage(
-      roomId,
+      receiverUsername,
       image,
       replyToMessageId
     );
-    return { roomId, message: response.message };
+    return { receiverUsername, message: response.message };
   }
 );
 
 export const sendMultipleImages = createAsyncThunk(
   "message/sendMultipleImages",
   async ({
-    roomId,
+    receiverUsername,
     images,
     replyToMessageId,
   }: {
-    roomId: string;
+    receiverUsername: string;
     images: File[];
     replyToMessageId?: string;
   }) => {
     const responses = await messageApi.sendMultipleImages(
-      roomId,
+      receiverUsername,
       images,
       replyToMessageId
     );
     const messages = responses.map((response) => response.message);
-    return { roomId, messages };
+    return { receiverUsername, messages };
   }
 );
 
 export const markMessagesAsRead = createAsyncThunk(
   "message/markMessagesAsRead",
-  async ({ roomId, messageIds }: { roomId: string; messageIds: string[] }) => {
-    await messageApi.markAsRead({ roomId, messageIds });
-    return { roomId, messageIds };
+  async (username: string) => {
+    await messageApi.markAsRead(username);
+    return { username };
   }
 );
 
@@ -220,23 +229,32 @@ const messageSlice = createSlice({
     setCurrentRoom: (state, action: PayloadAction<string | null>) => {
       state.currentRoomId = action.payload;
       if (action.payload) {
+        const roomIdNum = parseInt(action.payload, 10);
         state.currentRoom =
-          state.chatRooms.find((room) => room.id === action.payload) || null;
+          state.chatRooms.find((room) => room.id === roomIdNum) || null;
       } else {
         state.currentRoom = null;
       }
     },
 
     // 새 메시지 추가 (실시간)
-    addNewMessage: (state, action: PayloadAction<Message>) => {
-      const message = action.payload;
-      const roomId = message.senderId; // 실제로는 roomId가 있어야 함
+    addNewMessage: (
+      state,
+      action: PayloadAction<{ message: Message; username: string }>
+    ) => {
+      const { message, username } = action.payload;
 
-      if (!state.messages[roomId]) {
-        state.messages[roomId] = [];
+      if (!state.messages[username]) {
+        state.messages[username] = [];
       }
 
-      state.messages[roomId].push(message);
+      // 중복 메시지 체크 (이미 있는 메시지는 추가하지 않음)
+      const existingMessage = state.messages[username].find(
+        (m) => m.id === message.id
+      );
+      if (!existingMessage) {
+        state.messages[username].push(message);
+      }
     },
 
     // 메시지 업데이트 (실시간)
@@ -252,11 +270,31 @@ const messageSlice = createSlice({
       const messages = state.messages[roomId];
 
       if (messages) {
-        const index = messages.findIndex((msg) => msg && msg.id === messageId);
+        const index = messages.findIndex(
+          (msg) => msg && msg.id.toString() === messageId
+        );
         if (index !== -1 && messages[index]) {
           messages[index] = { ...messages[index], ...updates };
         }
       }
+    },
+
+    // 메시지 읽음 상태 로컬 업데이트
+    markMessagesAsReadLocal: (
+      state,
+      action: PayloadAction<{ messageIds: number[] }>
+    ) => {
+      const { messageIds } = action.payload;
+
+      // 모든 사용자의 메시지에서 해당 메시지들을 읽음 처리
+      Object.keys(state.messages).forEach((username) => {
+        const messages = state.messages[username];
+        messages.forEach((message) => {
+          if (messageIds.includes(message.id)) {
+            message.read = true;
+          }
+        });
+      });
     },
 
     // 타이핑 상태 업데이트
@@ -349,9 +387,9 @@ const messageSlice = createSlice({
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.loading.messages = false;
-        const { roomId, messages, pagination } = action.payload;
-        state.messages[roomId] = messages;
-        state.messagePagination[roomId] = pagination;
+        const { username, messages, pagination } = action.payload;
+        state.messages[username] = messages;
+        state.messagePagination[username] = pagination;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
         state.loading.messages = false;
@@ -367,12 +405,30 @@ const messageSlice = createSlice({
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         state.loading.sending = false;
-        const { roomId, message } = action.payload;
-        if (!state.messages[roomId]) {
-          state.messages[roomId] = [];
+        const { receiverUsername, message } = action.payload;
+        if (!state.messages[receiverUsername]) {
+          state.messages[receiverUsername] = [];
         }
-        if (message) {
-          state.messages[roomId].push(message);
+        if (message && message.message) {
+          // SendMessageResponse.message를 Message로 변환
+          const newMessage: Message = {
+            id: message.message.id,
+            content: message.message.content,
+            senderId: message.message.senderId,
+            senderUsername: message.message.senderUsername,
+            senderFullName: message.message.senderFullName,
+            receiverId: message.message.receiverId,
+            receiverUsername: message.message.receiverUsername,
+            receiverFullName: message.message.receiverFullName,
+            createdAt: message.message.createdAt,
+            messageType: message.message.messageType || "TEXT",
+            imageUrl: message.message.imageUrl,
+            sharedPostId: message.message.sharedPostId,
+            sharedPost: message.message.sharedPost,
+            read: message.message.read || false,
+            roomId: receiverUsername, // roomId는 receiverUsername으로 설정
+          };
+          state.messages[receiverUsername].push(newMessage);
         }
       })
       .addCase(sendMessage.rejected, (state, action) => {
@@ -383,38 +439,43 @@ const messageSlice = createSlice({
 
     // 이미지 메시지 전송
     builder.addCase(sendImageMessage.fulfilled, (state, action) => {
-      const { roomId, message } = action.payload;
-      if (!state.messages[roomId]) {
-        state.messages[roomId] = [];
+      const { receiverUsername, message } = action.payload;
+      if (!state.messages[receiverUsername]) {
+        state.messages[receiverUsername] = [];
       }
       if (message) {
-        state.messages[roomId].push(message);
+        // Message 타입을 그대로 사용
+        state.messages[receiverUsername].push(message);
       }
     });
 
     // 여러 이미지 전송
     builder.addCase(sendMultipleImages.fulfilled, (state, action) => {
-      const { roomId, messages } = action.payload;
-      if (!state.messages[roomId]) {
-        state.messages[roomId] = [];
+      const { receiverUsername, messages } = action.payload;
+      if (!state.messages[receiverUsername]) {
+        state.messages[receiverUsername] = [];
       }
       if (messages && messages.length > 0) {
         const validMessages = messages.filter((msg) => msg !== undefined);
         if (validMessages.length > 0) {
-          state.messages[roomId].push(...validMessages);
+          // Message[]를 그대로 사용
+          const validMessageObjects = validMessages.filter(
+            (msg) => msg !== undefined
+          ) as Message[];
+          state.messages[receiverUsername].push(...validMessageObjects);
         }
       }
     });
 
     // 메시지 읽음 처리
     builder.addCase(markMessagesAsRead.fulfilled, (state, action) => {
-      const { roomId, messageIds } = action.payload;
-      const messages = state.messages[roomId];
+      const { username } = action.payload;
+      const messages = state.messages[username];
 
       if (messages) {
         messages.forEach((message) => {
-          if (messageIds.includes(message.id) && message) {
-            message.isRead = true;
+          if (message) {
+            message.read = true;
           }
         });
       }
@@ -427,16 +488,15 @@ const messageSlice = createSlice({
 
       if (messages) {
         state.messages[roomId] = messages.filter(
-          (msg) => msg && msg.id !== messageId
+          (msg) => msg && msg.id.toString() !== messageId
         );
       }
     });
 
     // 채팅방 생성
-    builder.addCase(createChatRoom.fulfilled, (state, action) => {
+    builder.addCase(createChatRoom.fulfilled, (state) => {
       // 새 채팅방이 생성되면 목록을 새로고침해야 함
       // 실제로는 fetchChatRooms를 다시 호출하는 것이 좋음
-      console.log("새 채팅방 생성됨:", action.payload);
       // state를 사용하지 않으므로 언더스코어 추가
       void state;
     });
@@ -452,6 +512,7 @@ export const {
   setCurrentRoom,
   addNewMessage,
   updateMessage,
+  markMessagesAsReadLocal,
   updateTypingStatus,
   updateOnlineUsers,
   setSelectedImages,

@@ -78,38 +78,7 @@ const UserSelectModal: React.FC<UserSelectModalProps> = ({
       setFollowingUsers(users);
     } catch (error) {
       console.error("팔로잉 사용자 목록 로드 실패:", error);
-
-      // API 실패 시 데모 데이터 사용
-      const demoUsers: User[] = [
-        {
-          id: "user1",
-          username: "kimcheolsu",
-          name: "김철수",
-          profileImage:
-            "/uploads/profiles/5bf502c0-bf6a-4115-82f0-d7312120c2dc.jpg",
-          isOnline: true,
-          lastSeen: new Date().toISOString(),
-        },
-        {
-          id: "user2",
-          username: "parkyounghee",
-          name: "박영희",
-          profileImage:
-            "/uploads/profiles/30420fe2-38d4-41ce-9a60-35ee35e1ac81.png",
-          isOnline: false,
-          lastSeen: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: "user3",
-          username: "leeminsu",
-          name: "이민수",
-          profileImage:
-            "/uploads/profiles/47e29840-a6d0-4fb9-8c0e-43f8aae2f7ca.jpg",
-          isOnline: true,
-          lastSeen: new Date().toISOString(),
-        },
-      ];
-      setFollowingUsers(demoUsers);
+      setFollowingUsers([]);
     } finally {
       setLoading(false);
     }
@@ -151,19 +120,15 @@ const UserSelectModal: React.FC<UserSelectModalProps> = ({
       // 게시글 공유가 있는 경우 메시지 전송
       if (shareContent && shareContent.postId) {
         try {
-          console.log("🔍 게시글 공유 시작:", shareContent);
-          const result = await messageApi.sharePost(
+          await messageApi.sharePost(
             user.username,
             parseInt(shareContent.postId),
             `"${shareContent.content.substring(0, 50)}${
               shareContent.content.length > 50 ? "..." : ""
             }" 게시글을 공유했습니다.`
           );
-          console.log("🔍 게시글 공유 성공:", result);
         } catch (shareError) {
           console.error("게시글 공유 실패:", shareError);
-          console.error("에러 응답:", shareError.response?.data);
-          console.error("에러 상태:", shareError.response?.status);
           // 게시글 공유 실패해도 채팅방은 열어줌
         }
       }

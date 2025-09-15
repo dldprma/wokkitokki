@@ -1,4 +1,5 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import type { Message } from "../types/messageTypes";
 import { getFullImageUrl } from "../../../utils/imageUtils";
 import "../../../css/MessageBubble.css";
@@ -14,6 +15,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   isOwn,
   showTimestamp = true,
 }) => {
+  const navigate = useNavigate();
   const formatTime = (createdAt: string) => {
     const now = new Date();
     const messageTime = new Date(createdAt);
@@ -49,13 +51,15 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           </div>
         );
       case "POST_SHARE":
-        console.log("🔍 POST_SHARE 메시지:", message);
-        console.log("🔍 sharedPost 데이터:", message.sharedPost);
         return (
           <div className="message-post-share">
             <div className="message-text">{message.content}</div>
             {message.sharedPost && (
-              <div className="shared-post-preview">
+              <div
+                className="shared-post-preview"
+                onClick={() => navigate(`/post/${message.sharedPostId}`)}
+                style={{ cursor: "pointer" }}
+              >
                 <div className="post-header">
                   <img
                     src={

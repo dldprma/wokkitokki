@@ -138,6 +138,12 @@
   border-radius: 12px;
   background-color: #f8f9fa;
   overflow: hidden;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.shared-post-preview:hover {
+  background-color: #e9ecef;
+  border-color: #007bff;
 }
 
 .post-header {

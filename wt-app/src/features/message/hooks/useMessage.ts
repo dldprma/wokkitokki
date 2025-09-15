@@ -130,6 +130,7 @@ export const useChatRoom = (username: string) => {
   const [currentUserInfo, setCurrentUserInfo] = useState<any>(null);
   const [loadingUserInfo, setLoadingUserInfo] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+  const [roomId, setRoomId] = useState<string | null>(null);
   const wsSubscriptions = useRef<{ messages?: string; typing?: string }>({});
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -144,6 +145,7 @@ export const useChatRoom = (username: string) => {
   useEffect(() => {
     if (username) {
       loadUserInfo(username);
+      loadRoomId(username);
 
       // 채팅방 진입 시 메시지를 읽음 처리
       dispatch(markMessagesAsRead(username));
@@ -251,6 +253,51 @@ export const useChatRoom = (username: string) => {
       setCurrentUserInfo(null);
     } finally {
       setLoadingUserInfo(false);
+    }
+  };
+
+  const loadRoomId = async (targetUsername: string) => {
+    try {
+      // 채팅방 목록을 가져와서 해당 사용자와의 채팅방 찾기
+      const chatRoomsResponse = await messageApi.getChatRooms();
+      const chatRooms = chatRoomsResponse.rooms; // GetChatRoomsResponse에서 rooms 배열 추출
+      const targetRoom = chatRooms.find(
+        (room) =>
+          room.user1Username === targetUsername ||
+          room.user2Username === targetUsername
+      );
+
+      if (targetRoom) {
+        setRoomId(targetRoom.roomId);
+        console.log("실제 roomId 찾음:", targetRoom.roomId);
+      } else {
+        console.log("채팅방을 찾을 수 없음, 새로 생성:", targetUsername);
+        // 채팅방이 없으면 새로 생성
+        try {
+          await dispatch(createChatRoom(targetUsername));
+          // 생성 후 다시 채팅방 목록에서 찾기
+          const updatedChatRoomsResponse = await messageApi.getChatRooms();
+          const updatedChatRooms = updatedChatRoomsResponse.rooms;
+          const newTargetRoom = updatedChatRooms.find(
+            (room) =>
+              room.user1Username === targetUsername ||
+              room.user2Username === targetUsername
+          );
+          if (newTargetRoom) {
+            setRoomId(newTargetRoom.roomId);
+            console.log("새로 생성된 roomId:", newTargetRoom.roomId);
+          } else {
+            console.log("채팅방 생성 후에도 찾을 수 없음");
+            setRoomId(null);
+          }
+        } catch (createError) {
+          console.error("채팅방 생성 실패:", createError);
+          setRoomId(null);
+        }
+      }
+    } catch (error) {
+      console.error("roomId 로드 실패:", error);
+      setRoomId(null);
     }
   };
 
@@ -384,6 +431,7 @@ export const useChatRoom = (username: string) => {
   return {
     messages,
     pagination,
+    roomId,
     loading: {
       ...messageState.loading,
       userInfo: loadingUserInfo,

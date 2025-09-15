@@ -476,7 +476,7 @@ const Profile: React.FC<ProfileProps> = ({ username: propUsername }) => {
                       onClick={handleSendMessage}
                       className="px-3 py-1.5 text-sm rounded-md bg-green-500 text-white hover:bg-green-600 transition-colors"
                     >
-                      💬 메시지
+                      📤 메시지
                     </button>
                   </div>
                 )}

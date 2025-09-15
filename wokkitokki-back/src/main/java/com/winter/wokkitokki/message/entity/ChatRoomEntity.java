@@ -39,4 +39,10 @@ public class ChatRoomEntity {
     
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
+
+    @Column(name = "user1_left", nullable = false)
+    private boolean user1Left = false;
+
+    @Column(name = "user2_left", nullable = false)
+    private boolean user2Left = false;
 }

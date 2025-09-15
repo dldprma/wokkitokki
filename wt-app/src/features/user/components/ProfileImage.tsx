@@ -1,4 +1,5 @@
 import React from "react";
+import { getFullImageUrl } from "../../../utils/imageUtils";
 import "../../../css/ProfileImage.css";
 
 interface ProfileImageProps {
@@ -36,18 +37,17 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
     }
   };
 
-  if (imageUrl) {
+  const [imageError, setImageError] = React.useState(false);
+
+  const fullImageUrl = getFullImageUrl(imageUrl);
+
+  if (fullImageUrl && !imageError) {
     return (
       <img
-        src={imageUrl}
+        src={fullImageUrl}
         alt={`${username}의 프로필`}
         className={`profile-image ${getSizeClasses()} ${className}`}
-        onError={(e) => {
-          const target = e.target as HTMLImageElement;
-          target.style.display = "none";
-          const fallback = target.nextElementSibling as HTMLElement;
-          if (fallback) fallback.style.display = "flex";
-        }}
+        onError={() => setImageError(true)}
       />
     );
   }
@@ -55,6 +55,7 @@ const ProfileImage: React.FC<ProfileImageProps> = ({
   return (
     <div className={`profile-image-fallback ${getSizeClasses()} ${className}`}>
       <span className="profile-image-emoji">👤</span>
+      <span className="profile-image-initials">{getInitials(username)}</span>
     </div>
   );
 };

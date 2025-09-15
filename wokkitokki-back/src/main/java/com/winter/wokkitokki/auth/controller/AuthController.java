@@ -68,7 +68,7 @@ public class AuthController {
                 String token = jwtUtils.extractTokenFromRequest(request);
 
                 // 완전한 로그아웃 처리
-                authService.logout(user.getId(), token, response);
+                authService.logout(user.getId(), response);
 
                 return ResponseEntity.ok(Map.of(
                         "message", "로그아웃이 완료되었습니다.",

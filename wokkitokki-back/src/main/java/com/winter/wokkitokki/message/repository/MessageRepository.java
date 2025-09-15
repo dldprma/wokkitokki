@@ -19,7 +19,7 @@ public interface MessageRepository extends JpaRepository<MessageEntity, Long> {
            "(m.sender = :user1 AND m.receiver = :user2) OR " +
            "(m.sender = :user2 AND m.receiver = :user1) " +
            "AND m.deleted = false " +
-           "ORDER BY m.createdAt DESC")
+           "ORDER BY m.createdAt ASC")
     Page<MessageEntity> findMessagesBetweenUsers(@Param("user1") UserEntity user1, 
                                                 @Param("user2") UserEntity user2, 
                                                 Pageable pageable);

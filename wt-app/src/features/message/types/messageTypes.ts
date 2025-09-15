@@ -1,27 +1,46 @@
-// 기본 메시지 타입 (MessageBubble에서 export된 것과 동일)
+// 백엔드 MessageDto와 일치하는 메시지 타입
 export interface Message {
-  id: string;
+  id: number; // Long -> number
   content: string;
-  senderId: string;
-  senderName: string;
+  senderId: number; // Long -> number
+  senderUsername: string; // 백엔드에서 제공
+  senderFullName: string; // senderName -> senderFullName
+  receiverId: number; // Long -> number
+  receiverUsername: string; // 백엔드에서 제공
+  receiverFullName: string; // 백엔드에서 제공
+  createdAt: string; // timestamp -> createdAt
+  read: boolean;
+  messageType: "TEXT" | "IMAGE" | "FILE" | "POST_SHARE";
+  imageUrl?: string;
+  fileUrl?: string; // 백엔드에서 제공
+  fileName?: string; // 백엔드에서 제공
+  sharedPostId?: number; // Long -> number
+  sharedPost?: PostShare; // 공유된 게시글 정보
+  roomId: string; // 백엔드에서 제공
+  // 프로필 이미지는 별도로 관리 (백엔드 MessageDto에는 없음)
   senderProfileImage?: string;
-  timestamp: string;
-  isRead: boolean;
-  messageType: "text" | "image" | "file";
 }
 
 // 채팅방 관련 타입
 export interface ChatRoomInfo {
-  id: string;
-  name: string;
-  image?: string;
-  lastMessage?: Message;
-  unreadCount: number;
-  isOnline?: boolean;
-  lastSeen?: string;
-  participants: ChatParticipant[];
+  id: number;
+  roomId: string;
+  user1Id: number;
+  user1Username: string;
+  user1FullName: string;
+  user1ProfileImg: string;
+  user2Id: number;
+  user2Username: string;
+  user2FullName: string;
+  user2ProfileImg: string;
   createdAt: string;
-  updatedAt: string;
+  lastMessageAt?: string;
+  lastMessage?: string;
+  lastMessageTime?: string;
+  active: boolean;
+  unreadCount: number;
+  isOtherUserOnline: boolean;
+  lastSeenTime?: number;
 }
 
 // 사용자 타입 (팔로잉 목록용)
@@ -46,10 +65,13 @@ export interface ChatParticipant {
 
 // 메시지 전송 관련 타입
 export interface SendMessageRequest {
-  roomId: string;
+  receiverUsername: string;
   content: string;
-  messageType: "text" | "image";
-  replyToMessageId?: string;
+  messageType?: "TEXT" | "IMAGE" | "FILE" | "POST_SHARE";
+  imageUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
+  sharedPostId?: number;
 }
 
 export interface SendMessageResponse {
@@ -126,6 +148,22 @@ export interface MessageStatus {
   isSending: boolean;
   isSent: boolean;
   isDelivered: boolean;
-  isRead: boolean;
+  read: boolean;
   error?: string;
+}
+
+// 게시글 공유 타입
+export interface PostShare {
+  id: number;
+  content: string;
+  imgUrl?: string;
+  authorId: number;
+  authorUsername: string;
+  authorFullName: string;
+  authorProfileImg?: string;
+  likeCount: number;
+  repostCount: number;
+  commentCount: number;
+  createdAt: string;
+  deleted: boolean;
 }

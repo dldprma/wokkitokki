@@ -85,14 +85,7 @@ const Home: React.FC = () => {
       (entries) => {
         const [entry] = entries;
         if (entry.isIntersecting) {
-          console.log("무한 스크롤 트리거됨", {
-            feedPostsLength: feedPosts.length,
-            hasMore,
-            loading,
-            currentPage: page,
-          });
           const nextPage = page + 1;
-          console.log("다음 페이지:", nextPage);
           getPosts(nextPage, 10);
         }
       },
@@ -217,12 +210,23 @@ const Home: React.FC = () => {
       <section className="new-post-section">
         <article className="new-post-container">
           <div className="new-post-content">
-            <ProfileImage
-              imageUrl={authUser?.profileImgUrl}
-              username={authUser?.username || ""}
-              size="md"
-              className="new-post-avatar"
-            />
+            <div className="relative">
+              <ProfileImage
+                imageUrl={authUser?.profileImgUrl}
+                username={authUser?.username || ""}
+                size="md"
+                className="new-post-avatar"
+              />
+              {!authUser?.profileImgUrl && (
+                <button
+                  onClick={() => navigate(`/${authUser?.username}`)}
+                  className="absolute -bottom-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center hover:bg-blue-600 transition-colors"
+                  title="프로필 이미지 설정"
+                >
+                  <span className="text-white text-xs">+</span>
+                </button>
+              )}
+            </div>
             <div className="new-post-input-section">
               <textarea
                 value={newPostContent}

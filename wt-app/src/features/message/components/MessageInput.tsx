@@ -1,5 +1,4 @@
 import React, { useState, useRef, useCallback } from "react";
-import EmojiPicker from "./EmojiPicker";
 import "../../../css/MessageInput.css";
 
 interface MessageInputProps {
@@ -21,11 +20,9 @@ const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const emojiButtonRef = useRef<HTMLButtonElement>(null);
   const typingTimeoutRef = useRef<number | undefined>(undefined);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -108,28 +105,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
     setSelectedImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleEmojiClick = () => {
-    setShowEmojiPicker(!showEmojiPicker);
-  };
-
-  const handleEmojiSelect = (emoji: string) => {
-    setMessage((prev) => prev + emoji);
-    if (textareaRef.current) {
-      textareaRef.current.focus();
-    }
-  };
-
-  const getEmojiPickerPosition = () => {
-    if (emojiButtonRef.current) {
-      const rect = emojiButtonRef.current.getBoundingClientRect();
-      return {
-        x: rect.left,
-        y: rect.top - 400, // 피커를 버튼 위에 표시
-      };
-    }
-    return { x: 0, y: 0 };
-  };
-
   const handleImageClick = () => {
     fileInputRef.current?.click();
   };
@@ -137,16 +112,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
   return (
     <div className="message-input-container">
       <div className="message-input-wrapper">
-        <button
-          ref={emojiButtonRef}
-          className="input-button emoji-button"
-          onClick={handleEmojiClick}
-          disabled={disabled}
-          type="button"
-        >
-          😊
-        </button>
-
         <div className="message-textarea-container">
           <textarea
             ref={textareaRef}
@@ -220,14 +185,6 @@ const MessageInput: React.FC<MessageInputProps> = ({
         <div className="typing-indicator">
           <span>입력 중...</span>
         </div>
-      )}
-
-      {showEmojiPicker && (
-        <EmojiPicker
-          onEmojiSelect={handleEmojiSelect}
-          onClose={() => setShowEmojiPicker(false)}
-          position={getEmojiPickerPosition()}
-        />
       )}
     </div>
   );

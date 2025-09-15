@@ -6,8 +6,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
-
 @Getter @Setter
 @NoArgsConstructor
 @AllArgsConstructor
@@ -22,10 +20,10 @@ public class ChatRoomDto {
     private String user2Username;
     private String user2FullName;
     private String user2ProfileImg;
-    private LocalDateTime createdAt;
-    private LocalDateTime lastMessageAt;
+    private String createdAt;
+    private String lastMessageAt;
     private String lastMessage;
-    private LocalDateTime lastMessageTime;
+    private String lastMessageTime;
     private boolean active;
     private int unreadCount;
     private boolean isOtherUserOnline;
@@ -43,8 +41,8 @@ public class ChatRoomDto {
         dto.setUser2Username(chatRoom.getUser2().getUsername());
         dto.setUser2FullName(chatRoom.getUser2().getFullName());
         dto.setUser2ProfileImg(chatRoom.getUser2().getProfileImgUrl());
-        dto.setCreatedAt(chatRoom.getCreatedAt());
-        dto.setLastMessageAt(chatRoom.getLastMessageAt());
+        dto.setCreatedAt(chatRoom.getCreatedAt().toString());
+        dto.setLastMessageAt(chatRoom.getLastMessageAt().toString());
         dto.setActive(chatRoom.isActive());
         return dto;
     }

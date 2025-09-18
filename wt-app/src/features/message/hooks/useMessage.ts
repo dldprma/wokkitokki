@@ -142,12 +142,6 @@ export const useChatRoom = (username: string) => {
   const messages = messageState.messages[username] || [];
   const pagination = messageState.messagePagination[username];
 
-  console.log("=== useMessage 디버깅 ===");
-  console.log("현재 username:", username);
-  console.log("messageState.messages:", messageState.messages);
-  console.log("messages for username:", messages);
-  console.log("messages.length:", messages.length);
-
   // 사용자 정보 로드 및 메시지 읽음 처리
   useEffect(() => {
     if (username) {
@@ -187,36 +181,10 @@ export const useChatRoom = (username: string) => {
       }
 
       // 새로운 dialogId로 WebSocket 구독
-      console.log(
-        "WebSocket 연결 상태:",
-        websocketService.isWebSocketConnected()
-      );
-      console.log("구독할 토픽:", `/topic/pair:${dialogId}`);
-
       if (websocketService.isWebSocketConnected()) {
         wsSubscriptions.current.messages = websocketService.subscribe(
           `/topic/pair:${dialogId}`,
           (messageData: any) => {
-            console.log("WebSocket 메시지 수신:", messageData);
-            console.log("현재 username:", username);
-            console.log("메시지 데이터:", messageData);
-
-            // 메시지의 senderUsername과 receiverUsername 확인
-            const senderUsername = messageData.senderUsername;
-            const receiverUsername = messageData.receiverUsername;
-            console.log("senderUsername:", senderUsername);
-            console.log("receiverUsername:", receiverUsername);
-
-            // 현재 사용자가 받는 사람인지 확인
-            const currentUser = JSON.parse(
-              localStorage.getItem("user") || "{}"
-            );
-            const isReceiver = receiverUsername === currentUser.username;
-            const isSender = senderUsername === currentUser.username;
-
-            console.log("isReceiver:", isReceiver);
-            console.log("isSender:", isSender);
-
             // Redux store에 직접 메시지 추가
             dispatch(
               addNewMessage({
@@ -236,24 +204,12 @@ export const useChatRoom = (username: string) => {
 
     const initializeWebSocket = async () => {
       try {
-        console.log("=== WebSocket 초기화 시작 ===");
-        console.log("username:", username);
-        console.log("currentUser.username:", currentUser.username);
-        console.log(
-          "현재 WebSocket 연결 상태:",
-          websocketService.isWebSocketConnected()
-        );
-
         // WebSocket 연결
         if (!websocketService.isWebSocketConnected()) {
-          console.log("WebSocket 연결 시도...");
           await websocketService.connect();
-          console.log("WebSocket 연결 성공!");
 
           // 연결 성공 후 하트비트 시작
           startHeartbeat();
-        } else {
-          console.log("WebSocket이 이미 연결되어 있습니다.");
         }
 
         // WebSocket 구독은 dialogId가 변경될 때 처리됨
@@ -279,13 +235,7 @@ export const useChatRoom = (username: string) => {
             }
           );
       } catch (error) {
-        console.error("=== WebSocket 연결 실패 ===");
-        console.error("에러:", error);
-        console.error("에러 타입:", typeof error);
-        console.error(
-          "에러 메시지:",
-          error instanceof Error ? error.message : String(error)
-        );
+        console.error("WebSocket 연결 실패:", error);
       }
     };
 

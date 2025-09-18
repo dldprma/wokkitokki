@@ -244,28 +244,23 @@ const messageSlice = createSlice({
     ) => {
       const { message, username } = action.payload;
 
-      console.log("=== addNewMessage 디버깅 ===");
-      console.log("username:", username);
-      console.log("message:", message);
-      console.log("현재 state.messages:", state.messages);
-
       if (!state.messages[username]) {
         state.messages[username] = [];
-        console.log("새로운 메시지 배열 생성:", username);
       }
+
+      // read 표준화 (read 우선, 없으면 isRead 사용)
+      const normalizedMessage: Message = {
+        ...message,
+        read: (message as any).read ?? (message as any).isRead ?? false,
+      } as Message;
 
       // 중복 메시지 체크 (이미 있는 메시지는 추가하지 않음)
       const existingMessage = state.messages[username].find(
-        (m) => m.id === message.id
+        (m) => m.id === normalizedMessage.id
       );
 
-      console.log("기존 메시지 체크:", existingMessage);
-
       if (!existingMessage) {
-        state.messages[username].push(message);
-        console.log("메시지 추가 완료. 현재 배열:", state.messages[username]);
-      } else {
-        console.log("중복 메시지로 인해 추가하지 않음");
+        state.messages[username].push(normalizedMessage);
       }
     },
 
@@ -419,14 +414,8 @@ const messageSlice = createSlice({
         state.loading.sending = false;
         const { receiverUsername, message } = action.payload;
 
-        console.log("=== sendMessage.fulfilled 디버깅 ===");
-        console.log("receiverUsername:", receiverUsername);
-        console.log("message:", message);
-        console.log("현재 state.messages:", state.messages);
-
         if (!state.messages[receiverUsername]) {
           state.messages[receiverUsername] = [];
-          console.log("새로운 메시지 배열 생성:", receiverUsername);
         }
 
         if (message) {
@@ -451,12 +440,7 @@ const messageSlice = createSlice({
             roomId: message.roomId || receiverUsername,
           };
 
-          console.log("새 메시지 추가:", newMessage);
           state.messages[receiverUsername].push(newMessage);
-          console.log(
-            "추가 후 state.messages[receiverUsername]:",
-            state.messages[receiverUsername]
-          );
         }
       })
       .addCase(sendMessage.rejected, (state, action) => {

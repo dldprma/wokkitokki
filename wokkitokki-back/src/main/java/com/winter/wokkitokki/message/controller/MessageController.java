@@ -302,24 +302,10 @@ public class MessageController {
         return ResponseEntity.ok(chatRoom);
     }
 
-    @DeleteMapping("/chat-rooms/{roomId}")
-    public ResponseEntity<Void> deleteChatRoom(@PathVariable String roomId) {
+    @DeleteMapping("/chat-rooms/dialogs/{dialogId}")
+    public ResponseEntity<Void> leaveChatRoom(@PathVariable String dialogId) {
         UserEntity currentUser = getCurrentUser();
-
-        messageService.deleteChatRoom(roomId, currentUser.getId());
-        return ResponseEntity.ok().build();
-    }
-
-    @DeleteMapping("/chat-rooms/with/{username}")
-    public ResponseEntity<Void> deleteChatRoomByUsername(@PathVariable String username) {
-        UserEntity currentUser = getCurrentUser();
-        Long otherUserId = userService.getUserIdByUsername(username);
-
-        if (otherUserId == null) {
-            return ResponseEntity.notFound().build();
-        }
-
-        messageService.deleteChatRoomByUsers(currentUser.getId(), otherUserId);
+        messageService.leaveChatRoomByDialogId(dialogId, currentUser.getId());
         return ResponseEntity.ok().build();
     }
 

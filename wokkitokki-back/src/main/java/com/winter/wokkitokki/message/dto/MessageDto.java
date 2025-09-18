@@ -33,8 +33,6 @@ public class MessageDto {
         dto.setId(message.getId());
         dto.setContent(message.getContent());
         dto.setImageUrl(message.getImageUrl());
-        dto.setFileUrl(message.getFileUrl());
-        dto.setFileName(message.getFileName());
         dto.setSharedPostId(message.getSharedPostId());
         dto.setSenderId(message.getSender().getId());
         dto.setSenderUsername(message.getSender().getUsername());

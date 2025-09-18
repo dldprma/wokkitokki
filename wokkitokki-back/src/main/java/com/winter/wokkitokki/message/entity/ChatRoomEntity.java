@@ -40,9 +40,38 @@ public class ChatRoomEntity {
     @Column(name = "is_active", nullable = false)
     private boolean active = true;
 
-    @Column(name = "user1_left", nullable = false)
-    private boolean user1Left = false;
 
-    @Column(name = "user2_left", nullable = false)
-    private boolean user2Left = false;
+    // Pair 기반 시스템을 위한 유틸리티 메서드들
+
+    /**
+     * 두 사용자로부터 정규화된 ChatRoom 생성 (항상 낮은 ID를 user1으로)
+     */
+    public static ChatRoomEntity createNormalized(UserEntity userA, UserEntity userB) {
+        ChatRoomEntity chatRoom = new ChatRoomEntity();
+        if (userA.getId() < userB.getId()) {
+            chatRoom.setUser1(userA);
+            chatRoom.setUser2(userB);
+        } else {
+            chatRoom.setUser1(userB);
+            chatRoom.setUser2(userA);
+        }
+        chatRoom.setCreatedAt(LocalDateTime.now());
+        chatRoom.setLastMessageAt(LocalDateTime.now());
+        chatRoom.setActive(true);
+        return chatRoom;
+    }
+
+    /**
+     * 특정 사용자의 상대방 반환
+     */
+    public UserEntity getOtherUser(Long userId) {
+        return user1.getId().equals(userId) ? user2 : user1;
+    }
+
+    /**
+     * Pair ID 생성 (정규화된 형태: "userId1-userId2")
+     */
+    public String getPairId() {
+        return user1.getId() + "-" + user2.getId();
+    }
 }

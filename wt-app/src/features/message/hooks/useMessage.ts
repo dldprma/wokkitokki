@@ -9,6 +9,7 @@ import {
   markMessagesAsReadLocal,
   fetchChatRooms,
   createChatRoom,
+  addNewMessage,
 } from "../store/messageSlice";
 import { getUserProfile } from "../../user/api/userApi";
 import { websocketService } from "../services/websocketService";
@@ -130,7 +131,7 @@ export const useChatRoom = (username: string) => {
   const [currentUserInfo, setCurrentUserInfo] = useState<any>(null);
   const [loadingUserInfo, setLoadingUserInfo] = useState(false);
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const [roomId, setRoomId] = useState<string | null>(null);
+  const [dialogId, setDialogId] = useState<string | null>(null);
   const wsSubscriptions = useRef<{ messages?: string; typing?: string }>({});
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
 
@@ -141,16 +142,37 @@ export const useChatRoom = (username: string) => {
   const messages = messageState.messages[username] || [];
   const pagination = messageState.messagePagination[username];
 
+  console.log("=== useMessage 디버깅 ===");
+  console.log("현재 username:", username);
+  console.log("messageState.messages:", messageState.messages);
+  console.log("messages for username:", messages);
+  console.log("messages.length:", messages.length);
+
   // 사용자 정보 로드 및 메시지 읽음 처리
   useEffect(() => {
     if (username) {
       loadUserInfo(username);
-      loadRoomId(username);
 
-      // 채팅방 진입 시 메시지를 읽음 처리
-      dispatch(markMessagesAsRead(username));
+      // dialogId를 먼저 로드한 후 메시지 가져오기
+      loadDialogId(username).then(() => {
+        // 채팅방 진입 시 메시지를 읽음 처리
+        dispatch(markMessagesAsRead(username));
 
-      // 해당 사용자와의 메시지 목록 불러오기
+        // 해당 사용자와의 메시지 목록 불러오기
+        dispatch(
+          fetchMessages({
+            username,
+            page: 0,
+            limit: 50,
+          })
+        );
+      });
+    }
+  }, [username, dispatch]);
+
+  // dialogId가 변경될 때 메시지 다시 가져오기 및 WebSocket 구독 업데이트
+  useEffect(() => {
+    if (dialogId && username) {
       dispatch(
         fetchMessages({
           username,
@@ -158,8 +180,55 @@ export const useChatRoom = (username: string) => {
           limit: 50,
         })
       );
+
+      // 기존 WebSocket 구독 해제
+      if (wsSubscriptions.current.messages) {
+        websocketService.unsubscribe(wsSubscriptions.current.messages);
+      }
+
+      // 새로운 dialogId로 WebSocket 구독
+      console.log(
+        "WebSocket 연결 상태:",
+        websocketService.isWebSocketConnected()
+      );
+      console.log("구독할 토픽:", `/topic/pair:${dialogId}`);
+
+      if (websocketService.isWebSocketConnected()) {
+        wsSubscriptions.current.messages = websocketService.subscribe(
+          `/topic/pair:${dialogId}`,
+          (messageData: any) => {
+            console.log("WebSocket 메시지 수신:", messageData);
+            console.log("현재 username:", username);
+            console.log("메시지 데이터:", messageData);
+
+            // 메시지의 senderUsername과 receiverUsername 확인
+            const senderUsername = messageData.senderUsername;
+            const receiverUsername = messageData.receiverUsername;
+            console.log("senderUsername:", senderUsername);
+            console.log("receiverUsername:", receiverUsername);
+
+            // 현재 사용자가 받는 사람인지 확인
+            const currentUser = JSON.parse(
+              localStorage.getItem("user") || "{}"
+            );
+            const isReceiver = receiverUsername === currentUser.username;
+            const isSender = senderUsername === currentUser.username;
+
+            console.log("isReceiver:", isReceiver);
+            console.log("isSender:", isSender);
+
+            // Redux store에 직접 메시지 추가
+            dispatch(
+              addNewMessage({
+                username,
+                message: messageData,
+              })
+            );
+          }
+        );
+      }
     }
-  }, [username, dispatch]);
+  }, [dialogId, username, dispatch]);
 
   // WebSocket 연결 및 실시간 메시지 처리
   useEffect(() => {
@@ -167,31 +236,27 @@ export const useChatRoom = (username: string) => {
 
     const initializeWebSocket = async () => {
       try {
+        console.log("=== WebSocket 초기화 시작 ===");
+        console.log("username:", username);
+        console.log("currentUser.username:", currentUser.username);
+        console.log(
+          "현재 WebSocket 연결 상태:",
+          websocketService.isWebSocketConnected()
+        );
+
         // WebSocket 연결
         if (!websocketService.isWebSocketConnected()) {
+          console.log("WebSocket 연결 시도...");
           await websocketService.connect();
+          console.log("WebSocket 연결 성공!");
 
           // 연결 성공 후 하트비트 시작
           startHeartbeat();
+        } else {
+          console.log("WebSocket이 이미 연결되어 있습니다.");
         }
 
-        // 실시간 메시지 구독
-        wsSubscriptions.current.messages =
-          websocketService.subscribeToUserMessages(
-            currentUser.username,
-            (messageData: any) => {
-              // 실시간 메시지 수신 시 현재 채팅방의 메시지 목록을 다시 불러옴
-              if (messageData.type === "message") {
-                dispatch(
-                  fetchMessages({
-                    username,
-                    page: 0,
-                    limit: 50,
-                  })
-                );
-              }
-            }
-          );
+        // WebSocket 구독은 dialogId가 변경될 때 처리됨
 
         // 타이핑 상태 구독
         wsSubscriptions.current.typing =
@@ -214,7 +279,13 @@ export const useChatRoom = (username: string) => {
             }
           );
       } catch (error) {
-        console.error("WebSocket 연결 실패:", error);
+        console.error("=== WebSocket 연결 실패 ===");
+        console.error("에러:", error);
+        console.error("에러 타입:", typeof error);
+        console.error(
+          "에러 메시지:",
+          error instanceof Error ? error.message : String(error)
+        );
       }
     };
 
@@ -256,11 +327,15 @@ export const useChatRoom = (username: string) => {
     }
   };
 
-  const loadRoomId = async (targetUsername: string) => {
+  const loadDialogId = async (targetUsername: string): Promise<void> => {
+    if (!currentUser?.username) {
+      console.error("사용자 정보가 없습니다.");
+      setDialogId(null);
+      return;
+    }
     try {
-      // 채팅방 목록을 가져와서 해당 사용자와의 채팅방 찾기
       const chatRoomsResponse = await messageApi.getChatRooms();
-      const chatRooms = chatRoomsResponse.rooms; // GetChatRoomsResponse에서 rooms 배열 추출
+      const chatRooms = chatRoomsResponse.rooms;
       const targetRoom = chatRooms.find(
         (room) =>
           room.user1Username === targetUsername ||
@@ -268,14 +343,12 @@ export const useChatRoom = (username: string) => {
       );
 
       if (targetRoom) {
-        setRoomId(targetRoom.roomId);
-        console.log("실제 roomId 찾음:", targetRoom.roomId);
+        setDialogId(targetRoom.roomId); // roomId가 실제로는 dialogId
       } else {
-        console.log("채팅방을 찾을 수 없음, 새로 생성:", targetUsername);
-        // 채팅방이 없으면 새로 생성
         try {
           await dispatch(createChatRoom(targetUsername));
-          // 생성 후 다시 채팅방 목록에서 찾기
+          // 생성 후 채팅방 목록 새로고침
+          await dispatch(fetchChatRooms());
           const updatedChatRoomsResponse = await messageApi.getChatRooms();
           const updatedChatRooms = updatedChatRoomsResponse.rooms;
           const newTargetRoom = updatedChatRooms.find(
@@ -284,20 +357,18 @@ export const useChatRoom = (username: string) => {
               room.user2Username === targetUsername
           );
           if (newTargetRoom) {
-            setRoomId(newTargetRoom.roomId);
-            console.log("새로 생성된 roomId:", newTargetRoom.roomId);
+            setDialogId(newTargetRoom.roomId); // roomId가 실제로는 dialogId
           } else {
-            console.log("채팅방 생성 후에도 찾을 수 없음");
-            setRoomId(null);
+            setDialogId(null);
           }
         } catch (createError) {
           console.error("채팅방 생성 실패:", createError);
-          setRoomId(null);
+          setDialogId(null);
         }
       }
     } catch (error) {
-      console.error("roomId 로드 실패:", error);
-      setRoomId(null);
+      console.error("dialogId 로드 실패:", error);
+      setDialogId(null);
     }
   };
 
@@ -431,7 +502,7 @@ export const useChatRoom = (username: string) => {
   return {
     messages,
     pagination,
-    roomId,
+    dialogId,
     loading: {
       ...messageState.loading,
       userInfo: loadingUserInfo,

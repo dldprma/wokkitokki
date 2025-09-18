@@ -539,8 +539,6 @@ public class UserService {
         
         // Redis 피드에서 사용자 관련 데이터 정리
         redisFeedIntegration.handleUserDeleted(userId);
-        
-        log.info("사용자 탈퇴 처리 완료: userId={}", userId);
     }
 
     // 기존 프로필 이미지 파일 삭제하는 private 메서드

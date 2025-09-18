@@ -422,8 +422,6 @@ public class RedisFeedIntegration {
             
             // 3. 해당 사용자의 팔로워들의 피드 캐시 무효화 (재구성 필요)
             redisFeedService.invalidateFollowerFeedCaches(userId);
-            
-            log.info("Redis feed cleanup completed for deleted user: {}", userId);
         } catch (Exception e) {
             log.error("Failed to cleanup Redis feed data for deleted user: {}", userId, e);
         }

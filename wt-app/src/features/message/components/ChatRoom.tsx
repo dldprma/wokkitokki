@@ -11,6 +11,7 @@ interface ChatRoomProps {
   roomName: string;
   roomImage?: string;
   currentUsername: string; // username만 사용
+  otherUsername: string; // 상대방 username 추가
   messages: Message[];
   onSendMessage: (content: string, messageType: "text" | "image") => void;
   onSendFile?: (file: File) => void;
@@ -30,6 +31,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
   roomName,
   roomImage,
   currentUsername,
+  otherUsername,
   messages,
   onSendMessage,
   onSendFile,
@@ -113,8 +115,6 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
         <div
           className="room-info"
           onClick={() => {
-            // roomId에서 상대방 username 추출 (현재는 roomId가 username)
-            const otherUsername = roomId;
             navigate(`/${otherUsername}`);
           }}
           style={{ cursor: "pointer" }}
@@ -184,7 +184,7 @@ const ChatRoom: React.FC<ChatRoomProps> = ({
                     }
                     // 메시지 페이지로 이동
                     navigate("/messages");
-                  } catch (error) {
+                  } catch (error: any) {
                     console.error("대화방 나가기 실패:", error);
                     console.error("에러 응답:", error.response?.data);
                     console.error("에러 상태:", error.response?.status);

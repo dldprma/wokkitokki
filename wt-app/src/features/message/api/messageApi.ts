@@ -41,7 +41,8 @@ export class MessageApi {
     const springPageData = response.data;
     const messages = (springPageData.content || []).map((message: any) => ({
       ...message,
-      read: message.isRead || false, // isRead를 read로 변환
+      // read 표준화 (read 우선, 없으면 isRead)
+      read: (message.read ?? message.isRead ?? false) as boolean,
     }));
     return {
       messages,
@@ -79,10 +80,10 @@ export class MessageApi {
         "Content-Type": "multipart/form-data",
       },
     });
-    // isRead를 read로 변환
+    // read 표준화 (read 우선, 없으면 isRead)
     return {
       ...response.data,
-      read: response.data.isRead || false,
+      read: (response.data.read ?? response.data.isRead ?? false) as boolean,
     };
   }
 
@@ -106,10 +107,10 @@ export class MessageApi {
         "Content-Type": "multipart/form-data",
       },
     });
-    // isRead를 read로 변환
+    // read 표준화 (read 우선, 없으면 isRead)
     return {
       ...response.data,
-      read: response.data.isRead || false,
+      read: (response.data.read ?? response.data.isRead ?? false) as boolean,
     };
   }
 

@@ -13,7 +13,7 @@ const ChatRoomPage: React.FC = () => {
   const {
     messages,
     pagination,
-    roomId,
+    dialogId,
     loading,
     handleSendMessage,
     handleSendImage,
@@ -75,10 +75,11 @@ const ChatRoomPage: React.FC = () => {
   return (
     <div className="chat-room-page" style={{ height: "calc(100vh - 60px)" }}>
       <ChatRoom
-        roomId={roomId}
+        roomId={dialogId || ""} // dialogId 사용
         roomName={currentRoom?.name || "채팅방"}
         roomImage={currentRoom?.image || ""}
         currentUsername={user?.username || ""}
+        otherUsername={username}
         messages={messages}
         onSendMessage={handleSendMessageWrapper}
         onSendFile={handleSendFileWrapper}

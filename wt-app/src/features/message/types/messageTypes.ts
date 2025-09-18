@@ -80,6 +80,28 @@ export interface SendMessageResponse {
   error?: string;
 }
 
+// 백엔드에서 직접 반환하는 MessageDto 타입
+export interface MessageDto {
+  id: number;
+  content: string;
+  imageUrl?: string;
+  fileUrl?: string;
+  fileName?: string;
+  sharedPostId?: number;
+  sharedPost?: PostShare;
+  senderId: number;
+  senderUsername: string;
+  senderFullName: string;
+  receiverId: number;
+  receiverUsername: string;
+  receiverFullName: string;
+  createdAt: string;
+  isRead: boolean; // 백엔드 원본 필드
+  read: boolean; // API에서 isRead를 read로 변환
+  messageType: "TEXT" | "IMAGE" | "FILE" | "POST_SHARE";
+  roomId: string;
+}
+
 // 메시지 읽음 상태 관련 타입
 export interface MarkAsReadRequest {
   roomId: string;

@@ -48,7 +48,6 @@ public class FileService {
             // 프론트엔드에서 접근 가능한 URL 반환
             String fileUrl = "/uploads/" + category + "/" + filename;
 
-            log.info("파일 업로드 성공: {}", fileUrl);
             return fileUrl;
 
         } catch (IOException e) {

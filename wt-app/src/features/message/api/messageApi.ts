@@ -6,6 +6,7 @@ import type {
   GetMessagesResponse,
   GetChatRoomsResponse,
   MessageFilter,
+  MessageDto,
 } from "../types/messageTypes";
 
 // 메시지 API 클래스
@@ -38,23 +39,23 @@ export class MessageApi {
 
     // Spring Page 응답을 프론트엔드 형식으로 변환
     const springPageData = response.data;
+    const messages = (springPageData.content || []).map((message: any) => ({
+      ...message,
+      read: message.isRead || false, // isRead를 read로 변환
+    }));
     return {
-      messages: springPageData.content || [],
+      messages,
       pagination: {
         page: springPageData.pageable?.pageNumber || 0,
-        size: springPageData.pageable?.pageSize || limit,
-        totalElements: springPageData.totalElements || 0,
-        totalPages: springPageData.totalPages || 0,
-        first: springPageData.first || false,
-        last: springPageData.last || false,
+        limit: springPageData.pageable?.pageSize || limit,
+        hasMore: !springPageData.last || false,
+        total: springPageData.totalElements || 0,
       },
     };
   }
 
   // 메시지 전송
-  static async sendMessage(
-    request: SendMessageRequest
-  ): Promise<SendMessageResponse> {
+  static async sendMessage(request: SendMessageRequest): Promise<MessageDto> {
     const formData = new FormData();
     formData.append("receiverUsername", request.receiverUsername);
     formData.append("content", request.content);
@@ -78,7 +79,11 @@ export class MessageApi {
         "Content-Type": "multipart/form-data",
       },
     });
-    return response.data;
+    // isRead를 read로 변환
+    return {
+      ...response.data,
+      read: response.data.isRead || false,
+    };
   }
 
   // 이미지 메시지 전송 (multipart/form-data)
@@ -86,7 +91,7 @@ export class MessageApi {
     receiverUsername: string,
     image: File,
     replyToMessageId?: string
-  ): Promise<SendMessageResponse> {
+  ): Promise<MessageDto> {
     const formData = new FormData();
     formData.append("receiverUsername", receiverUsername);
     formData.append("content", ""); // 빈 내용
@@ -101,7 +106,11 @@ export class MessageApi {
         "Content-Type": "multipart/form-data",
       },
     });
-    return response.data;
+    // isRead를 read로 변환
+    return {
+      ...response.data,
+      read: response.data.isRead || false,
+    };
   }
 
   // 여러 이미지 메시지 전송
@@ -109,7 +118,7 @@ export class MessageApi {
     receiverUsername: string,
     images: File[],
     replyToMessageId?: string
-  ): Promise<SendMessageResponse[]> {
+  ): Promise<MessageDto[]> {
     const promises = images.map((image) =>
       this.sendImageMessage(receiverUsername, image, replyToMessageId)
     );
@@ -155,9 +164,14 @@ export class MessageApi {
     return response.data;
   }
 
-  // 채팅방 삭제 (나가기)
-  static async deleteChatRoom(roomId: string): Promise<void> {
-    await api.delete(`/api/messages/chat-rooms/${roomId}`);
+  // 채팅방 삭제 (나가기) - dialogId 사용
+  static async deleteChatRoom(dialogId: string): Promise<void> {
+    await api.delete(`/api/messages/chat-rooms/dialogs/${dialogId}`);
+  }
+
+  // 채팅방 삭제 (username으로)
+  static async deleteChatRoomByUsername(username: string): Promise<void> {
+    await api.delete(`/api/messages/chat-rooms/with/${username}`);
   }
 
   // 채팅방 참여자 추가
@@ -253,6 +267,7 @@ export const messageApi = {
   getChatRoomInfo: MessageApi.getChatRoomInfo,
   createChatRoom: MessageApi.createChatRoom,
   deleteChatRoom: MessageApi.deleteChatRoom,
+  deleteChatRoomByUsername: MessageApi.deleteChatRoomByUsername,
   addParticipants: MessageApi.addParticipants,
   leaveChatRoom: MessageApi.leaveChatRoom,
 

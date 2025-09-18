@@ -54,8 +54,6 @@ public class WebSocketSecurityConfig implements WebSocketMessageBrokerConfigurer
                                 
                                 accessor.setUser(authentication);
                                 SecurityContextHolder.getContext().setAuthentication(authentication);
-                                
-                                log.info("WebSocket authenticated user: {}", username);
                             }
                         } catch (Exception e) {
                             log.error("WebSocket authentication failed", e);

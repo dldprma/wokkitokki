@@ -26,12 +26,6 @@ public class MessageEntity {
     @Column(name = "image_url")
     private String imageUrl;
     
-    @Column(name = "file_url")
-    private String fileUrl;
-    
-    @Column(name = "file_name")
-    private String fileName;
-    
     @Column(name = "shared_post_id")
     private Long sharedPostId;
     

@@ -161,7 +161,7 @@ export const sendMultipleImages = createAsyncThunk(
       images,
       replyToMessageId
     );
-    const messages = responses.map((response) => response.message);
+    const messages = responses; // responses는 이미 MessageDto 배열
     return { receiverUsername, messages };
   }
 );
@@ -244,16 +244,28 @@ const messageSlice = createSlice({
     ) => {
       const { message, username } = action.payload;
 
+      console.log("=== addNewMessage 디버깅 ===");
+      console.log("username:", username);
+      console.log("message:", message);
+      console.log("현재 state.messages:", state.messages);
+
       if (!state.messages[username]) {
         state.messages[username] = [];
+        console.log("새로운 메시지 배열 생성:", username);
       }
 
       // 중복 메시지 체크 (이미 있는 메시지는 추가하지 않음)
       const existingMessage = state.messages[username].find(
         (m) => m.id === message.id
       );
+
+      console.log("기존 메시지 체크:", existingMessage);
+
       if (!existingMessage) {
         state.messages[username].push(message);
+        console.log("메시지 추가 완료. 현재 배열:", state.messages[username]);
+      } else {
+        console.log("중복 메시지로 인해 추가하지 않음");
       }
     },
 
@@ -406,29 +418,45 @@ const messageSlice = createSlice({
       .addCase(sendMessage.fulfilled, (state, action) => {
         state.loading.sending = false;
         const { receiverUsername, message } = action.payload;
+
+        console.log("=== sendMessage.fulfilled 디버깅 ===");
+        console.log("receiverUsername:", receiverUsername);
+        console.log("message:", message);
+        console.log("현재 state.messages:", state.messages);
+
         if (!state.messages[receiverUsername]) {
           state.messages[receiverUsername] = [];
+          console.log("새로운 메시지 배열 생성:", receiverUsername);
         }
-        if (message && message.message) {
-          // SendMessageResponse.message를 Message로 변환
+
+        if (message) {
+          // MessageDto를 Message로 변환 (백엔드에서 MessageDto를 직접 반환)
           const newMessage: Message = {
-            id: message.message.id,
-            content: message.message.content,
-            senderId: message.message.senderId,
-            senderUsername: message.message.senderUsername,
-            senderFullName: message.message.senderFullName,
-            receiverId: message.message.receiverId,
-            receiverUsername: message.message.receiverUsername,
-            receiverFullName: message.message.receiverFullName,
-            createdAt: message.message.createdAt,
-            messageType: message.message.messageType || "TEXT",
-            imageUrl: message.message.imageUrl,
-            sharedPostId: message.message.sharedPostId,
-            sharedPost: message.message.sharedPost,
-            read: message.message.read || false,
-            roomId: receiverUsername, // roomId는 receiverUsername으로 설정
+            id: message.id,
+            content: message.content,
+            senderId: message.senderId,
+            senderUsername: message.senderUsername,
+            senderFullName: message.senderFullName,
+            receiverId: message.receiverId,
+            receiverUsername: message.receiverUsername,
+            receiverFullName: message.receiverFullName,
+            createdAt: message.createdAt,
+            messageType: message.messageType || "TEXT",
+            imageUrl: message.imageUrl,
+            fileUrl: message.fileUrl,
+            fileName: message.fileName,
+            sharedPostId: message.sharedPostId,
+            sharedPost: message.sharedPost,
+            read: message.read || false, // API에서 이미 read로 변환됨
+            roomId: message.roomId || receiverUsername,
           };
+
+          console.log("새 메시지 추가:", newMessage);
           state.messages[receiverUsername].push(newMessage);
+          console.log(
+            "추가 후 state.messages[receiverUsername]:",
+            state.messages[receiverUsername]
+          );
         }
       })
       .addCase(sendMessage.rejected, (state, action) => {
@@ -461,7 +489,7 @@ const messageSlice = createSlice({
           fileName: message.fileName,
           sharedPostId: message.sharedPostId,
           sharedPost: message.sharedPost,
-          read: message.isRead || false,
+          read: message.read || false, // API에서 이미 read로 변환됨
           roomId: receiverUsername,
         };
         state.messages[receiverUsername].push(newMessage);
@@ -477,11 +505,27 @@ const messageSlice = createSlice({
       if (messages && messages.length > 0) {
         const validMessages = messages.filter((msg) => msg !== undefined);
         if (validMessages.length > 0) {
-          // Message[]를 그대로 사용
-          const validMessageObjects = validMessages.filter(
-            (msg) => msg !== undefined
-          ) as Message[];
-          state.messages[receiverUsername].push(...validMessageObjects);
+          // MessageDto를 Message로 변환
+          const convertedMessages: Message[] = validMessages.map((msg) => ({
+            id: msg.id,
+            content: msg.content,
+            senderId: msg.senderId,
+            senderUsername: msg.senderUsername,
+            senderFullName: msg.senderFullName,
+            receiverId: msg.receiverId,
+            receiverUsername: msg.receiverUsername,
+            receiverFullName: msg.receiverFullName,
+            createdAt: msg.createdAt,
+            messageType: msg.messageType || "TEXT",
+            imageUrl: msg.imageUrl,
+            fileUrl: msg.fileUrl,
+            fileName: msg.fileName,
+            sharedPostId: msg.sharedPostId,
+            sharedPost: msg.sharedPost,
+            read: msg.read || false,
+            roomId: msg.roomId || receiverUsername,
+          }));
+          state.messages[receiverUsername].push(...convertedMessages);
         }
       }
     });
@@ -515,7 +559,6 @@ const messageSlice = createSlice({
     // 채팅방 생성
     builder.addCase(createChatRoom.fulfilled, (state) => {
       // 새 채팅방이 생성되면 목록을 새로고침해야 함
-      // 실제로는 fetchChatRooms를 다시 호출하는 것이 좋음
       // state를 사용하지 않으므로 언더스코어 추가
       void state;
     });

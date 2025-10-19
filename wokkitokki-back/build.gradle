@@ -30,6 +30,7 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-redis'
 	implementation 'org.springframework.boot:spring-boot-starter-websocket'
 	implementation 'org.springframework.boot:spring-boot-starter-reactor-netty'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	// 기존 Spring Data Elasticsearch
 	implementation 'org.springframework.boot:spring-boot-starter-data-elasticsearch'
 	// Jackson 의존성 (JSON 처리용)
@@ -40,6 +41,13 @@ dependencies {
 	implementation 'io.jsonwebtoken:jjwt-api:0.12.3'
 	runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.3'
 	runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.3'
+
+	// AWS SDK for S3 and MediaConvert
+	implementation platform('software.amazon.awssdk:bom:2.21.29')
+	implementation 'software.amazon.awssdk:s3'
+	implementation 'software.amazon.awssdk:mediaconvert'
+	implementation 'software.amazon.awssdk:sts'
+
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
 	annotationProcessor 'org.projectlombok:lombok'

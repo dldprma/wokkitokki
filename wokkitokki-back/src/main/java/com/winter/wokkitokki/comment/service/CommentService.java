@@ -11,6 +11,8 @@ import com.winter.wokkitokki.post.repository.LikeRepository;
 import com.winter.wokkitokki.post.repository.PostRepository;
 import com.winter.wokkitokki.post.repository.RepostRepository;
 import com.winter.wokkitokki.post.service.RedisFeedIntegration;
+import com.winter.wokkitokki.reels.entity.ReelsEntity;
+import com.winter.wokkitokki.reels.repository.ReelsRepository;
  import com.winter.wokkitokki.search.service.SearchIndexService;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import com.winter.wokkitokki.user.repository.UserRepository;
@@ -38,6 +40,7 @@ public class CommentService {
     private final LikeRepository likeRepository;
     private final RepostRepository repostRepository;
     private final PostRepository postRepository;
+    private final ReelsRepository reelsRepository;
     private final UserRepository userRepository;
     private final FileService fileService;
     private final SearchIndexService searchIndexService;
@@ -110,7 +113,7 @@ public class CommentService {
                 }
 
                 // 이미지 업로드
-                String imageUrl = fileService.uploadFile(imageFile, "comments");
+                String imageUrl = fileService.uploadFile(imageFile, "comments", currentUserId);
                 commentBuilder.imageUrl(imageUrl);
                 
                 log.info("댓글 이미지 업로드 완료: {}", imageUrl);
@@ -194,7 +197,7 @@ public class CommentService {
                 }
 
                 // 새 이미지 업로드
-                String imageUrl = fileService.uploadFile(imageFile, "comments");
+                String imageUrl = fileService.uploadFile(imageFile, "comments", currentUserId);
                 comment.setImageUrl(imageUrl);
                 
                 log.info("댓글 이미지 업데이트 완료: {}", imageUrl);
@@ -257,7 +260,7 @@ public class CommentService {
                     fileService.deleteFile(comment.getImageUrl());
                 }
                 
-                String imageUrl = fileService.uploadFile(imageFile, "comments");
+                String imageUrl = fileService.uploadFile(imageFile, "comments", currentUserId);
                 comment.setImageUrl(imageUrl);
                 log.info("댓글 이미지 업데이트 완료: {}", imageUrl);
             } catch (Exception e) {
@@ -516,6 +519,138 @@ public class CommentService {
                 .canDelete(canDelete)
                 .repostedBy(repostedBy)
                 .repostedAt(repostedAt)
+                .createdAt(comment.getCreatedAt().toString())
+                .updatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null)
+                .build();
+    }
+
+    // 릴스별 댓글 목록 조회
+    public Page<CommentResponseDto> getCommentsByReels(Long reelsId, int page, int size, Long currentUserId) {
+        reelsRepository.findByIdAndDeletedFalse(reelsId)
+                .orElseThrow(() -> new RuntimeException("릴스를 찾을 수 없습니다."));
+
+        Pageable pageable = PageRequest.of(page, size);
+        Page<CommentEntity> comments = commentRepository.findByReelsIdAndParentCommentIsNull(reelsId, pageable);
+
+        return comments.map(comment -> convertToResponseDto(comment, currentUserId));
+    }
+
+    // 릴스에 댓글 작성
+    @Transactional
+    public CommentResponseDto createCommentOnReels(Long reelsId, CommentCreateRequestDto request, Long authorId) {
+        ReelsEntity reels = reelsRepository.findByIdAndDeletedFalse(reelsId)
+                .orElseThrow(() -> new RuntimeException("릴스를 찾을 수 없습니다."));
+
+        UserEntity author = userRepository.findById(authorId)
+                .orElseThrow(() -> new RuntimeException("작성자를 찾을 수 없습니다."));
+
+        CommentEntity comment = CommentEntity.builder()
+                .content(request.getContent())
+                .author(author)
+                .reels(reels)
+                .parentComment(null)
+                .imageUrl(null)
+                .deleted(false)
+                .likeCount(0)
+                .repostCount(0)
+                .replyCount(0)
+                .build();
+
+        CommentEntity savedComment = commentRepository.save(comment);
+
+        // 릴스의 댓글 수 업데이트
+        reels.setCommentCount(reels.getCommentCount() + 1);
+        reelsRepository.save(reels);
+
+        // 검색 인덱싱
+        searchIndexService.indexComment(savedComment);
+
+        log.info("릴스 댓글 작성 완료: 릴스ID={}, 댓글ID={}", reelsId, savedComment.getId());
+
+        return convertToReelsCommentResponseDto(savedComment, authorId);
+    }
+
+    // 릴스에 대댓글 작성
+    @Transactional
+    public CommentResponseDto createReplyOnReels(Long reelsId, Long parentCommentId, CommentCreateRequestDto request, Long authorId) {
+        ReelsEntity reels = reelsRepository.findByIdAndDeletedFalse(reelsId)
+                .orElseThrow(() -> new RuntimeException("릴스를 찾을 수 없습니다."));
+
+        CommentEntity parentComment = commentRepository.findById(parentCommentId)
+                .orElseThrow(() -> new RuntimeException("부모 댓글을 찾을 수 없습니다."));
+
+        if (!parentComment.getReels().getId().equals(reelsId)) {
+            throw new RuntimeException("해당 릴스의 댓글이 아닙니다.");
+        }
+
+        UserEntity author = userRepository.findById(authorId)
+                .orElseThrow(() -> new RuntimeException("작성자를 찾을 수 없습니다."));
+
+        CommentEntity reply = CommentEntity.builder()
+                .content(request.getContent())
+                .author(author)
+                .reels(reels)
+                .parentComment(parentComment)
+                .imageUrl(null)
+                .deleted(false)
+                .likeCount(0)
+                .repostCount(0)
+                .replyCount(0)
+                .build();
+
+        CommentEntity savedReply = commentRepository.save(reply);
+
+        // 부모 댓글의 대댓글 수 업데이트
+        parentComment.setReplyCount(parentComment.getReplyCount() + 1);
+        commentRepository.save(parentComment);
+
+        // 릴스의 댓글 수 업데이트
+        reels.setCommentCount(reels.getCommentCount() + 1);
+        reelsRepository.save(reels);
+
+        // 검색 인덱싱
+        searchIndexService.indexComment(savedReply);
+
+        log.info("릴스 대댓글 작성 완료: 릴스ID={}, 부모댓글ID={}, 대댓글ID={}", reelsId, parentCommentId, savedReply.getId());
+
+        return convertToReelsCommentResponseDto(savedReply, authorId);
+    }
+
+    // 릴스 댓글용 DTO 변환 메서드
+    private CommentResponseDto convertToReelsCommentResponseDto(CommentEntity comment, Long currentUserId) {
+        boolean isLiked = false;
+        boolean isReposted = false;
+        boolean canEdit = false;
+        boolean canDelete = false;
+
+        if (currentUserId != null) {
+            UserEntity currentUser = userRepository.findById(currentUserId).orElse(null);
+            if (currentUser != null) {
+                isLiked = likeRepository.existsByUserAndComment(currentUser, comment);
+                isReposted = repostRepository.existsByUserAndComment(currentUser, comment);
+                canEdit = comment.getAuthor().getId().equals(currentUserId);
+                canDelete = comment.getAuthor().getId().equals(currentUserId);
+            }
+        }
+
+        return CommentResponseDto.builder()
+                .id(comment.getId())
+                .content(comment.getContent())
+                .imageUrl(comment.getImageUrl())
+                .authorId(comment.getAuthor().getId())
+                .authorName(comment.getAuthor().getFullName())
+                .authorUsername(comment.getAuthor().getUsername())
+                .authorProfileImg(comment.getAuthor().getProfileImgUrl())
+                .postId(null) // 릴스 댓글이므로 null
+                .reelsId(comment.getReels().getId()) // 릴스 ID 추가
+                .parentCommentId(comment.getParentComment() != null ? comment.getParentComment().getId() : null)
+                .likeCount(comment.getLikeCount())
+                .repostCount(comment.getRepostCount())
+                .replyCount(comment.getReplyCount())
+                .isLiked(isLiked)
+                .isReposted(isReposted)
+                .canEdit(canEdit)
+                .canDelete(canDelete)
                 .createdAt(comment.getCreatedAt().toString())
                 .updatedAt(comment.getUpdatedAt() != null ? comment.getUpdatedAt().toString() : null)
                 .build();

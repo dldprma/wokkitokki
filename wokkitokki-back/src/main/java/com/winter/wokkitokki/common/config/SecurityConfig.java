@@ -34,22 +34,31 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/**").permitAll()  // 인증 관련은 완전 공개
-                        // WebSocket/SockJS 관련 엔드포인트 (핸드셰이크 및 전송 허용, 실제 인증은 WebSocket CONNECT에서 처리)
-                        .requestMatchers("/ws/**").permitAll()  // 모든 SockJS 패턴 허용 (/{server-id}/{session-id}/xhr 등)
-                        // 조회 전용 API들은 공개 (JWT 있으면 추가 정보 제공)
-                        .requestMatchers("/api/users/*").permitAll() 
-                        .requestMatchers("/api/users/*/posts").permitAll()
-                        .requestMatchers("/api/users/*/images").permitAll()
-                        .requestMatchers("/api/users/*/followers").permitAll()
-                        .requestMatchers("/api/users/*/following").permitAll()
-                        .requestMatchers("/api/users/*/commented-posts").permitAll()
-                        .requestMatchers("/api/posts").permitAll()
-                        .requestMatchers("/api/posts/**").permitAll()
-                        .requestMatchers("/api/posts/*/comments").permitAll()
-                        .requestMatchers("/api/comments/*").permitAll()
-                        .requestMatchers("/api/comments/*/replies").permitAll()
-                        // 액션이 필요한 API들은 인증 필수
+                        // 완전히 공개된 엔드포인트 (인증 처리 안함)
+                        .requestMatchers("/api/auth/**").permitAll()  // 로그인, 회원가입
+                        .requestMatchers("/ws/**").permitAll()  // WebSocket
+
+                        // 조회 API들 - 토큰 있으면 처리, 없어도 접근 가능 (선택적 인증)
+                        .requestMatchers("GET", "/api/users/**").permitAll()
+                        .requestMatchers("GET", "/api/posts/**").permitAll()
+                        .requestMatchers("GET", "/api/comments/**").permitAll()
+                        .requestMatchers("GET", "/api/reels/**").permitAll()
+
+                        // 액션 API들 - 인증 필수
+                        .requestMatchers("POST", "/api/users/**").authenticated()
+                        .requestMatchers("PUT", "/api/users/**").authenticated()
+                        .requestMatchers("DELETE", "/api/users/**").authenticated()
+                        .requestMatchers("POST", "/api/posts/**").authenticated()
+                        .requestMatchers("PUT", "/api/posts/**").authenticated()
+                        .requestMatchers("DELETE", "/api/posts/**").authenticated()
+                        .requestMatchers("POST", "/api/comments/**").authenticated()
+                        .requestMatchers("PUT", "/api/comments/**").authenticated()
+                        .requestMatchers("DELETE", "/api/comments/**").authenticated()
+                        .requestMatchers("POST", "/api/reels/**").authenticated()
+                        .requestMatchers("PUT", "/api/reels/**").authenticated()
+                        .requestMatchers("DELETE", "/api/reels/**").authenticated()
+
+                        // 기본값: 인증 필수
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session

@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import "./App.css";
+import "./css/Reels.css";
 import { useAppDispatch, useAppSelector } from "./store/hooks";
 import { useEffect } from "react";
 import {
@@ -18,6 +19,8 @@ import PostDetailPage from "./pages/PostDetailPage";
 import CommentDetailPage from "./pages/CommentDetailPage";
 import MessagePage from "./pages/MessagePage";
 import ChatRoomPage from "./pages/ChatRoomPage";
+import ReelsPage from "./pages/ReelsPage";
+import ReelsCreatePage from "./pages/ReelsCreatePage";
 
 // axios에 Redux store 설정
 setStore(store);
@@ -153,6 +156,24 @@ function App() {
           element={
             <ProtectedRoute>
               <CommentDetailPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reels"
+          element={
+            <ProtectedRoute>
+              <ReelsPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/reels/create"
+          element={
+            <ProtectedRoute>
+              <ReelsCreatePage />
             </ProtectedRoute>
           }
         />

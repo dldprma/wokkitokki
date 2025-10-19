@@ -465,7 +465,7 @@ public class MessageService {
         fileService.validateFileSize(file, 10 * 1024 * 1024); // 10MB
 
         try {
-            return fileService.uploadFile(file, "messages");
+            return fileService.uploadFile(file, "messages", 0L); // 기존 호환을 위해 임시로 0L 사용
         } catch (Exception e) {
             throw new RuntimeException("이미지 업로드에 실패했습니다: " + e.getMessage(), e);
         }
@@ -476,7 +476,7 @@ public class MessageService {
         fileService.validateFileSize(file, 50 * 1024 * 1024); // 50MB
 
         try {
-            return fileService.uploadFile(file, "messages");
+            return fileService.uploadFile(file, "messages", 0L); // 기존 호환을 위해 임시로 0L 사용
         } catch (Exception e) {
             throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage(), e);
         }

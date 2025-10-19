@@ -69,7 +69,7 @@ public class PostService {
             fileService.validateFileSize(image, 5 * 1024 * 1024); // 5MB
 
             try {
-                String imageUrl = fileService.uploadFile(image, "posts");
+                String imageUrl = fileService.uploadFile(image, "posts", userId);
                 post.setImgUrl(imageUrl);
             } catch (Exception e) {
                 throw new RuntimeException("이미지 업로드에 실패했습니다.", e);
@@ -129,7 +129,7 @@ public class PostService {
             fileService.validateFileSize(image, 5 * 1024 * 1024); // 5MB
 
             try {
-                String imageUrl = fileService.uploadFile(image, "posts");
+                String imageUrl = fileService.uploadFile(image, "posts", userId);
                 post.setImgUrl(imageUrl);
             } catch (Exception e) {
                 throw new RuntimeException("이미지 업로드에 실패했습니다.", e);
@@ -175,7 +175,7 @@ public class PostService {
         fileService.validateFileSize(file, 10 * 1024 * 1024); // 10MB
 
         try {
-            return fileService.uploadFile(file, "posts");
+            return fileService.uploadFile(file, "posts", 0L); // 기존 호환을 위해 임시로 0L 사용
         } catch (Exception e) {
             throw new RuntimeException("파일 업로드에 실패했습니다: " + e.getMessage(), e);
         }

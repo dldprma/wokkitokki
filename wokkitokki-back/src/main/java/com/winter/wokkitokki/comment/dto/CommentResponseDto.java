@@ -14,6 +14,7 @@ public class CommentResponseDto {
     private String authorUsername;
     private String authorProfileImg;
     private Long postId;
+    private Long reelsId;
     private Long parentCommentId;
     private int likeCount;
     private int repostCount;

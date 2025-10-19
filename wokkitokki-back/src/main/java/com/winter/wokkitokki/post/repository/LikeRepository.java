@@ -3,6 +3,7 @@ package com.winter.wokkitokki.post.repository;
 import com.winter.wokkitokki.comment.entity.CommentEntity;
 import com.winter.wokkitokki.post.entity.LikeEntity;
 import com.winter.wokkitokki.post.entity.PostEntity;
+import com.winter.wokkitokki.reels.entity.ReelsEntity;
 import com.winter.wokkitokki.user.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -25,4 +26,10 @@ public interface LikeRepository extends JpaRepository<LikeEntity, Long> {
     boolean existsByUserAndComment(UserEntity user, CommentEntity comment);
     long countByComment(CommentEntity comment);
     void deleteByUserAndComment(UserEntity user, CommentEntity comment);
+
+    // 릴스 좋아요 관련 메서드
+    boolean existsByUserAndReels(UserEntity user, ReelsEntity reels);
+    Optional<LikeEntity> findByUserAndReels(UserEntity user, ReelsEntity reels);
+    long countByReels(ReelsEntity reels);
+    void deleteByUserAndReels(UserEntity user, ReelsEntity reels);
 }

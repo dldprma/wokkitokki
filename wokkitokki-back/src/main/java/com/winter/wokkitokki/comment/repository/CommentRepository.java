@@ -2,6 +2,7 @@ package com.winter.wokkitokki.comment.repository;
 
 import com.winter.wokkitokki.comment.entity.CommentEntity;
 import com.winter.wokkitokki.post.dto.FeedItemDto;
+import com.winter.wokkitokki.reels.entity.ReelsEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -127,4 +128,16 @@ public interface CommentRepository extends JpaRepository<CommentEntity, Long> {
            "OR r.user.id IN (SELECT f.following.id FROM FollowEntity f WHERE f.follower.id = :userId)) " +
            "AND (c.deleted = false OR c.deleted IS NULL)")
     long countRelevantCommentReposts(@Param("userId") Long userId);
+
+    // 릴스 댓글 관련 쿼리들
+    // 특정 릴스의 최상위 댓글들만 조회
+    @Query("SELECT c FROM CommentEntity c " +
+            "LEFT JOIN FETCH c.author " +
+            "WHERE c.reels.id = :reelsId AND c.parentComment IS NULL AND (c.deleted = false OR c.deleted IS NULL) " +
+            "ORDER BY c.createdAt DESC")
+    Page<CommentEntity> findByReelsIdAndParentCommentIsNull(@Param("reelsId") Long reelsId, Pageable pageable);
+
+    // 특정 릴스의 댓글 수 조회
+    @Query("SELECT COUNT(c) FROM CommentEntity c WHERE c.reels.id = :reelsId AND (c.deleted = false OR c.deleted IS NULL)")
+    long countByReelsId(@Param("reelsId") Long reelsId);
 }

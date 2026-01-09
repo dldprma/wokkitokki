@@ -1,0 +1,51 @@
+.wrapper {
+  @apply flex flex-col items-center justify-center min-h-screen bg-[#f5f5f5] px-4;
+}
+
+.title {
+  @apply text-white text-2xl font-semibold mt-4;
+}
+
+.formBox {
+  @apply bg-white p-8 rounded-2xl w-full max-w-md shadow-lg z-10 relative;
+}
+
+.inputField {
+  @apply w-full px-4 py-3 rounded-lg bg-gray-100 focus:outline-none;
+}
+
+.submitButton {
+  @apply w-full py-3 rounded-lg bg-[#2561D9] text-white font-bold hover:bg-blue-700;
+}
+
+.loginText {
+  @apply text-center text-sm text-gray-600 mt-6;
+}
+
+.loginLink {
+  @apply text-[#2561D9] font-medium;
+}
+
+.registerLink {
+  @apply text-[#2561D9] font-medium hover:text-blue-700 transition-colors;
+}
+
+.footer {
+  @apply text-[#262626] text-sm mt-8 text-center;
+}
+
+.errorMsg {
+  @apply text-sm text-[#F23827] mt-1 ml-1;
+}
+
+.successMsg {
+  @apply text-sm text-[#10B981] mt-1 ml-1 font-medium;
+}
+
+.login-form .inputField {
+  margin-bottom: 15px; /* 간격 늘리기 */
+}
+
+.login-form .formBox {
+  padding: 20px; /* 패딩 늘리기 */
+}

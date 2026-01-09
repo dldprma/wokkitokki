@@ -1,0 +1,129 @@
+/* Profile Container */
+.profile-container {
+  @apply flex-1 p-6;
+}
+
+/* Profile Card */
+.profile-card {
+  @apply bg-white rounded-lg p-6 shadow-sm border mb-6;
+}
+
+.profile-header {
+  @apply flex items-start space-x-6 mb-6;
+}
+
+.profile-avatar {
+  @apply flex-shrink-0;
+}
+
+.profile-info {
+  @apply flex-1;
+}
+
+.profile-name {
+  @apply text-2xl font-bold text-dark-500 mb-2;
+}
+
+.profile-join-date {
+  @apply text-gray-500 text-sm;
+}
+
+/* Profile Stats */
+.profile-stats {
+  @apply flex space-x-8 mb-6;
+}
+
+.stat-item {
+  @apply flex flex-col items-center;
+}
+
+.stat-number {
+  @apply text-xl font-bold text-dark-500;
+}
+
+.stat-label {
+  @apply text-sm text-gray-500;
+}
+
+/* Profile Actions */
+.profile-actions {
+  @apply flex space-x-3;
+}
+
+.profile-action-btn {
+  @apply flex items-center space-x-2 px-4 py-2 bg-gray-100 text-dark-500 rounded-lg hover:bg-gray-200 transition-colors;
+}
+
+.action-icon {
+  @apply text-sm;
+}
+
+/* Profile Tabs */
+.profile-tabs {
+  @apply flex border-b border-gray-200 mb-6;
+}
+
+.profile-tab {
+  @apply flex-1 py-3 px-4 text-center text-gray-500 hover:text-dark-500 transition-colors border-b-2 border-transparent;
+}
+
+.profile-tab.active {
+  @apply text-accent-500 border-accent-500 bg-accent-500 bg-opacity-10;
+}
+
+/* Profile Content */
+.profile-content {
+  @apply bg-white rounded-lg p-6 shadow-sm border;
+}
+
+/* 리포스트 정보 스타일 */
+.repost-info {
+  @apply flex items-center space-x-2 text-gray-500 text-sm mb-2 p-2 bg-gray-50 rounded-lg border-l-4 border-accent-500;
+}
+
+.repost-info-icon {
+  @apply text-accent-500 text-base;
+}
+
+.repost-info-text {
+  @apply font-medium;
+}
+
+/* compact 버전의 리포스트 정보 스타일 (같은 라인에 표시) */
+.repost-info-compact {
+  @apply flex items-center space-x-2 text-gray-500 text-sm;
+}
+
+.repost-info-icon-compact {
+  @apply text-accent-500 text-base;
+}
+
+.repost-info-text-compact {
+  @apply font-medium;
+}
+
+/* Empty State */
+.empty-state {
+  @apply text-center py-12;
+}
+
+.empty-icon {
+  @apply text-6xl mb-4;
+}
+
+.empty-title {
+  @apply text-xl font-semibold text-dark-500 mb-2;
+}
+
+.empty-description {
+  @apply text-gray-500 mb-6;
+}
+
+.empty-action-btn {
+  @apply flex items-center space-x-2 mx-auto px-6 py-3 bg-primary-500 text-white rounded-lg hover:bg-primary-600 transition-colors;
+}
+
+/* Loading */
+.loading-spinner {
+  @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto;
+}

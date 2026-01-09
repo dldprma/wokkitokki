@@ -1,0 +1,123 @@
+.message-list-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.message-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 0;
+  scroll-behavior: smooth;
+}
+
+.message-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.message-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.message-list::-webkit-scrollbar-thumb {
+  background: #ddd;
+  border-radius: 2px;
+}
+
+.message-list::-webkit-scrollbar-thumb:hover {
+  background: #bbb;
+}
+
+.message-group {
+  margin-bottom: 8px;
+}
+
+.message-group.own {
+  align-items: flex-end;
+}
+
+.message-group.other {
+  align-items: flex-start;
+}
+
+.empty-messages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #8e8e8e;
+  text-align: center;
+  padding: 40px 20px;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-messages p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.empty-messages p:first-of-type {
+  font-weight: 500;
+  color: #666;
+}
+
+.empty-messages p:last-of-type {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.loading-messages {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: #8e8e8e;
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #f3f3f3;
+  border-top: 2px solid #007bff;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* 반응형 디자인 */
+@media (max-width: 768px) {
+  .message-list {
+    padding: 12px 0;
+  }
+
+  .empty-messages {
+    padding: 20px 16px;
+  }
+
+  .empty-icon {
+    font-size: 36px;
+    margin-bottom: 12px;
+  }
+
+  .loading-messages {
+    padding: 12px;
+    font-size: 12px;
+  }
+}

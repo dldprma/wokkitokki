@@ -1,0 +1,63 @@
+.profile-image {
+  @apply rounded-full object-cover;
+}
+
+.profile-image-sm {
+  @apply w-8 h-8;
+}
+
+.profile-image-md {
+  @apply w-10 h-10;
+}
+
+.profile-image-lg {
+  @apply w-12 h-12;
+}
+
+.profile-image-xl {
+  @apply w-[150px] h-[150px];
+}
+
+.profile-image-fallback {
+  @apply rounded-full bg-blue-500 flex items-center justify-center relative;
+}
+
+.profile-image-emoji {
+  @apply text-white text-sm;
+}
+
+.profile-image-initials {
+  @apply text-white font-semibold absolute;
+}
+
+.profile-image-fallback.profile-image-sm .profile-image-emoji {
+  @apply text-xs;
+}
+
+.profile-image-fallback.profile-image-sm .profile-image-initials {
+  @apply text-xs;
+}
+
+.profile-image-fallback.profile-image-md .profile-image-emoji {
+  @apply text-sm;
+}
+
+.profile-image-fallback.profile-image-md .profile-image-initials {
+  @apply text-sm;
+}
+
+.profile-image-fallback.profile-image-lg .profile-image-emoji {
+  @apply text-base;
+}
+
+.profile-image-fallback.profile-image-lg .profile-image-initials {
+  @apply text-base;
+}
+
+.profile-image-fallback.profile-image-xl .profile-image-emoji {
+  @apply text-2xl;
+}
+
+.profile-image-fallback.profile-image-xl .profile-image-initials {
+  @apply text-2xl;
+}

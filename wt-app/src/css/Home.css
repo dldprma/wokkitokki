@@ -1,0 +1,297 @@
+.home-container {
+  @apply flex-1 p-6;
+}
+.home-title {
+  @apply text-2xl font-bold mb-6 text-dark-500;
+}
+
+.new-post-container {
+  @apply bg-white rounded-lg p-4 mb-6 shadow-sm border;
+}
+
+.new-post-content {
+  @apply flex items-start space-x-3;
+}
+
+.new-post-avatar {
+  @apply flex-shrink-0;
+}
+
+.new-post-input-section {
+  @apply flex-1;
+}
+
+.new-post-textarea {
+  @apply w-full p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-primary-500;
+}
+
+.new-post-actions {
+  @apply flex items-center justify-between mt-3;
+}
+
+.new-post-media-buttons {
+  @apply flex space-x-4;
+}
+
+.new-post-media-btn {
+  @apply text-gray-500 hover:text-primary-500 transition-colors;
+}
+
+.new-post-submit-btn {
+  @apply bg-primary-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors;
+}
+
+/* Post Feed */
+.posts-container {
+  @apply space-y-4;
+}
+
+.post-card {
+  @apply bg-white rounded-lg p-4 shadow-sm border;
+}
+
+.post-content {
+  @apply flex items-start space-x-3;
+}
+
+.post-avatar {
+  @apply flex-shrink-0;
+}
+
+.post-main-content {
+  @apply flex-1;
+}
+
+.post-header {
+  @apply flex items-center justify-between mb-2;
+}
+
+/* 리포스트 정보 스타일 */
+.repost-info {
+  @apply flex items-center space-x-2 text-gray-500 text-sm mb-2 p-2 bg-gray-50 rounded-lg border-l-4 border-accent-500;
+}
+
+.repost-info-icon {
+  @apply text-accent-500 text-base;
+}
+
+.repost-info-text {
+  @apply font-medium;
+}
+
+/* compact 버전의 리포스트 정보 스타일 (같은 라인에 표시) */
+.repost-info-compact {
+  @apply flex items-center space-x-2 text-gray-500 text-sm;
+}
+
+.repost-info-icon-compact {
+  @apply text-accent-500 text-base;
+}
+
+.repost-info-text-compact {
+  @apply font-medium;
+}
+
+.post-author-info {
+  @apply flex flex-col;
+}
+
+.post-author-name {
+  @apply font-semibold text-dark-500 text-base;
+}
+
+.post-username {
+  @apply text-gray-600 text-sm;
+}
+
+.post-timestamp {
+  @apply text-gray-500 text-sm;
+}
+
+.post-text {
+  @apply text-dark-500 mb-3;
+}
+
+.post-actions {
+  @apply flex items-center justify-between;
+}
+
+.post-interaction-buttons {
+  @apply flex items-center space-x-6;
+}
+
+.post-interaction-btn {
+  @apply flex items-center space-x-1 text-gray-500 hover:text-primary-500 transition-colors;
+}
+
+.post-comment-btn {
+  @apply flex items-center space-x-1 text-gray-500 hover:text-primary-500 transition-colors;
+}
+
+.post-repost-btn {
+  @apply flex items-center space-x-1 transition-colors;
+}
+
+.post-repost-btn-active {
+  @apply text-accent-500;
+}
+
+.post-repost-btn-inactive {
+  @apply text-gray-500 hover:text-accent-500;
+}
+
+.post-like-btn {
+  @apply flex items-center space-x-1 transition-colors;
+}
+
+.post-like-btn-active {
+  @apply text-danger-500;
+}
+
+.post-like-btn-inactive {
+  @apply text-gray-500 hover:text-danger-500;
+}
+
+.post-share-btn {
+  @apply flex items-center space-x-1 text-gray-500 hover:text-primary-500 transition-colors;
+}
+
+.post-interaction-count {
+  @apply text-sm;
+}
+
+/* Loading States */
+.loading-container {
+  @apply text-center py-4;
+}
+
+.loading-spinner {
+  @apply animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto;
+}
+
+.error-message {
+  @apply text-danger-500 text-center py-4;
+}
+
+.load-more-container {
+  @apply text-center py-4;
+}
+
+.load-more-btn {
+  @apply bg-gray-100 text-dark-500 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors;
+}
+
+/* 이미지 미리보기 */
+.image-preview-container {
+  position: relative;
+  margin: 10px 0;
+  display: inline-block;
+}
+
+.image-preview {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.remove-image-button {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ef4444;
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.remove-image-button:hover {
+  background: #dc2626;
+}
+
+/* 이미지 첨부 버튼 */
+.image-attach-button {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: background-color 0.2s;
+}
+
+.image-attach-button:hover {
+  background-color: #f3f4f6;
+}
+
+/* 게시글 작성 버튼 */
+.post-submit-button {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.post-submit-button:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.post-submit-button:disabled {
+  background: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* 게시글이 없을 때 메시지 */
+.no-posts-section {
+  @apply py-12;
+}
+
+/* hr 태그 숨기기 */
+hr {
+  display: none;
+}
+
+.no-posts-container {
+  @apply text-center;
+}
+
+.no-posts-icon {
+  @apply text-6xl mb-4;
+}
+
+.no-posts-title {
+  @apply text-xl font-semibold text-gray-700 mb-2;
+}
+
+.no-posts-description {
+  @apply text-gray-500;
+}
+
+/* 무한 스크롤 관련 스타일 */
+.load-more-section {
+  @apply py-8;
+}
+
+.load-more-container {
+  @apply flex justify-center items-center;
+}
+
+.load-more-text {
+  @apply text-gray-500 text-sm;
+}
+
+.loading-spinner {
+  @apply w-6 h-6 border-2 border-gray-300 border-t-blue-500 rounded-full animate-spin;
+}
